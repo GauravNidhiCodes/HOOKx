@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { and, eq, inArray } from "drizzle-orm";
+import type { PaymentId, ProviderId } from "@hookx/domain";
 import type { NormalizedWebhookEvent, WebhookIdentity } from "@hookx/webhook";
 import { StorageError } from "./errors.js";
 import { toInsertValues, toStoredWebhookEvent } from "./mapping.js";
@@ -103,6 +104,22 @@ export class DrizzleWebhookEventRepository implements WebhookEventRepository {
       .limit(1);
     const row = rows[0];
     return row === undefined ? null : toStoredWebhookEvent(row);
+  }
+
+  public async listByPayment(
+    provider: ProviderId,
+    paymentId: PaymentId,
+  ): Promise<readonly StoredWebhookEvent[]> {
+    const rows = await this.db
+      .select()
+      .from(webhookEvents)
+      .where(
+        and(
+          eq(webhookEvents.provider, provider),
+          eq(webhookEvents.paymentId, paymentId),
+        ),
+      );
+    return rows.map((row) => toStoredWebhookEvent(row));
   }
 
   public async markProcessing(id: string): Promise<StoredWebhookEvent> {

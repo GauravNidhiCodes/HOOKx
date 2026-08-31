@@ -3,6 +3,7 @@ import {
   bigint,
   char,
   check,
+  index,
   pgTable,
   text,
   timestamp,
@@ -41,6 +42,10 @@ export const webhookEvents = pgTable(
     unique("webhook_events_provider_external_event_id_unique").on(
       table.provider,
       table.externalEventId,
+    ),
+    index("webhook_events_provider_payment_id_idx").on(
+      table.provider,
+      table.paymentId,
     ),
     check(
       "webhook_events_amount_minor_units_non_negative",

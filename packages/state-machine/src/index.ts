@@ -33,3 +33,18 @@ export {
   type AllowedTransition,
   type PaymentRecordState,
 } from "./transition-table.js";
+export {
+  compareWebhookEvents,
+  orderWebhookEvents,
+} from "./order-events.js";
+export { isEventuallyPossible, reachableStates } from "./reachability.js";
+export { replayEvents } from "./replay.js";
+export {
+  REPLAY_DECISION,
+  REPLAY_REASON,
+  type ReplayDecision,
+  type ReplayDecisionKind,
+  type ReplayReason,
+  type ReplayResult,
+  type ReplayScope,
+} from "./replay-result.js";

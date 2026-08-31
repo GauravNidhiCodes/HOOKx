@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hookx/domain": "workspace:*",
+    "@hookx/state-machine": "workspace:*",
     "@hookx/webhook": "workspace:*",
     "drizzle-orm": "^0.44.5",
     "pg": "^8.16.3"

@@ -32,7 +32,7 @@ Retry / Recovery
 Immutable Audit Trail
 ```
 
-The stages after the domain skeleton (HTTP ingest, signature verification, persistence, ordering, retry, recovery, audit) are not implemented in this revision.
+The stages after the domain skeleton (HTTP ingest, signature verification, retry, recovery, audit) are not implemented in this revision. Persistence and out-of-order replay are.
 
 ## Architecture
 
@@ -58,6 +58,7 @@ What this revision actually implements:
 - **Exact money.** Amounts are `bigint` minor units plus an uppercase ISO 4217 alphabetic currency code. Floating-point types are not used for money.
 - **Determinism.** Transition results depend only on the provided event, current state, and seen-identity set.
 - **Durable webhook identity.** Normalized events are stored under a PostgreSQL uniqueness constraint on `provider + external_event_id`. Identical redeliveries are duplicates; conflicting hashes are conflicts. The original row is not overwritten.
+- **Out-of-order replay.** Stored events are ordered by `occurredAt` with a webhook-identity tie-break, then replayed through `processEvent`. Early events are `DELAYED`, not silently applied. Impossible transitions after ordering require investigation.
 
 What this revision does not implement or claim:
 
@@ -65,7 +66,7 @@ What this revision does not implement or claim:
 - Guaranteed delivery
 - Live Razorpay (or any provider) processing
 - Webhook HTTP ingestion or signature verification
-- Event ordering, retry, or recovery workers
+- Retry or recovery workers
 - Production-scale performance
 
 ## Repository structure
@@ -77,7 +78,7 @@ apps/
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event + webhook identity
-  state-machine/       Transition table + processEvent
+  state-machine/       Transition table + processEvent + replayEvents
   testkit/             SYNTHETIC fixtures
   storage/             PostgreSQL webhook event store
 ```
@@ -147,7 +148,8 @@ pnpm build
 | Signature verification | Not implemented |
 | Provider adapters (Razorpay, etc.) | Not implemented |
 | PostgreSQL / Drizzle persistence | Implemented (webhook events) |
-| Ordering, retry, recovery | Not implemented |
+| Out-of-order event replay | Implemented |
+| Retry, recovery | Not implemented |
 | Audit trail | Not implemented |
 | Operator dashboard / live payments | Not implemented |
 | Production deployment | Not implemented |

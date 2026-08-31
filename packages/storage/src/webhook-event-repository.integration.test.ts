@@ -1,8 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createWebhookIdentity } from "@hookx/webhook";
-import { syntheticPaymentCreated } from "@hookx/testkit";
+import { paymentId, providerId } from "@hookx/domain";
+import {
+  syntheticPaymentAuthorized,
+  syntheticPaymentCaptured,
+  syntheticPaymentCreated,
+} from "@hookx/testkit";
+import {
+  createWebhookIdentity,
+  type NormalizedWebhookEvent,
+} from "@hookx/webhook";
 import { StorageError } from "./errors.js";
+import { processPaymentEvents } from "./process-payment-events.js";
 import {
   applyWebhookEventMigrations,
   openWebhookEventStore,
@@ -10,7 +19,6 @@ import {
   type WebhookEventStore,
 } from "./store.js";
 import { defaultTestDatabaseUrl } from "./config.js";
-import type { NormalizedWebhookEvent } from "@hookx/webhook";
 
 const TEST_URL = defaultTestDatabaseUrl(process.env);
 
@@ -19,6 +27,21 @@ function uniqueCreated(
 ): NormalizedWebhookEvent {
   const token = randomUUID();
   return syntheticPaymentCreated({
+    externalEventId: `SYNTHETIC:evt:${token}`,
+    payloadHash: `SYNTHETIC:hash:${token}`,
+    ...overrides,
+  });
+}
+
+function uniqueEvent(
+  factory:
+    | typeof syntheticPaymentCreated
+    | typeof syntheticPaymentAuthorized
+    | typeof syntheticPaymentCaptured,
+  overrides: Parameters<typeof syntheticPaymentCreated>[0] = {},
+): NormalizedWebhookEvent {
+  const token = randomUUID();
+  return factory({
     externalEventId: `SYNTHETIC:evt:${token}`,
     payloadHash: `SYNTHETIC:hash:${token}`,
     ...overrides,
@@ -200,5 +223,149 @@ describe("webhook event repository", () => {
     } finally {
       await other.close();
     }
+  });
+
+  it("delays out-of-order capture, then replays to CAPTURED after authorize", async () => {
+    const payment = paymentId(`SYNTHETIC:pay:${randomUUID()}`);
+    const provider = providerId("SYNTHETIC");
+    const created = uniqueEvent(syntheticPaymentCreated, {
+      paymentId: payment,
+      occurredAt: "2026-01-15T10:00:00.000Z",
+    });
+    const captured = uniqueEvent(syntheticPaymentCaptured, {
+      paymentId: payment,
+      occurredAt: "2026-01-15T10:00:02.000Z",
+    });
+
+    expect((await store.repository.store(created)).outcome).toBe("STORED");
+    const storedCaptured = await store.repository.store(captured);
+    expect(storedCaptured.outcome).toBe("STORED");
+    if (storedCaptured.outcome !== "STORED") {
+      return;
+    }
+
+    const early = await processPaymentEvents(
+      store.repository,
+      provider,
+      payment,
+    );
+    expect(early.payment?.state).toBe("CREATED");
+    expect(early.delayed.map((event) => event.eventType)).toEqual([
+      "payment.captured",
+    ]);
+
+    const retained = await store.repository.findByIdentity(
+      createWebhookIdentity(captured.provider, captured.externalEventId),
+    );
+    expect(retained?.id).toBe(storedCaptured.record.id);
+    expect(retained?.event.payloadHash).toBe(captured.payloadHash);
+    expect(retained?.processingStatus).toBe("RECEIVED");
+
+    const authorized = uniqueEvent(syntheticPaymentAuthorized, {
+      paymentId: payment,
+      occurredAt: "2026-01-15T10:00:01.000Z",
+    });
+    expect((await store.repository.store(authorized)).outcome).toBe("STORED");
+
+    const resolved = await processPaymentEvents(
+      store.repository,
+      provider,
+      payment,
+    );
+    expect(resolved.payment?.state).toBe("CAPTURED");
+    expect(resolved.delayed).toHaveLength(0);
+
+    const stillThere = await store.repository.findById(storedCaptured.record.id);
+    expect(stillThere?.event.payloadHash).toBe(captured.payloadHash);
+    expect(stillThere?.processingStatus).toBe("RECEIVED");
+  });
+
+  it("lists and replays only one payment's events", async () => {
+    const payA = paymentId(`SYNTHETIC:pay:${randomUUID()}`);
+    const payB = paymentId(`SYNTHETIC:pay:${randomUUID()}`);
+    const provider = providerId("SYNTHETIC");
+
+    const createdA = uniqueEvent(syntheticPaymentCreated, { paymentId: payA });
+    const capturedB = uniqueEvent(syntheticPaymentCaptured, {
+      paymentId: payB,
+      occurredAt: "2026-01-15T10:00:02.000Z",
+    });
+    expect((await store.repository.store(createdA)).outcome).toBe("STORED");
+    expect((await store.repository.store(capturedB)).outcome).toBe("STORED");
+
+    const listedA = await store.repository.listByPayment(provider, payA);
+    expect(listedA.map((row) => row.event.paymentId)).toEqual([payA]);
+
+    const replayA = await processPaymentEvents(store.repository, provider, payA);
+    expect(replayA.payment?.state).toBe("CREATED");
+    expect(replayA.decisions).toHaveLength(1);
+
+    const replayB = await processPaymentEvents(store.repository, provider, payB);
+    expect(replayB.payment).toBeNull();
+    expect(replayB.delayed.map((event) => event.eventType)).toEqual([
+      "payment.captured",
+    ]);
+  });
+
+  it("lists and replays only one provider's events for the same payment id", async () => {
+    const payment = paymentId(`SYNTHETIC:pay:${randomUUID()}`);
+    const created = uniqueEvent(syntheticPaymentCreated, {
+      provider: "SYNTHETIC",
+      paymentId: payment,
+    });
+    const otherCaptured = uniqueEvent(syntheticPaymentCaptured, {
+      provider: "OTHER-PROVIDER",
+      paymentId: payment,
+      occurredAt: "2026-01-15T10:00:02.000Z",
+    });
+    expect((await store.repository.store(created)).outcome).toBe("STORED");
+    expect((await store.repository.store(otherCaptured)).outcome).toBe("STORED");
+
+    const syntheticReplay = await processPaymentEvents(
+      store.repository,
+      providerId("SYNTHETIC"),
+      payment,
+    );
+    expect(syntheticReplay.payment?.state).toBe("CREATED");
+    expect(syntheticReplay.decisions).toHaveLength(1);
+
+    const otherReplay = await processPaymentEvents(
+      store.repository,
+      providerId("OTHER-PROVIDER"),
+      payment,
+    );
+    expect(otherReplay.payment).toBeNull();
+    expect(otherReplay.delayed).toHaveLength(1);
+  });
+
+  it("returns the same projection when processPaymentEvents runs twice", async () => {
+    const payment = paymentId(`SYNTHETIC:pay:${randomUUID()}`);
+    const created = uniqueEvent(syntheticPaymentCreated, { paymentId: payment });
+    const captured = uniqueEvent(syntheticPaymentCaptured, {
+      paymentId: payment,
+      occurredAt: "2026-01-15T10:00:02.000Z",
+    });
+    expect((await store.repository.store(created)).outcome).toBe("STORED");
+    expect((await store.repository.store(captured)).outcome).toBe("STORED");
+
+    const first = await processPaymentEvents(
+      store.repository,
+      providerId("SYNTHETIC"),
+      payment,
+    );
+    const second = await processPaymentEvents(
+      store.repository,
+      providerId("SYNTHETIC"),
+      payment,
+    );
+    expect(
+      JSON.stringify(first, (_key, value: unknown) =>
+        typeof value === "bigint" ? `${value.toString()}n` : value,
+      ),
+    ).toBe(
+      JSON.stringify(second, (_key, value: unknown) =>
+        typeof value === "bigint" ? `${value.toString()}n` : value,
+      ),
+    );
   });
 });

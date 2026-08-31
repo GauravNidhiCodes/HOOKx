@@ -103,6 +103,9 @@ importers:
       '@hookx/domain':
         specifier: workspace:*
         version: link:../domain
+      '@hookx/state-machine':
+        specifier: workspace:*
+        version: link:../state-machine
       '@hookx/webhook':
         specifier: workspace:*
         version: link:../webhook

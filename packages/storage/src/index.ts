@@ -13,6 +13,7 @@ export type {
   StoreWebhookEventResult,
 } from "./types.js";
 export type { WebhookEventRepository } from "./repository.js";
+export { processPaymentEvents } from "./process-payment-events.js";
 export {
   defaultTestDatabaseUrl,
   redactDatabaseUrl,

@@ -7,13 +7,17 @@ This package stores events after normalization and before state-machine processi
 ```
 Incoming webhook
       ↓
-Normalize          (@hookx/webhook)
+    Normalize          (@hookx/webhook)
       ↓
 Persist event      (@hookx/storage)
       ↓
 Detect duplicate / conflict
       ↓
+Ordering / replay  (@hookx/state-machine replayEvents)
+      ↓
 processEvent       (@hookx/state-machine)
+      ↓
+New payment state
 ```
 
 The state machine remains usable without PostgreSQL.
@@ -47,6 +51,17 @@ UNIQUE (provider, external_event_id)
 
 This is enforced by PostgreSQL. Application-level `if (!exists) insert` is not sufficient under concurrency.
 
+## Payment retrieval index
+
+```sql
+CREATE INDEX webhook_events_provider_payment_id_idx
+  ON webhook_events (provider, payment_id);
+```
+
+`listByPayment(provider, paymentId)` loads every stored event for one provider payment. Deterministic order is applied in `replayEvents`, not by SQL `ORDER BY`. The index exists only to make that lookup efficient.
+
+Out-of-order events are never deleted or overwritten. A `DELAYED` capture stays in `webhook_events` until a later replay can apply it.
+
 ## Duplicate and conflict semantics
 
 `WebhookEventRepository.store(event)`:
@@ -74,6 +89,8 @@ Status updates (`markProcessing`, `markProcessed`, `markRejected`, `markConflict
 ## Repository abstraction
 
 Callers depend on `WebhookEventRepository`, not Drizzle. Open a store with `openWebhookEventStore({ url })`.
+
+`processPaymentEvents(repository, provider, paymentId)` loads those rows and calls the pure `replayEvents` coordinator. It does not insert events, delete events, or rewrite payload columns. Running it twice is a repeated projection over the same log.
 
 ## Configuration
 
@@ -114,7 +131,7 @@ The tests:
 2. Refuse to drop `postgres` / `template0` / `template1`
 3. `DROP DATABASE IF EXISTS ... WITH (FORCE)` and `CREATE DATABASE` so the schema is empty
 4. Apply Drizzle migrations
-5. Run uniqueness, conflict, round-trip, status, and concurrent insert tests
+5. Run uniqueness, conflict, round-trip, status, concurrent insert, payment listing, and out-of-order replay tests
 
 If PostgreSQL is not running, those tests fail with a pointer to this README. They do not skip.
 
