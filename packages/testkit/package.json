@@ -19,5 +19,8 @@
   "dependencies": {
     "@hookx/domain": "workspace:*",
     "@hookx/webhook": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { externalEventId, providerId } from "@hookx/domain";
-import { identitiesEqual, webhookIdentityKey } from "./identity.js";
+import { createWebhookIdentity, identitiesEqual, webhookIdentityKey } from "./identity.js";
 
 describe("webhook identity", () => {
   it("is provider + externalEventId", () => {
@@ -30,5 +30,11 @@ describe("webhook identity", () => {
         { provider, externalEventId: externalEventId("SYNTHETIC:evt:002") },
       ),
     ).toBe(false);
+  });
+
+  it("builds an identity from provider and externalEventId", () => {
+    const identity = createWebhookIdentity("SYNTHETIC", "SYNTHETIC:evt:001");
+    expect(identity.provider).toBe("SYNTHETIC");
+    expect(identity.externalEventId).toBe("SYNTHETIC:evt:001");
   });
 });

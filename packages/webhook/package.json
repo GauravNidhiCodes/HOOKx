@@ -18,5 +18,8 @@
   },
   "dependencies": {
     "@hookx/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
   }
 }

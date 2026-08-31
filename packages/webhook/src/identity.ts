@@ -2,6 +2,8 @@ import {
   DomainError,
   type ExternalEventId,
   type ProviderId,
+  externalEventId,
+  providerId,
 } from "@hookx/domain";
 
 export type WebhookIdentityKey = string & { readonly __brand: "WebhookIdentityKey" };
@@ -25,6 +27,16 @@ export function webhookIdentityKey(
     provider,
     externalEventId,
   }) as WebhookIdentityKey;
+}
+
+export function createWebhookIdentity(
+  provider: string,
+  eventId: string,
+): WebhookIdentity {
+  return Object.freeze({
+    provider: providerId(provider),
+    externalEventId: externalEventId(eventId),
+  });
 }
 
 export function identitiesEqual(

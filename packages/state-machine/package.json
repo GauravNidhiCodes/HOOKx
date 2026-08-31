@@ -21,6 +21,7 @@
     "@hookx/webhook": "workspace:*"
   },
   "devDependencies": {
-    "@hookx/testkit": "workspace:*"
+    "@hookx/testkit": "workspace:*",
+    "@types/node": "^24.3.0"
   }
 }

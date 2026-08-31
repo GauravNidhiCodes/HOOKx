@@ -94,6 +94,9 @@ importers:
       '@hookx/testkit':
         specifier: workspace:*
         version: link:../testkit
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
 
   packages/testkit:
     dependencies:
@@ -103,12 +106,20 @@ importers:
       '@hookx/webhook':
         specifier: workspace:*
         version: link:../webhook
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
 
   packages/webhook:
     dependencies:
       '@hookx/domain':
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
 
 packages:
 
