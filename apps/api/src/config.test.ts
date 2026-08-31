@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveRetryRuntimeConfig,
   resolveSyntheticWebhookSecret,
   resolveSyntheticWebhookToleranceSeconds,
 } from "./config.js";
@@ -38,5 +39,46 @@ describe("webhook secret configuration", () => {
 
   it("defaults the synthetic replay window", () => {
     expect(resolveSyntheticWebhookToleranceSeconds({})).toBe(300);
+  });
+});
+
+describe("retry configuration", () => {
+  it("defaults retry policy and lease", () => {
+    expect(resolveRetryRuntimeConfig({})).toEqual({
+      policy: {
+        maxAttempts: 5,
+        baseDelayMs: 1_000,
+        maxDelayMs: 60_000,
+      },
+      leaseMs: 30_000,
+    });
+  });
+
+  it("reads retry integers from the environment", () => {
+    expect(
+      resolveRetryRuntimeConfig({
+        HOOKX_RETRY_MAX_ATTEMPTS: "3",
+        HOOKX_RETRY_BASE_DELAY_MS: "500",
+        HOOKX_RETRY_MAX_DELAY_MS: "4000",
+        HOOKX_RETRY_LEASE_MS: "15000",
+      }),
+    ).toEqual({
+      policy: {
+        maxAttempts: 3,
+        baseDelayMs: 500,
+        maxDelayMs: 4_000,
+      },
+      leaseMs: 15_000,
+    });
+  });
+
+  it("rejects invalid retry configuration without leaking other secrets", () => {
+    const secret = "must-never-appear-in-retry-errors";
+    expect(() =>
+      resolveRetryRuntimeConfig({
+        HOOKX_SYNTHETIC_WEBHOOK_SECRET: secret,
+        HOOKX_RETRY_MAX_ATTEMPTS: "0",
+      }),
+    ).toThrow("HOOKX_RETRY_MAX_ATTEMPTS is invalid");
   });
 });

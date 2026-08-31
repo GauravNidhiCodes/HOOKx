@@ -5,11 +5,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DatabaseConfig } from "./config.js";
 import { parseDatabaseName, toMaintenanceDatabaseUrl } from "./config.js";
+import { DrizzleRetryRepository } from "./retry/drizzle-retry-repository.js";
+import type { RetryRepository } from "./retry/repository.js";
 import { DrizzleWebhookEventRepository } from "./drizzle-webhook-event-repository.js";
 import type { WebhookEventRepository } from "./repository.js";
 
 export type WebhookEventStore = {
   readonly repository: WebhookEventRepository;
+  readonly retry: RetryRepository;
   close(): Promise<void>;
 };
 
@@ -31,6 +34,7 @@ export async function openWebhookEventStore(
   const db = drizzle(pool);
   return {
     repository: new DrizzleWebhookEventRepository(db),
+    retry: new DrizzleRetryRepository(db),
     async close() {
       await pool.end();
     },

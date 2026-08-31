@@ -12,8 +12,15 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1788215400000,
+      "when": 1788215000000,
       "tag": "0001_webhook_events_provider_payment_id_idx",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788219000000,
+      "tag": "0002_webhook_retries",
       "breakpoints": true
     }
   ]

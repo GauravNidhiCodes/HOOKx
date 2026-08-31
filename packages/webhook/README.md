@@ -141,6 +141,20 @@ The synthetic scheme includes a unix timestamp in the signature header so a repl
 - Do not log webhook secrets, signature secrets, authorization credentials, or complete sensitive raw payloads.
 - The synthetic verifier is **not** a live payment-provider integration.
 
+## Retry classification at this boundary
+
+Signature and normalization failures are **non-retryable** and are not persisted:
+
+| Failure | Retry? |
+| --- | --- |
+| Invalid / missing / expired / malformed signature | No. Never stored. |
+| Malformed JSON or invalid normalized payload | No. Never stored. |
+| Unsupported provider or event type | No. Never stored. |
+| Temporary failure **after** a valid event is stored | Yes. `@hookx/storage` schedules PostgreSQL-backed retries. |
+| Permanent domain conflict / illegal transition after persist | Dead-lettered. Not retried indefinitely. |
+
+`@hookx/webhook` does not implement the retry worker. It only refuses to treat unverified or invalid input as a financial event.
+
 ## Normalization
 
 `createNormalizedWebhookEvent` is the only constructor for the internal event. It copies these fields and nothing else:

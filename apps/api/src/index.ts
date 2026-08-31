@@ -5,6 +5,7 @@ import { createSignatureVerifierRegistry } from "@hookx/webhook";
 import { createApp } from "./app.js";
 import { systemClock } from "./clock.js";
 import {
+  resolveRetryRuntimeConfig,
   resolveSyntheticWebhookSecret,
   resolveSyntheticWebhookToleranceSeconds,
 } from "./config.js";
@@ -19,6 +20,7 @@ if (!Number.isInteger(port) || port <= 0) {
 async function start(): Promise<void> {
   const secret = resolveSyntheticWebhookSecret(process.env);
   const databaseUrl = resolveDatabaseUrl(process.env, "HOOKX_DATABASE_URL");
+  const retryConfig = resolveRetryRuntimeConfig(process.env);
   const store = await openWebhookEventStore({ url: databaseUrl });
   const app = createApp({
     verifiers: createSignatureVerifierRegistry({
@@ -28,6 +30,9 @@ async function start(): Promise<void> {
       ),
     }),
     repository: store.repository,
+    retry: store.retry,
+    retryPolicy: retryConfig.policy,
+    leaseMs: retryConfig.leaseMs,
     clock: systemClock(),
   });
 

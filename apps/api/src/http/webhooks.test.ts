@@ -7,6 +7,7 @@ import {
   syntheticOpenedPayload,
   unixSecondsFromInstant,
 } from "@hookx/webhook";
+import { MemoryRetryRepository } from "@hookx/storage";
 import { createApp } from "../app.js";
 import { fixedClock } from "../clock.js";
 import { MemoryWebhookEventRepository } from "../test-support/memory-webhook-repository.js";
@@ -16,15 +17,17 @@ const NOW = instant("2026-01-15T10:00:01.000Z");
 const NOW_UNIX = unixSecondsFromInstant(NOW);
 
 function createTestApp(repository = new MemoryWebhookEventRepository()) {
+  const retry = new MemoryRetryRepository();
   const app = createApp({
     repository,
+    retry,
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: SECRET,
       syntheticToleranceSeconds: 300,
     }),
     clock: fixedClock(NOW),
   });
-  return { app, repository };
+  return { app, repository, retry };
 }
 
 async function postSigned(
@@ -161,5 +164,7 @@ describe("GET /", () => {
     expect(response.status).toBe(200);
     const body = await readJson(response);
     expect(body.ingest).toBe("/webhooks/:provider");
+    expect(body.retries).toBe("/retries");
+    expect(body.deadLetters).toBe("/dead-letters");
   });
 });

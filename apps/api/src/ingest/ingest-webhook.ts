@@ -1,6 +1,15 @@
 import type { Instant } from "@hookx/domain";
 import type { WebhookEventRepository } from "@hookx/storage";
-import { processPaymentEvents } from "@hookx/storage";
+import {
+  DEFAULT_RETRY_LEASE_MS,
+  DEFAULT_RETRY_POLICY,
+  processFreshEvent,
+  processPaymentEvents,
+  type ProcessPaymentEventsFn,
+  type RetryLifecycleSink,
+  type RetryPolicy,
+  type RetryRepository,
+} from "@hookx/storage";
 import type {
   SignatureVerificationStatus,
   SignatureVerifierRegistry,
@@ -13,6 +22,11 @@ import {
 export type IngestDependencies = {
   readonly verifiers: SignatureVerifierRegistry;
   readonly repository: WebhookEventRepository;
+  readonly retry?: RetryRepository;
+  readonly processPaymentEvents?: ProcessPaymentEventsFn;
+  readonly retryPolicy?: RetryPolicy;
+  readonly leaseMs?: number;
+  readonly lifecycle?: RetryLifecycleSink;
 };
 
 export type IngestWebhookInput = {
@@ -35,6 +49,7 @@ export type IngestObservation = {
   readonly verification: SignatureVerificationStatus | "UNSUPPORTED_PROVIDER";
   readonly externalEventId?: string;
   readonly storeOutcome?: string;
+  readonly retryStatus?: string;
 };
 
 export type IngestWebhookResult = {
@@ -178,6 +193,43 @@ export async function ingestWebhook(
         verification: "VERIFIED",
         externalEventId: event.externalEventId,
         storeOutcome: "CONFLICT",
+      },
+    );
+  }
+
+  if (dependencies.retry !== undefined) {
+    let retryStatus: string | undefined;
+    try {
+      const retryRow = await processFreshEvent(
+        {
+          retry: dependencies.retry,
+          events: dependencies.repository,
+          policy: dependencies.retryPolicy ?? DEFAULT_RETRY_POLICY,
+          processPaymentEvents: dependencies.processPaymentEvents,
+          lifecycle: dependencies.lifecycle,
+          leaseMs: dependencies.leaseMs ?? DEFAULT_RETRY_LEASE_MS,
+        },
+        stored.record.id,
+        input.now,
+      );
+      retryStatus = retryRow.status;
+    } catch {
+      // The webhook row is already durable. A processing crash must not
+      // look like event loss to the provider.
+    }
+    return respond(
+      200,
+      {
+        status: stored.outcome === "DUPLICATE" ? "duplicate" : "accepted",
+        requestId: input.requestId,
+      },
+      {
+        requestId: input.requestId,
+        provider: input.provider,
+        verification: "VERIFIED",
+        externalEventId: event.externalEventId,
+        storeOutcome: stored.outcome,
+        retryStatus,
       },
     );
   }
