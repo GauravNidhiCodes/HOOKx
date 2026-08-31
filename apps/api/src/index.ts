@@ -1,5 +1,13 @@
 import { serve } from "@hono/node-server";
-import { app } from "./app.js";
+import { redactDatabaseUrl, resolveDatabaseUrl } from "@hookx/storage";
+import { openWebhookEventStore } from "@hookx/storage";
+import { createSignatureVerifierRegistry } from "@hookx/webhook";
+import { createApp } from "./app.js";
+import { systemClock } from "./clock.js";
+import {
+  resolveSyntheticWebhookSecret,
+  resolveSyntheticWebhookToleranceSeconds,
+} from "./config.js";
 
 const host = process.env["HOOKX_API_HOST"] ?? "127.0.0.1";
 const port = Number.parseInt(process.env["HOOKX_API_PORT"] ?? "8787", 10);
@@ -8,6 +16,31 @@ if (!Number.isInteger(port) || port <= 0) {
   throw new Error("HOOKX_API_PORT must be a positive integer");
 }
 
-serve({ fetch: app.fetch, hostname: host, port }, (info) => {
-  process.stdout.write(`HOOKX API foundation listening on http://${info.address}:${info.port}\n`);
+async function start(): Promise<void> {
+  const secret = resolveSyntheticWebhookSecret(process.env);
+  const databaseUrl = resolveDatabaseUrl(process.env, "HOOKX_DATABASE_URL");
+  const store = await openWebhookEventStore({ url: databaseUrl });
+  const app = createApp({
+    verifiers: createSignatureVerifierRegistry({
+      syntheticSecret: secret,
+      syntheticToleranceSeconds: resolveSyntheticWebhookToleranceSeconds(
+        process.env,
+      ),
+    }),
+    repository: store.repository,
+    clock: systemClock(),
+  });
+
+  serve({ fetch: app.fetch, hostname: host, port }, (info) => {
+    process.stdout.write(
+      `HOOKX API listening on http://${info.address}:${info.port}\n`,
+    );
+  });
+}
+
+start().catch((error: unknown) => {
+  const message =
+    error instanceof Error ? error.message : "HOOKX API failed to start";
+  process.stderr.write(`${redactDatabaseUrl(message)}\n`);
+  process.exitCode = 1;
 });

@@ -73,3 +73,29 @@ export {
   unknownSyntheticEventPayload,
   type SyntheticPayloadOverride,
 } from "./synthetic/fixtures.js";
+export {
+  SIGNATURE_VERIFICATION_STATUS,
+  type SignatureVerificationResult,
+  type SignatureVerificationStatus,
+} from "./signature/result.js";
+export {
+  type SignatureVerificationInput,
+  type SignatureVerifier,
+} from "./signature/verifier.js";
+export { signaturesEqual } from "./signature/compare.js";
+export { unixSecondsFromInstant } from "./signature/unix-time.js";
+export {
+  createSignatureVerifierRegistry,
+  type SignatureVerifierRegistry,
+  type SignatureVerifierRegistryOptions,
+} from "./signature/registry.js";
+export {
+  DEFAULT_SYNTHETIC_TOLERANCE_SECONDS,
+  SYNTHETIC_SIGNATURE_HEADER,
+  SYNTHETIC_SIGNATURE_SCHEME,
+} from "./signature/synthetic/constants.js";
+export { signSyntheticWebhook } from "./signature/synthetic/sign.js";
+export {
+  SyntheticSignatureVerifier,
+  type SyntheticSignatureVerifierOptions,
+} from "./signature/synthetic/verifier.js";

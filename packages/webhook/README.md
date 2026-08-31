@@ -1,39 +1,145 @@
 # @hookx/webhook
 
-Provider-agnostic webhook normalization for HOOKX.
+Provider-agnostic webhook normalization and signature verification for HOOKX.
 
-External payment-provider payloads are untrusted and provider-specific. This package converts them into one internal event, then stops. It does not decide payment state.
+External payment-provider payloads are untrusted and provider-specific. Signature verification is the security boundary: nothing is treated as a financial event until authenticity is proven against the **original raw request body**.
 
 ```
-Provider payload
+HTTP Request
       ↓
-Provider adapter
+Raw Request Body
+      ↓
+Signature Verification     (this package: SignatureVerifier)
+      ↓
+Provider Adapter
       ↓
 Validation
       ↓
 Normalized WebhookEvent
       ↓
-State machine (separate package)
+Idempotent storage / state machine (other packages)
 ```
 
 The synthetic provider is test infrastructure and does not represent live payment-provider integration.
 
-## Adapter architecture
+## Signature verification boundary
 
-`ProviderAdapter<TPayload>` is generic over a provider envelope. It is not coupled to Razorpay, Stripe, or any live PSP.
+`SignatureVerifier` is provider-agnostic:
 
-An adapter must:
+```ts
+verify({ rawBody, headers, now }): SignatureVerificationResult
+```
 
-- `validate` the unknown payload or throw a `WebhookError`
-- `identify` the webhook as `provider + externalEventId`
-- `mapEventType` onto internal types (`payment.created`, …)
-- extract payment id, occurrence timestamp, and money
-- `hashPayload` for conflict detection
-- `normalize` into a `NormalizedWebhookEvent`
+It checks authenticity of the raw bytes plus provider-specific signature material. It does **not**:
 
-`receivedAt` is supplied by the application (`NormalizeOptions`). This package never uses the system clock as `occurredAt`.
+- parse or re-serialize JSON
+- read HTTP routing
+- load secrets from the environment (callers inject them)
+- read `Date.now()` (callers inject `now`)
+- persist events or mutate payment state
 
-A later Stripe or Adyen adapter should implement the same interface. `getProviderAdapter` currently only serves `SYNTHETIC`; any other name is `UNSUPPORTED_PROVIDER`.
+`@hookx/domain` knows nothing about headers, HMAC, or secrets.
+
+Verification outcomes:
+
+| Status | Meaning |
+| --- | --- |
+| `VERIFIED` | Authenticity and (when used) timestamp window succeeded |
+| `INVALID_SIGNATURE` | Well-formed signature that does not match |
+| `MISSING_SIGNATURE` | Required signature header absent |
+| `MALFORMED_SIGNATURE` | Header present but not a valid encoding |
+| `EXPIRED_SIGNATURE` | MAC valid but timestamp outside the replay window |
+
+Only `VERIFIED` may continue into the adapter / normalization. Expected failures are result objects, not thrown generic errors.
+
+## Raw-body requirement
+
+HMAC is computed over the exact request bytes.
+
+Do **not**:
+
+```
+JSON.parse(body) → JSON.stringify(parsed) → HMAC
+```
+
+Serialization can change whitespace, key order, and Unicode escapes, which invalidates (or worse, desynchronizes) the signed payload.
+
+The HTTP layer must keep `ArrayBuffer` / `Uint8Array` / the original text until `verify` returns `VERIFIED`. JSON parse happens after that.
+
+## Provider adapter model
+
+Signature algorithms belong to provider adapters. The pipeline depends on `SignatureVerifier`, not a single HMAC format.
+
+```
+WebhookVerifier (interface)
+      ↑
+SyntheticVerifier     (HMAC-SHA256 + timestamp, local/test only)
+
+Future (not implemented):
+RazorpayVerifier
+StripeVerifier
+```
+
+`createSignatureVerifierRegistry` currently registers only `SYNTHETIC`. Any other provider name returns `null`. Those requests must not be ingested.
+
+`ProviderAdapter<TPayload>` remains the envelope mapper after verification. It is still not coupled to Razorpay, Stripe, or any live PSP.
+
+## Synthetic signing scheme
+
+**For local development and tests only.** Not compatible with live payment-provider webhooks.
+
+Header: `X-Hookx-Signature`
+
+```
+t=<unixSeconds>,v1=<hex(hmac-sha256)>
+```
+
+Signed material:
+
+```
+HMAC-SHA256(secret, utf8(timestampSeconds + ".") || rawBodyBytes)
+```
+
+Verification:
+
+1. Parse the header (`MISSING` / `MALFORMED` if it is absent or not `t=<digits>,v1=<64 hex chars>`).
+2. Recompute the digest over the original raw body and compare with `crypto.timingSafeEqual` (`signaturesEqual`). Ordinary string `===` is not used for digests.
+3. If the MAC matches, require `|nowSeconds - t| <= toleranceSeconds`. `now` is an injected UTC instant. `Date.now()` is not read inside `verify`.
+
+Default tolerance is 300 seconds (`HOOKX_SYNTHETIC_WEBHOOK_TOLERANCE_SECONDS`).
+
+`signSyntheticWebhook` exists so tests and local tools can mint a header. It is not a production PSP client.
+
+## Secret handling
+
+Secrets are supplied by the application from environment configuration. This package never hardcodes a webhook secret, never logs one, and never puts one on `SignatureVerificationResult`.
+
+API / process environment (placeholders only — see `.env.example`):
+
+```
+HOOKX_SYNTHETIC_WEBHOOK_SECRET=dev-only-not-a-real-secret
+HOOKX_SYNTHETIC_WEBHOOK_TOLERANCE_SECONDS=300
+```
+
+Do not commit real secrets, print them, return them in HTTP bodies, or store them on webhook event rows.
+
+## Replay / timestamp behavior
+
+The synthetic scheme includes a unix timestamp in the signature header so a replay window can be enforced.
+
+- Authenticity is checked first. An invalid MAC is `INVALID_SIGNATURE` even if the timestamp is also stale (no extra oracle).
+- The window uses the injected `now` instant converted to unix seconds from the timestamp string, not the system clock.
+- Live Razorpay/Stripe replay rules are not implemented; they will live in those verifiers when those adapters exist.
+
+## Security assumptions
+
+- Every provider payload is untrusted until `VERIFIED`.
+- An attacker who knows an existing `externalEventId` cannot inject a new financial event without a valid signature for that raw body.
+- Identity/deduplication happens after verification.
+- This package does not execute code from payloads.
+- Error / result messages do not include secrets, signature values, or the raw payload.
+- Do not log webhook secrets, signature secrets, authorization credentials, or complete sensitive raw payloads.
+- The synthetic verifier is **not** a live payment-provider integration.
 
 ## Normalization
 
@@ -82,7 +188,7 @@ Same material → same hash. Same external id with a changed amount → differen
 
 Provider amounts enter as decimal strings (`"10000"` → `10000n`) using `BigInt`. `Number`, `parseFloat`, and floating-point arithmetic are not used for amounts. Currency is trimmed and uppercased (`"inr"` → `"INR"`), then rejected if it is not three letters.
 
-## Synthetic provider
+## Synthetic provider envelope
 
 `SyntheticProviderAdapter` understands a deliberately provider-shaped envelope (`event_ref`, `kind`, `entity.payment_ref`, `booked_at`, `money.minor_units`, `ccy`) marked `infrastructure: "SYNTHETIC"`.
 
@@ -97,14 +203,3 @@ Event mapping:
 | `syn.payment.return` | `refund.created` |
 
 Unknown kinds are rejected.
-
-## Security assumptions
-
-- Every provider payload is untrusted.
-- This package does not execute code from payloads.
-- Internal payment state is not accepted from the client; only extracted identifiers and amounts after validation.
-- Arbitrary event types are rejected.
-- Error messages are safe to expose later over HTTP: they do not include secrets or the raw payload.
-- Do not log full payloads in callers.
-
-The synthetic provider is test infrastructure and does not represent live payment-provider integration.

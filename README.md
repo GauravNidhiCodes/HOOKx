@@ -32,7 +32,7 @@ Retry / Recovery
 Immutable Audit Trail
 ```
 
-The stages after the domain skeleton (HTTP ingest, signature verification, retry, recovery, audit) are not implemented in this revision. Persistence and out-of-order replay are.
+The stages after the domain skeleton (retry, recovery, audit) are not implemented in this revision. Persistence, out-of-order replay, synthetic signature verification, and HTTP ingest are.
 
 ## Architecture
 
@@ -59,13 +59,13 @@ What this revision actually implements:
 - **Determinism.** Transition results depend only on the provided event, current state, and seen-identity set.
 - **Durable webhook identity.** Normalized events are stored under a PostgreSQL uniqueness constraint on `provider + external_event_id`. Identical redeliveries are duplicates; conflicting hashes are conflicts. The original row is not overwritten.
 - **Out-of-order replay.** Stored events are ordered by `occurredAt` with a webhook-identity tie-break, then replayed through `processEvent`. Early events are `DELAYED`, not silently applied. Impossible transitions after ordering require investigation.
+- **Signature verification.** External webhooks are verified on the original raw body before JSON parse, normalization, or storage. The synthetic adapter uses HMAC-SHA256 with an injected-time replay window. Live PSP verifiers are not implemented.
 
 What this revision does not implement or claim:
 
 - Production readiness
 - Guaranteed delivery
-- Live Razorpay (or any provider) processing
-- Webhook HTTP ingestion or signature verification
+- Live Razorpay (or any live provider) processing
 - Retry or recovery workers
 - Production-scale performance
 
@@ -73,11 +73,11 @@ What this revision does not implement or claim:
 
 ```
 apps/
-  api/                 Hono HTTP shell (no webhook ingest)
+  api/                 Hono HTTP + POST /webhooks/:provider
   web/                 React/Vite operator shell (no live data)
 packages/
   domain/              Money, identifiers, payment states
-  webhook/             Normalized event + webhook identity
+  webhook/             Normalized event, identity, signature verifiers
   state-machine/       Transition table + processEvent + replayEvents
   testkit/             SYNTHETIC fixtures
   storage/             PostgreSQL webhook event store
@@ -144,8 +144,8 @@ pnpm build
 | Normalized webhook event | Implemented |
 | Deterministic state machine | Implemented |
 | Synthetic fixtures | Implemented |
-| HTTP webhook ingest | Not implemented |
-| Signature verification | Not implemented |
+| HTTP webhook ingest | Implemented (`POST /webhooks/:provider`) |
+| Signature verification | Implemented (synthetic HMAC-SHA256) |
 | Provider adapters (Razorpay, etc.) | Not implemented |
 | PostgreSQL / Drizzle persistence | Implemented (webhook events) |
 | Out-of-order event replay | Implemented |

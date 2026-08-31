@@ -38,6 +38,15 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.4
         version: 1.19.17(hono@4.13.5)
+      '@hookx/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@hookx/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@hookx/webhook':
+        specifier: workspace:*
+        version: link:../../packages/webhook
       hono:
         specifier: ^4.9.8
         version: 4.13.5
