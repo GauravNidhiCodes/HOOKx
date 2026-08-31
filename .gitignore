@@ -18,3 +18,4 @@ coverage
 .vite
 .turbo
 .cache
+.pnpm-store

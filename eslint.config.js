@@ -11,6 +11,7 @@ export default tseslint.config(
       "**/coverage/**",
       "**/node_modules/**",
       "**/*.tsbuildinfo",
+      "**/drizzle/meta/**",
     ],
   },
   eslint.configs.recommended,

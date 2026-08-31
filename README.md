@@ -57,6 +57,7 @@ What this revision actually implements:
 - **Provider isolation.** Core types accept a normalized webhook event only. Provider-specific payload fields are not part of the domain contract.
 - **Exact money.** Amounts are `bigint` minor units plus an uppercase ISO 4217 alphabetic currency code. Floating-point types are not used for money.
 - **Determinism.** Transition results depend only on the provided event, current state, and seen-identity set.
+- **Durable webhook identity.** Normalized events are stored under a PostgreSQL uniqueness constraint on `provider + external_event_id`. Identical redeliveries are duplicates; conflicting hashes are conflicts. The original row is not overwritten.
 
 What this revision does not implement or claim:
 
@@ -64,7 +65,6 @@ What this revision does not implement or claim:
 - Guaranteed delivery
 - Live Razorpay (or any provider) processing
 - Webhook HTTP ingestion or signature verification
-- Database persistence
 - Event ordering, retry, or recovery workers
 - Production-scale performance
 
@@ -79,9 +79,10 @@ packages/
   webhook/             Normalized event + webhook identity
   state-machine/       Transition table + processEvent
   testkit/             SYNTHETIC fixtures
+  storage/             PostgreSQL webhook event store
 ```
 
-`storage`, `providers`, `audit`, and `observability` packages are omitted until those layers exist.
+`providers`, `audit`, and `observability` packages are omitted until those layers exist.
 
 ## Technology stack
 
@@ -94,7 +95,7 @@ packages/
 | UI | React + Vite + custom CSS |
 | Tests | Vitest |
 | Lint | ESLint |
-| Intended persistence (not implemented) | PostgreSQL + Drizzle ORM |
+| Persistence | PostgreSQL + Drizzle ORM |
 
 Next.js, shadcn, Tailwind palettes, Bootstrap, Material UI, and Chakra are not used.
 
@@ -104,12 +105,15 @@ Requirements:
 
 - Node.js 22 or later (current LTS recommended)
 - pnpm 11
+- PostgreSQL 16+ for `@hookx/storage` integration tests
 
 ```bash
 pnpm install
 ```
 
-Copy `.env.example` to `.env` if you need to change the API bind address. PostgreSQL is not required for this foundation.
+Copy `.env.example` to `.env` if you need to change the API bind address or database URL.
+
+PostgreSQL is required for webhook event persistence tests. See `packages/storage/README.md`.
 
 Run the API and web shells:
 
@@ -142,11 +146,10 @@ pnpm build
 | HTTP webhook ingest | Not implemented |
 | Signature verification | Not implemented |
 | Provider adapters (Razorpay, etc.) | Not implemented |
-| PostgreSQL / Drizzle persistence | Not implemented |
+| PostgreSQL / Drizzle persistence | Implemented (webhook events) |
 | Ordering, retry, recovery | Not implemented |
 | Audit trail | Not implemented |
 | Operator dashboard / live payments | Not implemented |
 | Production deployment | Not implemented |
 
 The web shell is a black-and-white design system surface only. It does not display payment records or metrics.
-# HOOKZ

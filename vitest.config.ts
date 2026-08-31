@@ -11,6 +11,7 @@ export default defineConfig({
       "@hookx/webhook": path.join(root, "packages/webhook/src/index.ts"),
       "@hookx/state-machine": path.join(root, "packages/state-machine/src/index.ts"),
       "@hookx/testkit": path.join(root, "packages/testkit/src/index.ts"),
+      "@hookx/storage": path.join(root, "packages/storage/src/index.ts"),
     },
   },
   test: {
