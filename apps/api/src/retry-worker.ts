@@ -18,6 +18,9 @@ async function start(): Promise<void> {
         events: store.repository,
         policy: retryConfig.policy,
         leaseMs: retryConfig.leaseMs,
+        audit: store.audit,
+        persistOutcome: store.persistOutcome,
+        actor: "RETRY_WORKER",
       },
       systemClock().now(),
     );

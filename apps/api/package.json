@@ -12,6 +12,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@hookx/audit": "workspace:*",
     "@hookx/domain": "workspace:*",
     "@hookx/storage": "workspace:*",
     "@hookx/webhook": "workspace:*",

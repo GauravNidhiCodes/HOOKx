@@ -31,6 +31,8 @@ async function start(): Promise<void> {
     }),
     repository: store.repository,
     retry: store.retry,
+    audit: store.audit,
+    persistOutcome: store.persistOutcome,
     retryPolicy: retryConfig.policy,
     leaseMs: retryConfig.leaseMs,
     clock: systemClock(),

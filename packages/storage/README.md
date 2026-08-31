@@ -204,7 +204,7 @@ Requires `HOOKX_DATABASE_URL`. Optional: `HOOKX_RETRY_*` (see `.env.example`).
 
 ### Audit preparation
 
-`RetryLifecycleSink` receives structured transitions (`event`, `attempt`, `previousStatus`, `newStatus`, `reason`, `timestamp`). There is no audit package yet; the default sink is silent.
+`RetryLifecycleSink` still receives structured retry transitions. Live audit rows are appended through `AuditRepository` (`@hookx/audit` + `audit_events`). Replay does not write audit history. See `packages/audit/README.md`.
 
 ## Configuration
 

@@ -65,3 +65,21 @@ export {
   type RetryWorkerDependencies,
 } from "./retry/worker.js";
 export { MemoryRetryRepository } from "./retry/memory-retry-repository.js";
+export type {
+  AuditAppendInput,
+  AuditRepository,
+  PersistOutcomeFn,
+  WebhookTerminalStatus,
+} from "./audit/repository.js";
+export { MemoryAuditRepository } from "./audit/memory-audit-repository.js";
+export {
+  createDrizzleOutcomeWriter,
+  createSequentialOutcomeWriter,
+} from "./audit/persist-outcome.js";
+export {
+  ingestRejectionDraft,
+  outcomeDraftsFromDecision,
+  retryFailureReason,
+  retryLifecycleDraft,
+  webhookReceiptDraft,
+} from "./audit/live.js";

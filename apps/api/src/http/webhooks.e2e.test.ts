@@ -56,6 +56,8 @@ describe("webhook ingest end-to-end", () => {
       app = createApp({
         repository: store.repository,
         retry: store.retry,
+        audit: store.audit,
+        persistOutcome: store.persistOutcome,
         retryPolicy: POLICY,
         leaseMs: LEASE_MS,
         verifiers: verifierRegistry(),
@@ -189,6 +191,8 @@ describe("webhook ingest end-to-end", () => {
     const retryApp = createApp({
       repository: store.repository,
       retry: store.retry,
+      audit: store.audit,
+      persistOutcome: store.persistOutcome,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: processFn,
@@ -219,6 +223,9 @@ describe("webhook ingest end-to-end", () => {
         policy: POLICY,
         leaseMs: LEASE_MS,
         processPaymentEvents: processFn,
+        audit: store.audit,
+        persistOutcome: store.persistOutcome,
+        actor: "RETRY_WORKER",
       },
       addMilliseconds(NOW, 1_000),
     );
@@ -243,6 +250,8 @@ describe("webhook ingest end-to-end", () => {
     const failApp = createApp({
       repository: store.repository,
       retry: store.retry,
+      audit: store.audit,
+      persistOutcome: store.persistOutcome,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: async () => {
@@ -286,5 +295,140 @@ describe("webhook ingest end-to-end", () => {
       (await store.retry.getByWebhookEventId(stored!.id))?.status,
     ).toBe("DEAD_LETTERED");
     expect(dead?.attemptCount).toBe(1);
+  });
+
+  it("records received, duplicate, and retry audit without a second transition", async () => {
+    const eventRef = `SYNTHETIC:evt:${randomUUID()}`;
+    const paymentRef = `SYNTHETIC:pay:${randomUUID()}`;
+    const payload = syntheticOpenedPayload({
+      event_ref: eventRef,
+      payment_ref: paymentRef,
+    });
+    const rawBody = JSON.stringify(payload);
+    const signature = signSyntheticWebhook({
+      secret: SECRET,
+      rawBody,
+      timestampSeconds: NOW_UNIX,
+    });
+    const firstId = `corr-${randomUUID()}`;
+    const first = await app.request("/webhooks/SYNTHETIC", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": firstId,
+        [SYNTHETIC_SIGNATURE_HEADER]: signature,
+      },
+      body: rawBody,
+    });
+    expect(first.status).toBe(200);
+    const stored = await store.repository.findByIdentity(
+      createWebhookIdentity("SYNTHETIC", eventRef),
+    );
+    const firstAudit = await store.audit.listByCorrelationId(firstId);
+    expect(firstAudit.map((row) => row.eventType)).toEqual([
+      "WEBHOOK_RECEIVED",
+      "PAYMENT_STATE_CHANGED",
+    ]);
+    expect(firstAudit[1]?.previousState).toBeNull();
+    expect(firstAudit[1]?.resultingState).toBe("CREATED");
+
+    const secondId = `corr-${randomUUID()}`;
+    const second = await app.request("/webhooks/SYNTHETIC", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": secondId,
+        [SYNTHETIC_SIGNATURE_HEADER]: signature,
+      },
+      body: rawBody,
+    });
+    expect(second.status).toBe(200);
+    expect((await second.json() as { status: string }).status).toBe("duplicate");
+    const duplicateAudit = await store.audit.listByCorrelationId(secondId);
+    expect(duplicateAudit.map((row) => row.eventType)).toEqual([
+      "WEBHOOK_DUPLICATE",
+    ]);
+    const paymentAudit = await store.audit.listByPayment(
+      stored!.event.paymentId,
+    );
+    expect(
+      paymentAudit.filter((row) => row.eventType === "PAYMENT_STATE_CHANGED"),
+    ).toHaveLength(1);
+
+    let calls = 0;
+    const processFn = async (
+      ...args: Parameters<typeof processPaymentEvents>
+    ) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new RetryableProcessingError();
+      }
+      return processPaymentEvents(...args);
+    };
+    const retryRef = `SYNTHETIC:evt:${randomUUID()}`;
+    const retryPay = `SYNTHETIC:pay:${randomUUID()}`;
+    const retryPayload = syntheticOpenedPayload({
+      event_ref: retryRef,
+      payment_ref: retryPay,
+    });
+    const retryBody = JSON.stringify(retryPayload);
+    const retrySig = signSyntheticWebhook({
+      secret: SECRET,
+      rawBody: retryBody,
+      timestampSeconds: NOW_UNIX,
+    });
+    const retryCorr = `corr-${randomUUID()}`;
+    const retryApp = createApp({
+      repository: store.repository,
+      retry: store.retry,
+      audit: store.audit,
+      persistOutcome: store.persistOutcome,
+      retryPolicy: POLICY,
+      leaseMs: LEASE_MS,
+      processPaymentEvents: processFn,
+      verifiers: verifierRegistry(),
+      clock: fixedClock(NOW),
+    });
+    await retryApp.request("/webhooks/SYNTHETIC", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-request-id": retryCorr,
+        [SYNTHETIC_SIGNATURE_HEADER]: retrySig,
+      },
+      body: retryBody,
+    });
+    await runRetryTick(
+      {
+        retry: store.retry,
+        events: store.repository,
+        policy: POLICY,
+        leaseMs: LEASE_MS,
+        processPaymentEvents: processFn,
+        audit: store.audit,
+        persistOutcome: store.persistOutcome,
+        actor: "RETRY_WORKER",
+      },
+      addMilliseconds(NOW, 1_000),
+    );
+    expect((await store.audit.listByCorrelationId(retryCorr)).map((row) => row.eventType)).toEqual(
+      [
+        "WEBHOOK_RECEIVED",
+        "RETRY_SCHEDULED",
+        "RETRY_ATTEMPTED",
+        "PAYMENT_STATE_CHANGED",
+        "RETRY_SUCCEEDED",
+      ],
+    );
+
+    const httpAudit = await app.request(
+      `/payments/${encodeURIComponent(stored!.event.paymentId)}/audit`,
+    );
+    expect(httpAudit.status).toBe(200);
+    const httpBody = (await httpAudit.json()) as { audit: Array<{ eventType: string }> };
+    expect(httpBody.audit.some((row) => row.eventType === "WEBHOOK_RECEIVED")).toBe(
+      true,
+    );
+    expect(JSON.stringify(httpBody)).not.toContain(SECRET);
   });
 });

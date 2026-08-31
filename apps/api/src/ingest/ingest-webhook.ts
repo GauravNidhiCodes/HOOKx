@@ -1,10 +1,15 @@
-import type { Instant } from "@hookx/domain";
+import { AUDIT_REASON } from "@hookx/audit";
+import { providerId, type Instant, type ProviderId } from "@hookx/domain";
 import type { WebhookEventRepository } from "@hookx/storage";
 import {
   DEFAULT_RETRY_LEASE_MS,
   DEFAULT_RETRY_POLICY,
+  ingestRejectionDraft,
   processFreshEvent,
   processPaymentEvents,
+  webhookReceiptDraft,
+  type AuditRepository,
+  type PersistOutcomeFn,
   type ProcessPaymentEventsFn,
   type RetryLifecycleSink,
   type RetryPolicy,
@@ -27,6 +32,8 @@ export type IngestDependencies = {
   readonly retryPolicy?: RetryPolicy;
   readonly leaseMs?: number;
   readonly lifecycle?: RetryLifecycleSink;
+  readonly audit?: AuditRepository;
+  readonly persistOutcome?: PersistOutcomeFn;
 };
 
 export type IngestWebhookInput = {
@@ -82,6 +89,36 @@ function internalError(
   );
 }
 
+function optionalProvider(value: string): ProviderId | null {
+  try {
+    return providerId(value);
+  } catch {
+    return null;
+  }
+}
+
+async function recordRejection(
+  dependencies: IngestDependencies,
+  input: IngestWebhookInput,
+  reason: string,
+): Promise<void> {
+  if (dependencies.audit === undefined) {
+    return;
+  }
+  try {
+    await dependencies.audit.append(
+      ingestRejectionDraft({
+        now: input.now,
+        correlationId: input.requestId,
+        provider: optionalProvider(input.provider),
+        reason,
+      }),
+    );
+  } catch {
+    // Audit must not change the HTTP outcome of a rejected delivery.
+  }
+}
+
 /**
  * Verify → parse → normalize → persist → replay.
  * Unverified payloads never reach storage or the state machine.
@@ -92,6 +129,7 @@ export async function ingestWebhook(
 ): Promise<IngestWebhookResult> {
   const verifier = dependencies.verifiers.get(input.provider);
   if (verifier === null) {
+    await recordRejection(dependencies, input, AUDIT_REASON.UNSUPPORTED_PROVIDER);
     return respond(
       404,
       {
@@ -114,6 +152,7 @@ export async function ingestWebhook(
   });
 
   if (verification.status !== "VERIFIED") {
+    await recordRejection(dependencies, input, verification.status);
     const malformed = verification.status === "MALFORMED_SIGNATURE";
     return respond(
       malformed ? 400 : 401,
@@ -134,6 +173,7 @@ export async function ingestWebhook(
   try {
     payload = JSON.parse(new TextDecoder().decode(input.rawBody));
   } catch {
+    await recordRejection(dependencies, input, AUDIT_REASON.INVALID_PAYLOAD);
     return respond(
       400,
       {
@@ -155,6 +195,7 @@ export async function ingestWebhook(
     event = adapter.normalize(payload, { receivedAt: input.now });
   } catch (error) {
     if (isWebhookError(error)) {
+      await recordRejection(dependencies, input, error.code);
       return respond(
         400,
         {
@@ -180,6 +221,21 @@ export async function ingestWebhook(
   }
 
   if (stored.outcome === "CONFLICT") {
+    if (dependencies.audit !== undefined) {
+      try {
+        await dependencies.audit.append(
+          webhookReceiptDraft(
+            stored.existing,
+            input.now,
+            input.requestId,
+            "WEBHOOK_CONFLICT",
+            AUDIT_REASON.CONFLICTING_EVENT,
+          ),
+        );
+      } catch {
+        // Conflict HTTP response is authoritative for the provider.
+      }
+    }
     return respond(
       409,
       {
@@ -197,6 +253,26 @@ export async function ingestWebhook(
     );
   }
 
+  if (dependencies.audit !== undefined) {
+    try {
+      await dependencies.audit.append(
+        webhookReceiptDraft(
+          stored.record,
+          input.now,
+          input.requestId,
+          stored.outcome === "DUPLICATE"
+            ? "WEBHOOK_DUPLICATE"
+            : "WEBHOOK_RECEIVED",
+          stored.outcome === "DUPLICATE"
+            ? AUDIT_REASON.DUPLICATE_EVENT
+            : AUDIT_REASON.ACCEPTED,
+        ),
+      );
+    } catch {
+      // The webhook row is durable. Processing still proceeds.
+    }
+  }
+
   if (dependencies.retry !== undefined) {
     let retryStatus: string | undefined;
     try {
@@ -208,6 +284,10 @@ export async function ingestWebhook(
           processPaymentEvents: dependencies.processPaymentEvents,
           lifecycle: dependencies.lifecycle,
           leaseMs: dependencies.leaseMs ?? DEFAULT_RETRY_LEASE_MS,
+          audit: dependencies.audit,
+          persistOutcome: dependencies.persistOutcome,
+          correlationId: input.requestId,
+          actor: "SYSTEM",
         },
         stored.record.id,
         input.now,

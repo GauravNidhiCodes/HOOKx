@@ -1,3 +1,4 @@
+import type { ReplayDecision } from "@hookx/state-machine";
 import { StorageError } from "../errors.js";
 import { processPaymentEvents } from "../process-payment-events.js";
 import type { WebhookEventRepository } from "../repository.js";
@@ -9,20 +10,33 @@ import {
 
 export type ProcessPaymentEventsFn = typeof processPaymentEvents;
 
+export type ProcessWebhookAttemptOptions = {
+  readonly deferTerminalStatus?: boolean;
+};
+
 export type ProcessingAttemptResult =
-  | { readonly outcome: "SUCCEEDED" }
+  | {
+      readonly outcome: "SUCCEEDED";
+      readonly decision?: ReplayDecision;
+    }
   | { readonly outcome: "ALREADY_PROCESSED" }
   | { readonly outcome: "RETRYABLE"; readonly code: string }
-  | { readonly outcome: "NON_RETRYABLE"; readonly code: string };
+  | {
+      readonly outcome: "NON_RETRYABLE";
+      readonly code: string;
+      readonly decision?: ReplayDecision;
+    };
 
 /**
  * Same pipeline as first-time ingest: stored event → replay → state machine.
  * Does not bypass idempotency or domain rules.
+ * Does not emit audit events; callers record live outcomes after this returns.
  */
 export async function processWebhookAttempt(
   repository: WebhookEventRepository,
   webhookEventId: string,
   processFn: ProcessPaymentEventsFn = processPaymentEvents,
+  options: ProcessWebhookAttemptOptions = {},
 ): Promise<ProcessingAttemptResult> {
   const stored = await repository.findById(webhookEventId);
   if (stored === null) {
@@ -79,46 +93,56 @@ export async function processWebhookAttempt(
   const decision = replay.decisions.find(
     (item) => item.eventId === stored.event.externalEventId,
   );
+  const defer = options.deferTerminalStatus === true;
+
   if (decision?.decision === "CONFLICT") {
-    try {
-      await repository.markConflict(stored.id);
-    } catch {
-      // Status update is secondary to recording the permanent failure.
+    if (!defer) {
+      try {
+        await repository.markConflict(stored.id);
+      } catch {
+        // Status update is secondary to recording the permanent failure.
+      }
     }
     return {
       outcome: "NON_RETRYABLE",
       code: FAILURE_CODE.PERMANENT_CONFLICT,
+      decision,
     };
   }
   if (decision?.decision === "REJECTED") {
-    try {
-      await repository.markRejected(stored.id);
-    } catch {
-      // Status update is secondary to recording the permanent failure.
+    if (!defer) {
+      try {
+        await repository.markRejected(stored.id);
+      } catch {
+        // Status update is secondary to recording the permanent failure.
+      }
     }
     return {
       outcome: "NON_RETRYABLE",
       code: FAILURE_CODE.INVALID_TRANSITION,
+      decision,
     };
   }
 
-  try {
-    const current = await repository.findById(stored.id);
-    if (current?.processingStatus === "RECEIVED") {
-      await repository.markProcessing(stored.id);
+  if (!defer) {
+    try {
+      const current = await repository.findById(stored.id);
+      if (current?.processingStatus === "RECEIVED") {
+        await repository.markProcessing(stored.id);
+      }
+      if (current?.processingStatus !== "PROCESSED") {
+        await repository.markProcessed(stored.id);
+      }
+    } catch (error) {
+      const latest = await repository.findById(stored.id);
+      if (latest?.processingStatus === "PROCESSED") {
+        return { outcome: "SUCCEEDED", decision };
+      }
+      return classifyThrown(error);
     }
-    if (current?.processingStatus !== "PROCESSED") {
-      await repository.markProcessed(stored.id);
-    }
-  } catch (error) {
-    const latest = await repository.findById(stored.id);
-    if (latest?.processingStatus === "PROCESSED") {
-      return { outcome: "SUCCEEDED" };
-    }
-    return classifyThrown(error);
   }
 
-  return { outcome: "SUCCEEDED" };
+  return { outcome: "SUCCEEDED", decision };
 }
 
 function classifyThrown(error: unknown): ProcessingAttemptResult {

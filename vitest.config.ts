@@ -7,6 +7,7 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
+      "@hookx/audit": path.join(root, "packages/audit/src/index.ts"),
       "@hookx/domain": path.join(root, "packages/domain/src/index.ts"),
       "@hookx/webhook": path.join(root, "packages/webhook/src/index.ts"),
       "@hookx/state-machine": path.join(root, "packages/state-machine/src/index.ts"),

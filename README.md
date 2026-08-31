@@ -32,7 +32,7 @@ Retry / Recovery
 Immutable Audit Trail
 ```
 
-The stages after the domain skeleton (audit) are not implemented in this revision. Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, and PostgreSQL-backed retry/recovery are.
+Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, PostgreSQL-backed retry/recovery, and an append-only audit trail are implemented. Operator UI and live PSP adapters are not.
 
 ## Architecture
 
@@ -61,27 +61,29 @@ What this revision actually implements:
 - **Out-of-order replay.** Stored events are ordered by `occurredAt` with a webhook-identity tie-break, then replayed through `processEvent`. Early events are `DELAYED`, not silently applied. Impossible transitions after ordering require investigation.
 - **Signature verification.** External webhooks are verified on the original raw body before JSON parse, normalization, or storage. The synthetic adapter uses HMAC-SHA256 with an injected-time replay window. Live PSP verifiers are not implemented.
 - **Retry and recovery.** A valid persisted webhook that fails temporarily is claimed with `SELECT … FOR UPDATE SKIP LOCKED`, retried with deterministic exponential backoff, and dead-lettered after max attempts or a permanent failure. Duplicate deliveries cannot create a second event row or a second payment transition.
+- **Append-only audit trail.** Live ingest and retry write immutable `audit_events` rows (received, duplicate, conflict, state change, delay, retry lifecycle). Replay does not rewrite that history. This is not a cryptographic ledger.
 
 What this revision does not implement or claim:
 
 - Production readiness
 - Guaranteed delivery
 - Live Razorpay (or any live provider) processing
-- Immutable audit trail persistence
+- Cryptographic audit immutability
 - Production-scale performance
 
 ## Repository structure
 
 ```
 apps/
-  api/                 Hono HTTP + webhook ingest + retry inspection
+  api/                 Hono HTTP + webhook ingest + retry/audit inspection
   web/                 React/Vite operator shell (no live data)
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event, identity, signature verifiers
   state-machine/       Transition table + processEvent + replayEvents
   testkit/             SYNTHETIC fixtures
-  storage/             PostgreSQL webhook events + retry/dead-letter
+  storage/             PostgreSQL webhook events + retry/dead-letter + audit
+  audit/               Append-only audit event model
 ```
 
 `providers`, `audit`, and `observability` packages are omitted until those layers exist.
@@ -151,7 +153,7 @@ pnpm build
 | PostgreSQL / Drizzle persistence | Implemented (events, retries, dead letters) |
 | Out-of-order event replay | Implemented |
 | Retry, recovery | Implemented (PostgreSQL worker + backoff) |
-| Audit trail | Prepared (`RetryLifecycleSink` only) |
+| Audit trail | Implemented (append-only `audit_events`) |
 | Operator dashboard / live payments | Not implemented |
 | Production deployment | Not implemented |
 

@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { instant, type PaymentId, type ProviderId } from "@hookx/domain";
-import { syntheticPaymentCreated } from "@hookx/testkit";
+import {
+  syntheticPaymentCaptured,
+  syntheticPaymentCreated,
+} from "@hookx/testkit";
+import { MemoryAuditRepository } from "../audit/memory-audit-repository.js";
 import type { NormalizedWebhookEvent, WebhookIdentity } from "@hookx/webhook";
 import type { WebhookProcessingStatus } from "../status.js";
 import type { StoredWebhookEvent, StoreWebhookEventResult } from "../types.js";
@@ -435,5 +439,172 @@ describe("retry worker", () => {
     expect(transitions[1]?.newStatus).toBe("RETRY_SCHEDULED");
     expect(transitions[1]?.reason).toBe("TEMPORARY_UNAVAILABLE");
     expect(transitions[1]?.timestamp).toBe(NOW);
+  });
+
+  it("audits a live state change without rewriting history on replay", async () => {
+    const events = new MemoryEvents();
+    const retry = new MemoryRetryRepository();
+    const trail = new MemoryAuditRepository();
+    const stored = await events.store(syntheticPaymentCreated());
+    if (stored.outcome !== "STORED") {
+      throw new Error("expected store");
+    }
+    await processFreshEvent(
+      {
+        ...workerDeps(events, retry),
+        audit: trail,
+        correlationId: "corr-state",
+      },
+      stored.record.id,
+      NOW,
+    );
+    await processPaymentEvents(
+      events,
+      stored.record.event.provider,
+      stored.record.event.paymentId,
+    );
+    const rows = await trail.listByCorrelationId("corr-state");
+    expect(rows.map((row) => row.eventType)).toEqual(["PAYMENT_STATE_CHANGED"]);
+    expect(rows[0]?.previousState).toBeNull();
+    expect(rows[0]?.resultingState).toBe("CREATED");
+    expect(rows[0]?.occurredAt).toBe(stored.record.event.occurredAt);
+    expect(rows[0]?.recordedAt).toBe(NOW);
+  });
+
+  it("audits a delayed event and a rejected transition", async () => {
+    const events = new MemoryEvents();
+    const retry = new MemoryRetryRepository();
+    const trail = new MemoryAuditRepository();
+    const paymentId = `SYNTHETIC:pay:${randomUUID()}`;
+    const captured = await events.store(
+      syntheticPaymentCaptured({
+        paymentId,
+        externalEventId: `SYNTHETIC:evt:${randomUUID()}`,
+        payloadHash: `SYNTHETIC:hash:${randomUUID()}`,
+      }),
+    );
+    if (captured.outcome !== "STORED") {
+      throw new Error("expected store");
+    }
+    await processFreshEvent(
+      {
+        ...workerDeps(events, retry),
+        audit: trail,
+        correlationId: "corr-delay",
+      },
+      captured.record.id,
+      NOW,
+    );
+    const delayed = await trail.listByCorrelationId("corr-delay");
+    expect(delayed.map((row) => row.eventType)).toEqual(["WEBHOOK_DELAYED"]);
+    expect(delayed[0]?.reason).toBe("AWAITING_PREREQUISITE");
+
+    const payment = `SYNTHETIC:pay:${randomUUID()}`;
+    const first = await events.store(
+      syntheticPaymentCreated({
+        paymentId: payment,
+        externalEventId: `SYNTHETIC:evt:${randomUUID()}`,
+        payloadHash: `SYNTHETIC:hash:${randomUUID()}`,
+      }),
+    );
+    const second = await events.store(
+      syntheticPaymentCreated({
+        paymentId: payment,
+        externalEventId: `SYNTHETIC:evt:${randomUUID()}`,
+        payloadHash: `SYNTHETIC:hash:${randomUUID()}`,
+      }),
+    );
+    if (first.outcome !== "STORED" || second.outcome !== "STORED") {
+      throw new Error("expected store");
+    }
+    await processFreshEvent(
+      {
+        ...workerDeps(events, retry),
+        audit: trail,
+        correlationId: "corr-created",
+      },
+      first.record.id,
+      NOW,
+    );
+    await processFreshEvent(
+      {
+        ...workerDeps(events, retry),
+        audit: trail,
+        correlationId: "corr-conflict",
+      },
+      second.record.id,
+      NOW,
+    );
+    const conflicted = await trail.listByCorrelationId("corr-conflict");
+    expect(conflicted.map((row) => row.eventType)).toEqual([
+      "WEBHOOK_CONFLICT",
+      "RETRY_DEAD_LETTERED",
+    ]);
+    expect(conflicted[0]?.previousState).toBe("CREATED");
+    expect(conflicted[0]?.resultingState).toBe("CREATED");
+  });
+
+  it("audits retry schedule, attempt, success, and dead-letter", async () => {
+    const events = new MemoryEvents();
+    const retry = new MemoryRetryRepository();
+    const trail = new MemoryAuditRepository();
+    const stored = await events.store(syntheticPaymentCreated());
+    if (stored.outcome !== "STORED") {
+      throw new Error("expected store");
+    }
+    let calls = 0;
+    const processFn = async (
+      ...args: Parameters<typeof processPaymentEvents>
+    ) => {
+      calls += 1;
+      if (calls === 1) {
+        throw new RetryableProcessingError();
+      }
+      return processPaymentEvents(...args);
+    };
+    await processFreshEvent(
+      {
+        ...workerDeps(events, retry, processFn),
+        audit: trail,
+        correlationId: "corr-retry",
+      },
+      stored.record.id,
+      NOW,
+    );
+    await runRetryTick(
+      {
+        ...workerDeps(events, retry, processFn),
+        audit: trail,
+        actor: "RETRY_WORKER",
+      },
+      addMilliseconds(NOW, 1_000),
+    );
+    expect((await trail.listByCorrelationId("corr-retry")).map((row) => row.eventType)).toEqual(
+      ["RETRY_SCHEDULED", "RETRY_ATTEMPTED", "PAYMENT_STATE_CHANGED", "RETRY_SUCCEEDED"],
+    );
+
+    const deadEvents = new MemoryEvents();
+    const deadRetry = new MemoryRetryRepository();
+    const deadTrail = new MemoryAuditRepository();
+    const deadStored = await deadEvents.store(syntheticPaymentCreated());
+    if (deadStored.outcome !== "STORED") {
+      throw new Error("expected store");
+    }
+    await processFreshEvent(
+      {
+        ...workerDeps(deadEvents, deadRetry, async () => {
+          throw Object.assign(new Error("conflict"), {
+            code: "PERMANENT_CONFLICT",
+          });
+        }),
+        audit: deadTrail,
+        correlationId: "corr-dead",
+      },
+      deadStored.record.id,
+      NOW,
+    );
+    expect(
+      (await deadTrail.listByCorrelationId("corr-dead")).map((row) => row.eventType),
+    ).toEqual(["RETRY_DEAD_LETTERED"]);
   });
 });

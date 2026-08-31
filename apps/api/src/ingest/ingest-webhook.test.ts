@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { instant } from "@hookx/domain";
 import {
+  MemoryAuditRepository,
   MemoryRetryRepository,
   RetryableProcessingError,
   addMilliseconds,
@@ -43,6 +44,7 @@ function createDeps(
   return {
     repository,
     retry: new MemoryRetryRepository(),
+    audit: new MemoryAuditRepository(),
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: SECRET,
       syntheticToleranceSeconds: 300,
@@ -290,5 +292,53 @@ describe("ingestWebhook", () => {
       addMilliseconds(NOW, 60_000),
     );
     expect(later.claimed).toBe(0);
+  });
+
+  it("audits ingest, duplicate, and signature rejection", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const audit = new MemoryAuditRepository();
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:ingest-audit",
+    });
+    const rawBody = rawBodyOf(payload);
+    const deps = createDeps(repository, { audit });
+    await ingestWebhook(deps, {
+      provider: "SYNTHETIC",
+      rawBody,
+      headers: signedHeaders(rawBody),
+      requestId: "req-audit-1",
+      now: NOW,
+    });
+    await ingestWebhook(deps, {
+      provider: "SYNTHETIC",
+      rawBody,
+      headers: signedHeaders(rawBody),
+      requestId: "req-audit-2",
+      now: NOW,
+    });
+    expect(
+      (await audit.listByCorrelationId("req-audit-1")).map((row) => row.eventType),
+    ).toEqual(["WEBHOOK_RECEIVED", "PAYMENT_STATE_CHANGED"]);
+    expect(
+      (await audit.listByCorrelationId("req-audit-2")).map((row) => row.eventType),
+    ).toEqual(["WEBHOOK_DUPLICATE"]);
+    expect(
+      (await audit.listByPayment(repository.records[0]!.event.paymentId)).filter(
+        (row) => row.eventType === "PAYMENT_STATE_CHANGED",
+      ),
+    ).toHaveLength(1);
+
+    const rejected = await ingestWebhook(createDeps(repository, { audit }), {
+      provider: "SYNTHETIC",
+      rawBody,
+      headers: new Map(),
+      requestId: "req-audit-sig",
+      now: NOW,
+    });
+    expect(rejected.httpStatus).toBe(401);
+    const sigRows = await audit.listByCorrelationId("req-audit-sig");
+    expect(sigRows.map((row) => row.eventType)).toEqual(["WEBHOOK_REJECTED"]);
+    expect(sigRows[0]?.reason).toBe("MISSING_SIGNATURE");
+    expect(JSON.stringify(sigRows)).not.toContain(SECRET);
   });
 });

@@ -19,6 +19,7 @@
     "db:migrate": "tsx src/cli-migrate.ts"
   },
   "dependencies": {
+    "@hookx/audit": "workspace:*",
     "@hookx/domain": "workspace:*",
     "@hookx/state-machine": "workspace:*",
     "@hookx/webhook": "workspace:*",

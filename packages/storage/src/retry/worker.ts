@@ -1,6 +1,20 @@
-import { processPaymentEvents } from "../process-payment-events.js";
+import type { AuditActor } from "@hookx/audit";
+import { AUDIT_REASON } from "@hookx/audit";
 import type { Instant } from "@hookx/domain";
+import { processPaymentEvents } from "../process-payment-events.js";
 import type { WebhookEventRepository } from "../repository.js";
+import { appendAuditDrafts } from "../audit/persist-outcome.js";
+import {
+  outcomeDraftsFromDecision,
+  retryFailureReason,
+  retryLifecycleDraft,
+  type LiveAuditContext,
+} from "../audit/live.js";
+import type {
+  AuditRepository,
+  PersistOutcomeFn,
+  WebhookTerminalStatus,
+} from "../audit/repository.js";
 import { FAILURE_CLASS, classifyFailure, safeFailureCode } from "./classify.js";
 import type { RetryLifecycleSink } from "./lifecycle.js";
 import { silentRetryLifecycleSink } from "./lifecycle.js";
@@ -9,7 +23,10 @@ import {
   calculateRetryDelay,
   type RetryPolicy,
 } from "./policy.js";
-import { processWebhookAttempt, type ProcessPaymentEventsFn } from "./process-attempt.js";
+import {
+  processWebhookAttempt,
+  type ProcessPaymentEventsFn,
+} from "./process-attempt.js";
 import type { RetryRepository } from "./repository.js";
 import type { RetryStatus } from "./status.js";
 import { addMilliseconds } from "./time.js";
@@ -30,6 +47,10 @@ export type RetryWorkerDependencies = {
   readonly lifecycle?: RetryLifecycleSink;
   readonly leaseMs: number;
   readonly limit?: number;
+  readonly audit?: AuditRepository;
+  readonly persistOutcome?: PersistOutcomeFn;
+  readonly correlationId?: string;
+  readonly actor?: AuditActor;
 };
 
 export async function runRetryTick(
@@ -53,6 +74,10 @@ export async function runRetryTick(
   let deadLettered = 0;
 
   for (const record of claimed) {
+    const correlationId = await resolveCorrelationId(
+      dependencies,
+      record.webhookEventId,
+    );
     const outcome = await finishAttempt(
       dependencies,
       record,
@@ -60,6 +85,8 @@ export async function runRetryTick(
       policy,
       processFn,
       lifecycle,
+      correlationId,
+      dependencies.actor ?? "RETRY_WORKER",
     );
     if (outcome === "SUCCEEDED") {
       succeeded += 1;
@@ -85,6 +112,8 @@ async function finishAttempt(
   policy: RetryPolicy,
   processFn: ProcessPaymentEventsFn,
   lifecycle: RetryLifecycleSink,
+  correlationId: string,
+  actor: AuditActor,
 ): Promise<"SUCCEEDED" | "RETRY_SCHEDULED" | "DEAD_LETTERED"> {
   lifecycle.record({
     webhookEventId: record.webhookEventId,
@@ -95,13 +124,59 @@ async function finishAttempt(
     timestamp: now,
   });
 
+  const stored = await dependencies.events.findById(record.webhookEventId);
+  const context: LiveAuditContext | null =
+    stored === null
+      ? null
+      : {
+          stored,
+          now,
+          correlationId,
+          actor,
+          attempt: record.attemptCount,
+        };
+  const isRetryClaim =
+    record.attemptCount > 1 || record.lastErrorCode !== null;
+  if (context !== null && isRetryClaim) {
+    await appendIfAuditing(dependencies.audit, [
+      retryLifecycleDraft(context, "RETRY_ATTEMPTED", AUDIT_REASON.ACCEPTED),
+    ]);
+  }
+
+  const defer = dependencies.persistOutcome !== undefined;
   const result = await processWebhookAttempt(
     dependencies.events,
     record.webhookEventId,
     processFn,
+    { deferTerminalStatus: defer },
   );
 
   if (result.outcome === "SUCCEEDED" || result.outcome === "ALREADY_PROCESSED") {
+    const drafts = [];
+    if (result.outcome === "SUCCEEDED" && context !== null) {
+      drafts.push(...outcomeDraftsFromDecision(context, result.decision));
+    }
+    if (isRetryClaim && context !== null) {
+      drafts.push(
+        retryLifecycleDraft(
+          context,
+          "RETRY_SUCCEEDED",
+          result.outcome === "ALREADY_PROCESSED"
+            ? AUDIT_REASON.ALREADY_PROCESSED
+            : AUDIT_REASON.ACCEPTED,
+        ),
+      );
+    }
+    if (result.outcome === "SUCCEEDED") {
+      await writeTerminal(
+        dependencies,
+        record.webhookEventId,
+        "PROCESSED",
+        drafts,
+      );
+    } else {
+      await appendIfAuditing(dependencies.audit, drafts);
+    }
     await dependencies.retry.markSucceeded(record.id, now);
     lifecycle.record({
       webhookEventId: record.webhookEventId,
@@ -116,12 +191,39 @@ async function finishAttempt(
 
   const code = safeFailureCode(result.code);
   const failureClass = classifyFailure(code);
+  const exhaustedByAttempts = record.attemptCount >= policy.maxAttempts;
   const exhausted =
     result.outcome === "NON_RETRYABLE" ||
     failureClass === FAILURE_CLASS.NON_RETRYABLE ||
-    record.attemptCount >= policy.maxAttempts;
+    exhaustedByAttempts;
+  const reason = retryFailureReason(code, exhausted && exhaustedByAttempts);
 
   if (exhausted) {
+    const decision =
+      result.outcome === "NON_RETRYABLE" ? result.decision : undefined;
+    const terminal: WebhookTerminalStatus | null =
+      decision?.decision === "CONFLICT"
+        ? "CONFLICT"
+        : decision?.decision === "REJECTED"
+          ? "REJECTED"
+          : null;
+    const drafts = [];
+    if (context !== null) {
+      drafts.push(...outcomeDraftsFromDecision(context, decision));
+      drafts.push(
+        retryLifecycleDraft(context, "RETRY_DEAD_LETTERED", reason),
+      );
+    }
+    if (terminal !== null && defer) {
+      await writeTerminal(
+        dependencies,
+        record.webhookEventId,
+        terminal,
+        drafts,
+      );
+    } else {
+      await appendIfAuditing(dependencies.audit, drafts);
+    }
     await dependencies.retry.deadLetter(record.id, {
       errorCode: code,
       now,
@@ -145,6 +247,11 @@ async function finishAttempt(
     failedAt: now,
     now,
   });
+  if (context !== null) {
+    await appendIfAuditing(dependencies.audit, [
+      retryLifecycleDraft(context, "RETRY_SCHEDULED", reason),
+    ]);
+  }
   lifecycle.record({
     webhookEventId: record.webhookEventId,
     attempt: record.attemptCount,
@@ -164,6 +271,10 @@ export async function processFreshEvent(
     readonly processPaymentEvents?: ProcessPaymentEventsFn;
     readonly lifecycle?: RetryLifecycleSink;
     readonly leaseMs: number;
+    readonly audit?: AuditRepository;
+    readonly persistOutcome?: PersistOutcomeFn;
+    readonly correlationId?: string;
+    readonly actor?: AuditActor;
   },
   webhookEventId: string,
   now: Instant,
@@ -192,6 +303,7 @@ export async function processFreshEvent(
     return (await dependencies.retry.getByWebhookEventId(webhookEventId)) ?? pending;
   }
 
+  const correlationId = await resolveCorrelationId(dependencies, webhookEventId);
   await finishAttempt(
     {
       retry: dependencies.retry,
@@ -200,12 +312,18 @@ export async function processFreshEvent(
       processPaymentEvents: processFn,
       lifecycle,
       leaseMs: dependencies.leaseMs,
+      audit: dependencies.audit,
+      persistOutcome: dependencies.persistOutcome,
+      correlationId,
+      actor: dependencies.actor ?? "SYSTEM",
     },
     started,
     now,
     policy,
     processFn,
     lifecycle,
+    correlationId,
+    dependencies.actor ?? "SYSTEM",
   );
   return (await dependencies.retry.getByWebhookEventId(webhookEventId)) ?? started;
 }
@@ -218,4 +336,47 @@ function claimedPreviousStatus(record: RetryRecord): RetryStatus {
     return "PROCESSING";
   }
   return "RETRY_SCHEDULED";
+}
+
+async function resolveCorrelationId(
+  dependencies: {
+    readonly audit?: AuditRepository;
+    readonly correlationId?: string;
+  },
+  webhookEventId: string,
+): Promise<string> {
+  if (dependencies.correlationId !== undefined) {
+    return dependencies.correlationId;
+  }
+  if (dependencies.audit !== undefined) {
+    const existing = await dependencies.audit.listByWebhook(webhookEventId);
+    const first = existing[0];
+    if (first !== undefined) {
+      return first.correlationId;
+    }
+  }
+  return `retry-${webhookEventId}`;
+}
+
+async function appendIfAuditing(
+  audit: AuditRepository | undefined,
+  drafts: readonly Parameters<AuditRepository["append"]>[0][],
+): Promise<void> {
+  if (audit === undefined || drafts.length === 0) {
+    return;
+  }
+  await appendAuditDrafts(audit, drafts);
+}
+
+async function writeTerminal(
+  dependencies: RetryWorkerDependencies,
+  webhookEventId: string,
+  status: WebhookTerminalStatus,
+  drafts: readonly Parameters<AuditRepository["append"]>[0][],
+): Promise<void> {
+  if (dependencies.persistOutcome !== undefined) {
+    await dependencies.persistOutcome(webhookEventId, status, drafts);
+    return;
+  }
+  await appendIfAuditing(dependencies.audit, drafts);
 }

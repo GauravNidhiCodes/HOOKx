@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { instant } from "@hookx/domain";
 import {
+  MemoryAuditRepository,
   MemoryRetryRepository,
   RetryableProcessingError,
 } from "@hookx/storage";
@@ -22,9 +23,11 @@ const NOW_UNIX = unixSecondsFromInstant(NOW);
 function createTestApp() {
   const repository = new MemoryWebhookEventRepository();
   const retry = new MemoryRetryRepository();
+  const audit = new MemoryAuditRepository();
   const app = createApp({
     repository,
     retry,
+    audit,
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: SECRET,
       syntheticToleranceSeconds: 300,
@@ -61,6 +64,7 @@ describe("operator retry inspection", () => {
     const app = createApp({
       repository,
       retry,
+      audit: new MemoryAuditRepository(),
       processPaymentEvents: async () => {
         throw new RetryableProcessingError();
       },
@@ -96,6 +100,7 @@ describe("operator retry inspection", () => {
     const app = createApp({
       repository,
       retry,
+      audit: new MemoryAuditRepository(),
       processPaymentEvents: async () => {
         throw Object.assign(new Error("invalid"), {
           code: "INVALID_TRANSITION",
