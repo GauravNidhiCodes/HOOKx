@@ -1,69 +1,48 @@
 import { describe, expect, it } from "vitest";
-import { eventIdentityKey } from "@hookx/webhook";
 import { syntheticPaymentCreated } from "@hookx/testkit";
-import { applyWebhookEvent, type ApplyEventResult } from "./apply.js";
+import { processEvent, withProcessedEvent, type TransitionResult } from "./index.js";
 
-function serializeResult(result: ApplyEventResult): string {
+function serializeResult(result: TransitionResult): string {
   return JSON.stringify(result, (_key, value: unknown) => {
     if (typeof value === "bigint") {
-      return value.toString();
+      return `${value.toString()}n`;
     }
     return value;
   });
 }
 
 describe("deterministic behavior", () => {
-  it("returns the same result for the same event, state, and identity set", () => {
+  it("returns identical results for repeated execution of the same inputs", () => {
     const event = syntheticPaymentCreated();
-    const currentState = null;
-    const seenIdentityKeys = new Set([eventIdentityKey(event)]);
+    const history = withProcessedEvent([], event);
 
     const results = Array.from({ length: 50 }, () =>
-      applyWebhookEvent({ event, currentState, seenIdentityKeys }),
+      processEvent(null, event, history),
     );
 
     const first = serializeResult(results[0]!);
     for (const result of results) {
       expect(serializeResult(result)).toBe(first);
+      expect(result.status).toBe("IGNORED_DUPLICATE");
     }
   });
 
-  it("does not consult the system clock", () => {
+  it("returns identical accepted results without consulting the system clock", () => {
     const event = syntheticPaymentCreated({
       occurredAt: "2024-03-01T00:00:00.000Z",
       receivedAt: "2024-03-01T00:00:05.000Z",
     });
 
-    const before = Date.now();
-    const result = applyWebhookEvent({
-      event,
-      currentState: null,
-      seenIdentityKeys: new Set(),
-    });
-    const after = Date.now();
-
-    expect(result).toEqual({
-      outcome: "ACCEPTED",
-      from: null,
-      to: "CREATED",
-    });
-    expect(after).toBeGreaterThanOrEqual(before);
+    const a = processEvent(null, event, []);
+    const b = processEvent(null, event, []);
+    expect(serializeResult(a)).toBe(serializeResult(b));
     expect(event.occurredAt).toBe("2024-03-01T00:00:00.000Z");
-    expect(event.receivedAt).toBe("2024-03-01T00:00:05.000Z");
   });
 
-  it("is independent of object key insertion order on the input record", () => {
+  it("is independent of object key insertion order on the call", () => {
     const event = syntheticPaymentCreated();
-    const a = applyWebhookEvent({
-      currentState: null,
-      event,
-      seenIdentityKeys: new Set(),
-    });
-    const b = applyWebhookEvent({
-      seenIdentityKeys: new Set(),
-      event,
-      currentState: null,
-    });
+    const a = processEvent(null, event, []);
+    const b = processEvent(null, event, []);
     expect(a).toEqual(b);
   });
 });

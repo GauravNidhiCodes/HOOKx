@@ -17,6 +17,9 @@ export {
 export { addMoney, money, moneyEquals, type Money } from "./money.js";
 export {
   PAYMENT_STATES,
+  TERMINAL_PAYMENT_STATES,
   isPaymentState,
+  isTerminalPaymentState,
   type PaymentState,
+  type TerminalPaymentState,
 } from "./payment-state.js";

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { PAYMENT_STATES, isPaymentState } from "./payment-state.js";
+import {
+  PAYMENT_STATES,
+  TERMINAL_PAYMENT_STATES,
+  isPaymentState,
+  isTerminalPaymentState,
+} from "./payment-state.js";
 
 describe("payment state model", () => {
   it("exposes the explicit lifecycle", () => {
@@ -16,5 +21,12 @@ describe("payment state model", () => {
     expect(isPaymentState("CREATED")).toBe(true);
     expect(isPaymentState("PENDING")).toBe(false);
     expect(isPaymentState("created")).toBe(false);
+  });
+
+  it("treats FAILED and REFUNDED as terminal", () => {
+    expect(TERMINAL_PAYMENT_STATES).toEqual(["FAILED", "REFUNDED"]);
+    expect(isTerminalPaymentState("FAILED")).toBe(true);
+    expect(isTerminalPaymentState("REFUNDED")).toBe(true);
+    expect(isTerminalPaymentState("CAPTURED")).toBe(false);
   });
 });

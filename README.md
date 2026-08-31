@@ -77,7 +77,7 @@ apps/
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event + webhook identity
-  state-machine/       Transition table + applyWebhookEvent
+  state-machine/       Transition table + processEvent
   testkit/             SYNTHETIC fixtures
 ```
 
