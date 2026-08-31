@@ -1,0 +1,22 @@
+{
+  "name": "@hookx/webhook",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HOOKX provider-agnostic normalized webhook event model",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hookx/domain": "workspace:*"
+  }
+}

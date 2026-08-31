@@ -1,0 +1,28 @@
+{
+  "name": "hookx",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HOOKX — Payment Webhook Reliability Engine",
+  "type": "module",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @hookx/api --filter @hookx/web dev",
+    "build": "pnpm -r --if-present build",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.4.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.56.0",
+    "vitest": "^3.2.4"
+  }
+}
