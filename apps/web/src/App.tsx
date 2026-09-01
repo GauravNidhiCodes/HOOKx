@@ -5,6 +5,7 @@ import { EventDetail } from "./pages/EventDetail";
 import { EventsPage } from "./pages/EventsPage";
 import { ExceptionDetail } from "./pages/ExceptionDetail";
 import { ExceptionQueue } from "./pages/ExceptionQueue";
+import { FailureLab } from "./pages/FailureLab";
 import { IncidentDetail } from "./pages/IncidentDetail";
 import { IncidentQueue } from "./pages/IncidentQueue";
 import { PaymentDetail } from "./pages/PaymentDetail";
@@ -37,6 +38,9 @@ function Routes() {
   }
   if (route.name === "event") {
     return <EventDetail key={route.webhookEventId} webhookEventId={route.webhookEventId} />;
+  }
+  if (route.name === "failure-lab") {
+    return <FailureLab />;
   }
   return (
     <section className="empty">

@@ -13,6 +13,10 @@ import type {
   PublicRetry,
   PublicWebhookEvent,
   WebhookListQuery,
+  FailureLabCatalog,
+  FailureLabResetResult,
+  FailureLabRunReport,
+  FailureLabScenarioId,
 } from "./types";
 
 export class ApiError extends Error {
@@ -70,6 +74,10 @@ export type HookxApi = {
   getDeadLetter(webhookEventId: string): Promise<PublicDeadLetter | null>;
   getInvestigation(exceptionId: string): Promise<PublicInvestigation | null>;
   investigate(exceptionId: string): Promise<PublicInvestigation>;
+  getFailureLabCatalog(): Promise<FailureLabCatalog>;
+  runFailureLab(scenario: FailureLabScenarioId): Promise<FailureLabRunReport>;
+  getFailureLabRun(runId: string): Promise<FailureLabRunReport>;
+  resetFailureLab(confirm: string): Promise<FailureLabResetResult>;
 };
 
 function queryString(query: Record<string, string | undefined>): string {
@@ -372,6 +380,68 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
         fail(status, body, correlationId, "INVESTIGATION REQUEST FAILED");
       }
       return (body as { investigation: PublicInvestigation }).investigation;
+    },
+
+    async getFailureLabCatalog() {
+      const { status, body, correlationId } = await request("/failure-lab");
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD FAILURE LAB");
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("scenarios" in body) ||
+        !("notice" in body)
+      ) {
+        fail(status, body, correlationId, "UNABLE TO LOAD FAILURE LAB");
+      }
+      return body as FailureLabCatalog;
+    },
+
+    async runFailureLab(scenario) {
+      const { status, body, correlationId } = await request("/failure-lab/run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scenario }),
+      });
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO RUN FAILURE LAB SCENARIO");
+      }
+      if (typeof body !== "object" || body === null || !("run" in body)) {
+        fail(status, body, correlationId, "UNABLE TO RUN FAILURE LAB SCENARIO");
+      }
+      return (body as { run: FailureLabRunReport }).run;
+    },
+
+    async getFailureLabRun(runId) {
+      const { status, body, correlationId } = await request(
+        `/failure-lab/runs/${encodeURIComponent(runId)}`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD FAILURE LAB RUN");
+      }
+      if (typeof body !== "object" || body === null || !("run" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD FAILURE LAB RUN");
+      }
+      return (body as { run: FailureLabRunReport }).run;
+    },
+
+    async resetFailureLab(confirm) {
+      const { status, body, correlationId } = await request(
+        "/failure-lab/reset",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ confirm }),
+        },
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO RESET FAILURE LAB");
+      }
+      if (typeof body !== "object" || body === null || !("deleted" in body)) {
+        fail(status, body, correlationId, "UNABLE TO RESET FAILURE LAB");
+      }
+      return body as FailureLabResetResult;
     },
   };
 }

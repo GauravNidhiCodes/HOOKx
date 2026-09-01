@@ -18,6 +18,7 @@ Primary destinations:
 | `/payments/:paymentId` | Payment workspace |
 | `/events` | Persisted webhook event index |
 | `/events/:eventId` | Event inspector (`:eventId` is the stored webhook id) |
+| `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
 
 There is no analytics dashboard and no extra sidebar of invented sections.
 
@@ -73,6 +74,12 @@ That is the investigation loop: payment → events → exceptions → back to pa
 `/incidents` lists persisted exceptions as incidents. Successful webhooks do not appear. `/incidents/:id` loads one backend timeline (`GET /incidents/:id/timeline`) instead of reconstructing chronology from many client calls. Clock order is delivery/recording time; event time and received time are both shown when stored.
 
 See `docs/observability.md`.
+
+## Failure Lab
+
+`/failure-lab` runs synthetic failure scenarios through `POST /webhooks/SYNTHETIC`. Results, logs, and incident links are taken from that execution. Reset deletes only `SYNTHETIC:pay:lab-*` rows.
+
+The Failure Lab never sends real payment requests. See `docs/failure-lab.md`.
 
 ## AI investigation boundary
 

@@ -42,6 +42,7 @@ export default defineConfig({
       "/retries": apiProxy,
       "/dead-letters": apiProxy,
       "/audit": apiProxy,
+      "/failure-lab": apiProxy,
     },
   },
 });

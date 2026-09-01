@@ -506,6 +506,82 @@ button:disabled:hover {
   letter-spacing: 0.14em;
 }
 
+.lab-scenario {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) 0;
+  border-top: var(--rule);
+}
+
+.lab-scenario__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.lab-scenario__head h2 {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lab-report,
+.lab-reset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: var(--rule-heavy);
+}
+
+.lab-log {
+  list-style: none;
+  padding: 0;
+}
+
+.lab-log li {
+  padding: 0.45rem 0;
+  border-bottom: var(--rule);
+  font-size: 0.85rem;
+}
+
+.lab-log li:first-child {
+  border-top: var(--rule);
+}
+
+.lab-reset__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 28rem;
+}
+
+.lab-reset__confirm label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lab-reset__confirm input {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--black);
+  background: var(--white);
+  border: var(--rule);
+  border-radius: 0;
+  padding: 0.45rem 0.55rem;
+}
+
 .copyable,
 .copy-action {
   display: inline-flex;

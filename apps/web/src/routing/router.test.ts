@@ -39,5 +39,8 @@ describe("parseRoute", () => {
       name: "event",
       webhookEventId: "abc",
     });
+    expect(parseRoute("/failure-lab")).toEqual({
+      name: "failure-lab",
+    });
   });
 });

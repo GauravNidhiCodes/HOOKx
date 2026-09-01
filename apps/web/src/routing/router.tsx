@@ -19,6 +19,7 @@ export type ConsoleRoute =
   | { readonly name: "payment"; readonly paymentId: string }
   | { readonly name: "events"; readonly search: string }
   | { readonly name: "event"; readonly webhookEventId: string }
+  | { readonly name: "failure-lab" }
   | { readonly name: "unknown"; readonly path: string };
 
 export function parseRoute(pathname: string, search = ""): ConsoleRoute {
@@ -50,6 +51,9 @@ export function parseRoute(pathname: string, search = ""): ConsoleRoute {
   const event = /^\/events\/([^/]+)$/.exec(path);
   if (event?.[1] !== undefined) {
     return { name: "event", webhookEventId: decodeURIComponent(event[1]) };
+  }
+  if (path === "/failure-lab") {
+    return { name: "failure-lab" };
   }
   return { name: "unknown", path };
 }

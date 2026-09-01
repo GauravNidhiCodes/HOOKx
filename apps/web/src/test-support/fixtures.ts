@@ -1,6 +1,9 @@
 import { vi } from "vitest";
 import type { HookxApi } from "../api/client";
 import type {
+  FailureLabCatalog,
+  FailureLabResetResult,
+  FailureLabRunReport,
   PublicAuditEvent,
   PublicException,
   PublicIncident,
@@ -503,6 +506,174 @@ export const sampleInvestigation: PublicInvestigation = {
   },
 };
 
+export const sampleFailureLabCatalog: FailureLabCatalog = {
+  notice: "The Failure Lab never sends real payment requests.",
+  synthetic: true,
+  scenarios: [
+    {
+      id: "DUPLICATE_DELIVERY",
+      number: "01",
+      title: "DUPLICATE DELIVERY",
+      explanation:
+        "One synthetic webhook is signed once and posted twice through ingest.",
+      expected:
+        "First delivery accepted, persisted, processed. Second classified duplicate. One state transition.",
+      failureMode: "NONE",
+    },
+    {
+      id: "OUT_OF_ORDER",
+      number: "02",
+      title: "OUT-OF-ORDER DELIVERY",
+      explanation: "Created, captured, then authorized.",
+      expected: "Capture delayed. Authorization accepted. Replay reaches CAPTURED.",
+      failureMode: "NONE",
+    },
+    {
+      id: "CONFLICTING_EVENT",
+      number: "03",
+      title: "CONFLICTING EVENT",
+      explanation: "Same identity, different payload hash.",
+      expected: "CONFLICTING_EVENT. Original row unchanged.",
+      failureMode: "NONE",
+    },
+    {
+      id: "TRANSIENT_FAILURE",
+      number: "04",
+      title: "TRANSIENT FAILURE",
+      explanation: "Lab-only FAIL_ONCE injection.",
+      expected: "Processing fails, retry is scheduled, retry succeeds.",
+      failureMode: "FAIL_ONCE",
+    },
+    {
+      id: "RETRY_EXHAUSTION",
+      number: "05",
+      title: "RETRY EXHAUSTION",
+      explanation: "Lab-only ALWAYS_FAIL injection.",
+      expected: "Retries continue until max attempts, then dead-letter.",
+      failureMode: "ALWAYS_FAIL",
+    },
+    {
+      id: "REPLAY_RECOVERY",
+      number: "06",
+      title: "REPLAY RECOVERY",
+      explanation: "Capture arrives before authorization.",
+      expected: "REPLAY STARTED, delayed capture applied, final CAPTURED.",
+      failureMode: "NONE",
+    },
+  ],
+};
+
+export const sampleFailureLabRun: FailureLabRunReport = {
+  runId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+  scenario: "DUPLICATE_DELIVERY",
+  title: "DUPLICATE DELIVERY",
+  synthetic: true,
+  notice: "The Failure Lab never sends real payment requests.",
+  startedAt: "2026-01-15T14:21:03.000Z",
+  finishedAt: "2026-01-15T14:21:03.000Z",
+  failureMode: "NONE",
+  retryPolicy: { maxAttempts: 5, baseDelayMs: 1000, maxDelayMs: 8000 },
+  input: {
+    deliveries: 2,
+    eventOrderSent: ["payment.created", "payment.created"],
+    eventTimeOrder: ["payment.created"],
+  },
+  result: {
+    processed: 1,
+    duplicate: 1,
+    conflict: 0,
+    error: 0,
+    accepted: 1,
+  },
+  stateChange: 1,
+  payment: {
+    paymentId: "SYNTHETIC:pay:lab-eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    state: "CREATED",
+    amountMinor: "10000",
+  },
+  originalAmountMinor: "10000",
+  originalPayloadHash: "SYNTHETIC:hash:lab-dup",
+  exception: {
+    exceptionId: EXCEPTION_ID,
+    exceptionCode: "DUPLICATE_EVENT",
+  },
+  incidentId: EXCEPTION_ID,
+  auditCount: 2,
+  retry: null,
+  deadLetter: null,
+  replay: null,
+  log: [
+    {
+      clock: "2026-01-15T14:21:03.000Z",
+      lifecycle: "WEBHOOK_RECEIVED",
+      decision: "ACCEPTED",
+      inferred: false,
+    },
+    {
+      clock: "2026-01-15T14:21:03.000Z",
+      lifecycle: "SIGNATURE_VERIFIED",
+      decision: null,
+      inferred: false,
+    },
+    {
+      clock: "2026-01-15T14:21:03.000Z",
+      lifecycle: "EVENT_PERSISTED",
+      decision: null,
+      inferred: false,
+    },
+    {
+      clock: "2026-01-15T14:21:03.000Z",
+      lifecycle: "PROCESSING_STARTED",
+      decision: null,
+      inferred: false,
+    },
+    {
+      clock: "2026-01-15T14:21:03.000Z",
+      lifecycle: "DUPLICATE_DETECTED",
+      decision: "DUPLICATE",
+      inferred: false,
+    },
+  ],
+  deliveries: [
+    {
+      stepIndex: 0,
+      eventType: "payment.created",
+      eventKey: "created",
+      httpStatus: 200,
+      bodyStatus: "accepted",
+      code: null,
+      kind: "SEND",
+    },
+    {
+      stepIndex: 1,
+      eventType: "payment.created",
+      eventKey: "created",
+      httpStatus: 200,
+      bodyStatus: "duplicate",
+      code: null,
+      kind: "RESEND_IDENTICAL",
+    },
+  ],
+  links: {
+    incident: `/incidents/${EXCEPTION_ID}`,
+    payment: "/payments/SYNTHETIC%3Apay%3Alab-eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+    event: `/events/${WEBHOOK_ID}`,
+  },
+};
+
+export const sampleFailureLabReset: FailureLabResetResult = {
+  notice: "The Failure Lab never sends real payment requests.",
+  deleted: {
+    investigations: 0,
+    exceptions: 1,
+    deadLetters: 0,
+    retries: 0,
+    audit: 2,
+    webhooks: 1,
+    payments: 1,
+  },
+};
+
 export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
   return {
     listExceptions: vi.fn(async () => [sampleException]),
@@ -525,6 +696,10 @@ export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
     getDeadLetter: vi.fn(async () => null),
     getInvestigation: vi.fn(async () => null),
     investigate: vi.fn(async () => sampleInvestigation),
+    getFailureLabCatalog: vi.fn(async () => sampleFailureLabCatalog),
+    runFailureLab: vi.fn(async () => sampleFailureLabRun),
+    getFailureLabRun: vi.fn(async () => sampleFailureLabRun),
+    resetFailureLab: vi.fn(async () => sampleFailureLabReset),
     ...overrides,
   };
 }

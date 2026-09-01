@@ -29,6 +29,9 @@ export function Shell({ children }: { readonly children: React.ReactNode }) {
         <Link href="/events" className="nav__item">
           Events
         </Link>
+        <Link href="/failure-lab" className="nav__item">
+          Failure Lab
+        </Link>
       </nav>
       <main id="main" className="main" tabIndex={-1}>
         {children}

@@ -55,6 +55,8 @@ async function start(): Promise<void> {
     metrics,
     ping: () => store.ping(),
     liveProviders: resolveLiveProviders(process.env),
+    syntheticWebhookSecret: secret,
+    purgeFailureLab: () => store.purgeFailureLab(),
   });
 
   serve({ fetch: app.fetch, hostname: host, port }, (info) => {

@@ -1,0 +1,363 @@
+import { useEffect, useState } from "react";
+import { ApiError, isApiError } from "../api/client";
+import { useApi } from "../api/context";
+import type {
+  FailureLabCatalog,
+  FailureLabCatalogEntry,
+  FailureLabRunReport,
+  FailureLabScenarioId,
+} from "../api/types";
+import { ErrorPanel, StatusLine } from "../components/chrome";
+import { blank, formatClock } from "../lib/format";
+import { Link } from "../routing/router";
+
+const RESET_CONFIRM = "SYNTHETIC_FAILURE_LAB";
+
+function lifecycleLabel(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
+function ScenarioStatus({
+  report,
+  executing,
+}: {
+  readonly report: FailureLabRunReport | undefined;
+  readonly executing: boolean;
+}) {
+  if (executing) {
+    return <p className="status-line">EXECUTING</p>;
+  }
+  if (report === undefined) {
+    return <p className="status-line">NOT RUN</p>;
+  }
+  const parts = [
+    `${report.result.accepted} accepted`,
+    `${report.result.duplicate} duplicate`,
+    `${report.result.conflict} conflict`,
+    `${report.result.error} error`,
+  ];
+  return (
+    <p className="status-line">
+      {parts.join(" · ")} · STATE {blank(report.payment.state)}
+    </p>
+  );
+}
+
+function RunReport({ report }: { readonly report: FailureLabRunReport }) {
+  return (
+    <section className="lab-report" aria-live="polite">
+      <h2 className="kicker">RUN RESULT</h2>
+      <dl className="spec">
+        <div className="spec__row">
+          <dt>SCENARIO</dt>
+          <dd className="mono">{report.title}</dd>
+        </div>
+        <div className="spec__row">
+          <dt>INPUT</dt>
+          <dd className="mono">{report.input.deliveries} webhook deliveries</dd>
+        </div>
+        <div className="spec__row">
+          <dt>RESULT</dt>
+          <dd className="mono">
+            {report.result.accepted} accepted · {report.result.duplicate}{" "}
+            duplicate · {report.result.conflict} conflict · {report.result.error}{" "}
+            error
+          </dd>
+        </div>
+        <div className="spec__row">
+          <dt>STATE CHANGE</dt>
+          <dd className="mono">{report.stateChange}</dd>
+        </div>
+        <div className="spec__row">
+          <dt>EXCEPTION</dt>
+          <dd className="mono">
+            {report.exception === null ? "none" : report.exception.exceptionCode}
+          </dd>
+        </div>
+        <div className="spec__row">
+          <dt>AUDIT</dt>
+          <dd className="mono">{report.auditCount} events</dd>
+        </div>
+        <div className="spec__row">
+          <dt>TIMELINE</dt>
+          <dd className="mono">{report.log.length > 0 ? "available" : "none"}</dd>
+        </div>
+        <div className="spec__row">
+          <dt>PAYMENT</dt>
+          <dd className="mono">
+            {blank(report.payment.state)} · {report.payment.paymentId}
+          </dd>
+        </div>
+        {report.retry !== null ? (
+          <div className="spec__row">
+            <dt>RETRY</dt>
+            <dd className="mono">
+              attempt {report.retry.attemptCount} / {report.retryPolicy.maxAttempts}{" "}
+              · {report.retry.status}
+              {report.retry.nextAttemptAt !== null
+                ? ` · next ${formatClock(report.retry.nextAttemptAt)}`
+                : ""}
+              {report.retry.lastErrorCode !== null
+                ? ` · ${report.retry.lastErrorCode}`
+                : ""}
+            </dd>
+          </div>
+        ) : null}
+        {report.deadLetter !== null ? (
+          <div className="spec__row">
+            <dt>DEAD LETTER</dt>
+            <dd className="mono">
+              {report.deadLetter.failureCode} · attempts {report.deadLetter.attemptCount}
+            </dd>
+          </div>
+        ) : null}
+        {report.replay !== null ? (
+          <div className="spec__row">
+            <dt>REPLAY</dt>
+            <dd className="mono">
+              {blank(report.replay.beforeState)} → {blank(report.replay.afterState)}
+              {report.replay.delayed ? " · delayed capture" : ""}
+            </dd>
+          </div>
+        ) : null}
+        {report.input.eventOrderSent.length > 1 ? (
+          <div className="spec__row">
+            <dt>EVENT ORDER SENT</dt>
+            <dd className="mono">{report.input.eventOrderSent.join(" → ")}</dd>
+          </div>
+        ) : null}
+        {report.input.eventTimeOrder.length > 1 ? (
+          <div className="spec__row">
+            <dt>EVENT ORDER RECEIVED</dt>
+            <dd className="mono">{report.input.eventTimeOrder.join(" → ")}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {report.links.incident !== null ? (
+        <p>
+          <Link href={report.links.incident}>VIEW INCIDENT</Link>
+        </p>
+      ) : null}
+      {report.log.length > 0 ? (
+        <div>
+          <h3 className="kicker">EXECUTION LOG</h3>
+          <ol className="lab-log">
+            {report.log.map((entry, index) => (
+              <li key={`${entry.clock}-${entry.lifecycle}-${index}`}>
+                <span className="mono">{formatClock(entry.clock)}</span>{" "}
+                <span>{lifecycleLabel(entry.lifecycle)}</span>
+                {entry.decision !== null ? (
+                  <span className="mono"> · {entry.decision}</span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ScenarioBlock({
+  scenario,
+  report,
+  executing,
+  disabled,
+  onRun,
+}: {
+  readonly scenario: FailureLabCatalogEntry;
+  readonly report: FailureLabRunReport | undefined;
+  readonly executing: boolean;
+  readonly disabled: boolean;
+  readonly onRun: (id: FailureLabScenarioId) => void;
+}) {
+  return (
+    <article className="lab-scenario">
+      <header className="lab-scenario__head">
+        <h2>
+          {scenario.number} — {scenario.title}
+        </h2>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => onRun(scenario.id)}
+          aria-label={`Run ${scenario.title}`}
+        >
+          RUN
+        </button>
+      </header>
+      <p>{scenario.explanation}</p>
+      <p>
+        <span className="kicker">EXPECTED</span> {scenario.expected}
+      </p>
+      <ScenarioStatus report={report} executing={executing} />
+    </article>
+  );
+}
+
+export function FailureLab() {
+  const api = useApi();
+  const [catalog, setCatalog] = useState<FailureLabCatalog | null>(null);
+  const [loadError, setLoadError] = useState<ApiError | null>(null);
+  const [runError, setRunError] = useState<ApiError | null>(null);
+  const [reports, setReports] = useState<
+    Partial<Record<FailureLabScenarioId, FailureLabRunReport>>
+  >({});
+  const [active, setActive] = useState<FailureLabRunReport | null>(null);
+  const [running, setRunning] = useState<FailureLabScenarioId | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetText, setResetText] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void api
+      .getFailureLabCatalog()
+      .then((loaded) => {
+        if (!cancelled) {
+          setCatalog(loaded);
+        }
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setLoadError(
+          isApiError(caught)
+            ? caught
+            : new ApiError("REQUEST_FAILED", "", 0, "UNABLE TO LOAD FAILURE LAB"),
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  async function run(id: FailureLabScenarioId): Promise<void> {
+    setRunning(id);
+    setRunError(null);
+    try {
+      const report = await api.runFailureLab(id);
+      setReports((current) => ({ ...current, [id]: report }));
+      setActive(report);
+    } catch (caught: unknown) {
+      setRunError(
+        isApiError(caught)
+          ? caught
+          : new ApiError(
+              "REQUEST_FAILED",
+              "",
+              0,
+              "UNABLE TO RUN FAILURE LAB SCENARIO",
+            ),
+      );
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  async function confirmReset(): Promise<void> {
+    if (resetText !== RESET_CONFIRM) {
+      return;
+    }
+    setResetBusy(true);
+    setRunError(null);
+    try {
+      await api.resetFailureLab(RESET_CONFIRM);
+      setReports({});
+      setActive(null);
+      setResetOpen(false);
+      setResetText("");
+    } catch (caught: unknown) {
+      setRunError(
+        isApiError(caught)
+          ? caught
+          : new ApiError("REQUEST_FAILED", "", 0, "UNABLE TO RESET FAILURE LAB"),
+      );
+    } finally {
+      setResetBusy(false);
+    }
+  }
+
+  if (loadError !== null) {
+    return (
+      <ErrorPanel
+        title="UNABLE TO LOAD FAILURE LAB"
+        correlationId={loadError.correlationId}
+        code={loadError.code}
+      />
+    );
+  }
+  if (catalog === null) {
+    return <StatusLine>LOADING FAILURE LAB…</StatusLine>;
+  }
+
+  return (
+    <>
+      <header className="page-head">
+        <h1 className="kicker">SYNTHETIC FAILURE LAB</h1>
+        <p className="synthetic-flag" role="note">
+          {catalog.notice}
+        </p>
+        <p>
+          Each run posts signed synthetic webhooks through ingest, validation,
+          persistence, processing, retry, replay, and audit. Nothing is sent to
+          Razorpay.
+        </p>
+      </header>
+      {catalog.scenarios.map((scenario) => (
+        <ScenarioBlock
+          key={scenario.id}
+          scenario={scenario}
+          report={reports[scenario.id]}
+          executing={running === scenario.id}
+          disabled={running !== null}
+          onRun={(id) => {
+            void run(id);
+          }}
+        />
+      ))}
+      {runError !== null ? (
+        <ErrorPanel
+          title="UNABLE TO RUN FAILURE LAB SCENARIO"
+          correlationId={runError.correlationId}
+          code={runError.code}
+        />
+      ) : null}
+      {active !== null ? <RunReport report={active} /> : null}
+      <section className="lab-reset">
+        <h2 className="kicker">RESET LAB</h2>
+        <p>
+          Deletes only <span className="mono">SYNTHETIC:pay:lab-*</span> rows.
+          Simulator and non-synthetic records are not touched.
+        </p>
+        {resetOpen ? (
+          <div className="lab-reset__confirm">
+            <label>
+              Type {RESET_CONFIRM} to confirm
+              <input
+                value={resetText}
+                onChange={(event) => setResetText(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={resetBusy || resetText !== RESET_CONFIRM}
+              onClick={() => {
+                void confirmReset();
+              }}
+            >
+              CONFIRM RESET
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setResetOpen(true)}>
+            RESET LAB
+          </button>
+        )}
+      </section>
+    </>
+  );
+}

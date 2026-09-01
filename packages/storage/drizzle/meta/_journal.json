@@ -57,6 +57,13 @@
       "when": 1788234000000,
       "tag": "0007_exceptions_code_detected_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788237000000,
+      "tag": "0008_failure_lab_purge",
+      "breakpoints": true
     }
   ]
 }

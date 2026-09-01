@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import type {
   AuditRepository,
   ExceptionRepository,
+  FailureLabPurgeResult,
   InvestigationRepository,
   PaymentRepository,
   RetryRepository,
@@ -48,6 +49,13 @@ import {
   handlePostInvestigate,
 } from "./http/investigation.js";
 import { handleWebhookPost } from "./http/webhooks.js";
+import {
+  handleFailureLabCatalog,
+  handleFailureLabGetRun,
+  handleFailureLabReset,
+  handleFailureLabRun,
+} from "./failure-lab/http.js";
+import type { FailureLabRunReport } from "./failure-lab/report.js";
 import type { ProcessIncomingWebhookDependencies } from "./pipeline/process-incoming-webhook.js";
 
 export type ApiDependencies = ProcessIncomingWebhookDependencies & {
@@ -62,6 +70,8 @@ export type ApiDependencies = ProcessIncomingWebhookDependencies & {
   readonly metrics?: ProcessMetrics;
   readonly ping?: () => Promise<void>;
   readonly liveProviders?: readonly string[];
+  readonly syntheticWebhookSecret?: string;
+  readonly purgeFailureLab?: () => Promise<FailureLabPurgeResult>;
 };
 
 export function createApp(dependencies: ApiDependencies): Hono {
@@ -73,6 +83,7 @@ export function createApp(dependencies: ApiDependencies): Hono {
     logger,
     metrics,
   };
+  const labRuns = new Map<string, FailureLabRunReport>();
 
   app.get("/", (c) => {
     return c.json({
@@ -98,6 +109,8 @@ export function createApp(dependencies: ApiDependencies): Hono {
       incidents: "/incidents",
       incident: "/incidents/:id",
       incidentTimeline: "/incidents/:id/timeline",
+      failureLab: "/failure-lab",
+      failureLabRun: "/failure-lab/run",
       investigate: "/exceptions/:id/investigate",
       investigation: "/exceptions/:id/investigation",
     });
@@ -144,6 +157,20 @@ export function createApp(dependencies: ApiDependencies): Hono {
   );
   app.get("/incidents/:id", (c) => handleGetIncident(c, wired));
   app.get("/incidents", (c) => handleListIncidents(c, wired));
+  app.get("/failure-lab", (c) => handleFailureLabCatalog(c));
+  app.post("/failure-lab/run", (c) =>
+    handleFailureLabRun(c, wired, labRuns, (processFn) =>
+      createApp({
+        ...wired,
+        processPaymentEvents: processFn,
+        retryPolicy: wired.retryPolicy,
+      }),
+    ),
+  );
+  app.get("/failure-lab/runs/:id", (c) => handleFailureLabGetRun(c, labRuns));
+  app.post("/failure-lab/reset", (c) =>
+    handleFailureLabReset(c, wired, labRuns),
+  );
   app.get("/audit", (c) => handleCorrelationAudit(c, wired));
 
   return app;

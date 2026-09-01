@@ -26,6 +26,21 @@ export {
   recreateDatabase,
   type WebhookEventStore,
 } from "./store.js";
+export {
+  FAILURE_LAB_EVENT_PREFIX,
+  FAILURE_LAB_PAYMENT_PREFIX,
+  FAILURE_LAB_PROVIDER,
+  isFailureLabEventId,
+  isFailureLabPaymentId,
+} from "./failure-lab/identity.js";
+export {
+  purgeSyntheticFailureLab,
+  type FailureLabPurgeResult,
+} from "./failure-lab/purge.js";
+export {
+  purgeMemoryFailureLab,
+  type MemoryFailureLabRepos,
+} from "./failure-lab/memory-purge.js";
 export { RETRY_STATUSES, isRetryStatus, type RetryStatus } from "./retry/status.js";
 export {
   DEFAULT_RETRY_LEASE_MS,

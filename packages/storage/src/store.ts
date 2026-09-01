@@ -18,6 +18,10 @@ import { DrizzleRetryRepository } from "./retry/drizzle-retry-repository.js";
 import type { RetryRepository } from "./retry/repository.js";
 import { DrizzleWebhookEventRepository } from "./drizzle-webhook-event-repository.js";
 import type { WebhookEventRepository } from "./repository.js";
+import {
+  purgeSyntheticFailureLab,
+  type FailureLabPurgeResult,
+} from "./failure-lab/purge.js";
 
 export type WebhookEventStore = {
   readonly repository: WebhookEventRepository;
@@ -28,6 +32,7 @@ export type WebhookEventStore = {
   readonly investigations: InvestigationRepository;
   readonly persistOutcome: PersistOutcomeFn;
   ping(): Promise<void>;
+  purgeFailureLab(): Promise<FailureLabPurgeResult>;
   close(): Promise<void>;
 };
 
@@ -57,6 +62,9 @@ export async function openWebhookEventStore(
     persistOutcome: createDrizzleOutcomeWriter(db),
     async ping() {
       await pool.query("SELECT 1");
+    },
+    async purgeFailureLab() {
+      return purgeSyntheticFailureLab(db);
     },
     async close() {
       await pool.end();

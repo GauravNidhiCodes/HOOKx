@@ -169,6 +169,124 @@ export type WebhookListQuery = {
   readonly provider?: string;
 };
 
+export type FailureLabScenarioId =
+  | "DUPLICATE_DELIVERY"
+  | "OUT_OF_ORDER"
+  | "CONFLICTING_EVENT"
+  | "TRANSIENT_FAILURE"
+  | "RETRY_EXHAUSTION"
+  | "REPLAY_RECOVERY";
+
+export type FailureLabCatalogEntry = {
+  readonly id: FailureLabScenarioId;
+  readonly number: string;
+  readonly title: string;
+  readonly explanation: string;
+  readonly expected: string;
+  readonly failureMode: string;
+};
+
+export type FailureLabCatalog = {
+  readonly notice: string;
+  readonly synthetic: true;
+  readonly scenarios: readonly FailureLabCatalogEntry[];
+};
+
+export type FailureLabLogEntry = {
+  readonly clock: string;
+  readonly lifecycle: string;
+  readonly decision: string | null;
+  readonly inferred: boolean;
+};
+
+export type FailureLabRunReport = {
+  readonly runId: string;
+  readonly scenario: FailureLabScenarioId;
+  readonly title: string;
+  readonly synthetic: true;
+  readonly notice: string;
+  readonly startedAt: string;
+  readonly finishedAt: string;
+  readonly failureMode: string;
+  readonly retryPolicy: {
+    readonly maxAttempts: number;
+    readonly baseDelayMs: number;
+    readonly maxDelayMs: number;
+  };
+  readonly input: {
+    readonly deliveries: number;
+    readonly eventOrderSent: readonly string[];
+    readonly eventTimeOrder: readonly string[];
+  };
+  readonly result: {
+    readonly processed: number;
+    readonly duplicate: number;
+    readonly conflict: number;
+    readonly error: number;
+    readonly accepted: number;
+  };
+  readonly stateChange: number;
+  readonly payment: {
+    readonly paymentId: string;
+    readonly state: string | null;
+    readonly amountMinor: string | null;
+  };
+  readonly originalAmountMinor: string | null;
+  readonly originalPayloadHash: string | null;
+  readonly exception: {
+    readonly exceptionId: string;
+    readonly exceptionCode: string;
+  } | null;
+  readonly incidentId: string | null;
+  readonly auditCount: number;
+  readonly retry: {
+    readonly attemptCount: number;
+    readonly status: string;
+    readonly nextAttemptAt: string | null;
+    readonly lastErrorCode: string | null;
+    readonly lastFailedAt: string | null;
+    readonly failureClass: string | null;
+  } | null;
+  readonly deadLetter: {
+    readonly failureCode: string;
+    readonly attemptCount: number;
+    readonly deadLetteredAt: string;
+  } | null;
+  readonly replay: {
+    readonly beforeState: string | null;
+    readonly afterState: string | null;
+    readonly delayed: boolean;
+  } | null;
+  readonly log: readonly FailureLabLogEntry[];
+  readonly deliveries: readonly {
+    readonly stepIndex: number;
+    readonly eventType: string;
+    readonly eventKey: string;
+    readonly httpStatus: number;
+    readonly bodyStatus: string;
+    readonly code: string | null;
+    readonly kind: string;
+  }[];
+  readonly links: {
+    readonly incident: string | null;
+    readonly payment: string | null;
+    readonly event: string | null;
+  };
+};
+
+export type FailureLabResetResult = {
+  readonly notice: string;
+  readonly deleted: {
+    readonly investigations: number;
+    readonly exceptions: number;
+    readonly deadLetters: number;
+    readonly retries: number;
+    readonly audit: number;
+    readonly webhooks: number;
+    readonly payments: number;
+  };
+};
+
 export const PUBLIC_EXCEPTION_KEYS = [
   "exceptionId",
   "exceptionCode",

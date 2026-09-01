@@ -80,7 +80,7 @@ What this revision does not implement or claim:
 ```
 apps/
   api/                 Hono HTTP + webhook pipeline + retry/audit inspection
-  web/                 React/Vite operator console (exceptions, incidents, payments, events)
+  web/                 React/Vite operator console (exceptions, incidents, payments, events, Failure Lab)
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event, identity, signature verifiers
@@ -166,8 +166,9 @@ pnpm simulate list
 | Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
 | Deterministic exception detection | Implemented (rules + PostgreSQL + read APIs) |
 | Read-only AI investigation | Implemented (stub default; optional isolated LLM adapter) |
-| Operator console | Implemented (exception queue, incidents/timeline, payment workspace, event inspector; no fake KPIs) |
+| Operator console | Implemented (exception queue, incidents/timeline, payment workspace, event inspector, Failure Lab; no fake KPIs) |
 | Observability / incident timeline | Implemented (structured logs, correlation ids, composed timelines; no fabricated metrics) |
+| Failure Lab | Implemented (synthetic scenarios through real ingest, isolated failure injection, lab-only reset) |
 | Production deployment | Not implemented |
 
-The web shell is a black-and-white operator console. It reads exceptions, incidents, payments, webhook events, audit history, retries, and investigations from the API. See `docs/operator-console.md` and `docs/observability.md`. It does not display fabricated volume or success metrics.
+The web shell is a black-and-white operator console. It reads exceptions, incidents, payments, webhook events, audit history, retries, and investigations from the API. The Failure Lab at `/failure-lab` posts synthetic webhooks through the real ingest pipeline. See `docs/operator-console.md`, `docs/observability.md`, and `docs/failure-lab.md`. It does not display fabricated volume or success metrics.
