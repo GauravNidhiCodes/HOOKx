@@ -216,18 +216,29 @@ describe("golden demo end-to-end", () => {
     expect(asDemo(await fetched.json()).demoRunId).toBe(demo.demoRunId);
   });
 
-  it("isolates a second run with new identifiers", async () => {
-    const first = asDemo(
-      await (await app.request("/demo/run", { method: "POST" })).json(),
-    );
-    const second = asDemo(
-      await (await app.request("/demo/run", { method: "POST" })).json(),
-    );
-    expect(second.demoRunId).not.toBe(first.demoRunId);
-    expect(second.correlationId).not.toBe(first.correlationId);
-    expect(second.run.payment.paymentId).not.toBe(first.run.payment.paymentId);
-    expect(second.run.storedEventCount).toBe(1);
-    expect(first.run.storedEventCount).toBe(1);
+  it("isolates three consecutive runs with new identifiers", async () => {
+    const runs = [];
+    for (let index = 0; index < 3; index += 1) {
+      const response = await app.request("/demo/run", { method: "POST" });
+      expect(response.status).toBe(200);
+      runs.push(asDemo(await response.json()));
+    }
+    const ids = runs.map((row) => row.demoRunId);
+    const payments = runs.map((row) => row.run.payment.paymentId);
+    const correlations = runs.map((row) => row.correlationId);
+    expect(new Set(ids).size).toBe(3);
+    expect(new Set(payments).size).toBe(3);
+    expect(new Set(correlations).size).toBe(3);
+    for (const row of runs) {
+      expect(row.run.storedEventCount).toBe(1);
+      expect(row.invariant.noDuplicateEconomicEffect).toBe(true);
+      expect(
+        await store.repository.listByPayment(
+          PROVIDER,
+          paymentId(row.run.payment.paymentId),
+        ),
+      ).toHaveLength(1);
+    }
   });
 
   it("does not treat Failure Lab memory of other scenarios as a demo run", async () => {

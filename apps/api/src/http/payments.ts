@@ -127,14 +127,14 @@ export async function handleListPayments(
   }
   const records = await dependencies.payments.list(parsed);
   const counts = new Map<string, number>();
-  if (dependencies.exceptions !== undefined) {
-    const exceptions = await dependencies.exceptions.list();
-    for (const row of exceptions) {
-      if (row.paymentId === null) {
-        continue;
-      }
-      counts.set(row.paymentId, (counts.get(row.paymentId) ?? 0) + 1);
-    }
+  const exceptions = dependencies.exceptions;
+  if (exceptions !== undefined) {
+    await Promise.all(
+      records.map(async (record) => {
+        const n = await exceptions.count({ paymentId: record.paymentId });
+        counts.set(record.paymentId, n);
+      }),
+    );
   }
   const earliestByKey = new Map<string, Instant>();
   if (dependencies.repository !== undefined) {

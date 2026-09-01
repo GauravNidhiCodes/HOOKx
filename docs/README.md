@@ -14,6 +14,7 @@ Index of technical documents that exist in this repository.
 | [demo.md](demo.md) | End-to-end architecture demonstration (Failure Lab TRANSIENT FAILURE) |
 | [golden-demo.md](golden-demo.md) | Golden Demo (`/demo`) — Razorpay-shaped fail-once through the real pipeline |
 | [test-matrix.md](test-matrix.md) | Scenario → expected behavior → automated test |
+| [local-synthetic-benchmark.md](local-synthetic-benchmark.md) | LOCAL SYNTHETIC BENCHMARK (not an SLA) |
 | [operator-console.md](operator-console.md) | Operator UI contracts |
 | [razorpay.md](razorpay.md) | Pointer to the Razorpay adapter document |
 | [providers/razorpay.md](providers/razorpay.md) | Razorpay adapter: contract, signature, fixtures, limitations |

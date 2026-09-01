@@ -259,6 +259,79 @@ describe("investigation HTTP", () => {
     expect(body.investigation.investigator).toBe("unavailable");
     expect(body.investigation.result.confidence).toBe("LOW");
     expect(await exceptions.findById(exception.exceptionId)).toEqual(exception);
+    expect(await payments.get(PROVIDER, PAYMENT)).toMatchObject({
+      state: "CREATED",
+      amountMinor: 10000n,
+    });
+  });
+
+  it("leaves financial state unchanged when the AI provider times out", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const exceptions = new MemoryExceptionRepository();
+    const investigations = new MemoryInvestigationRepository();
+    const payments = new MemoryPaymentRepository();
+    const { exception } = await seedException(repository, exceptions, payments);
+    const app = appOf({
+      repository,
+      exceptions,
+      investigations,
+      payments,
+      investigator: new ThrowingInvestigator(
+        new InvestigationError(
+          INVESTIGATION_ERROR_CODE.PROVIDER_UNAVAILABLE,
+          "AI provider request timed out",
+        ),
+      ),
+    });
+    const posted = await app.request(
+      `/exceptions/${exception.exceptionId}/investigate`,
+      { method: "POST" },
+    );
+    expect(posted.status).toBe(200);
+    const body = (await posted.json()) as {
+      investigation: { investigator: string };
+    };
+    expect(body.investigation.investigator).toBe("unavailable");
+    expect(await exceptions.findById(exception.exceptionId)).toEqual(exception);
+    expect(await payments.get(PROVIDER, PAYMENT)).toMatchObject({
+      state: "CREATED",
+      amountMinor: 10000n,
+    });
+  });
+
+  it("leaves financial state unchanged when the model returns malformed output", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const exceptions = new MemoryExceptionRepository();
+    const investigations = new MemoryInvestigationRepository();
+    const payments = new MemoryPaymentRepository();
+    const { exception } = await seedException(repository, exceptions, payments);
+    const app = appOf({
+      repository,
+      exceptions,
+      investigations,
+      payments,
+      investigator: new ThrowingInvestigator(
+        new InvestigationError(
+          INVESTIGATION_ERROR_CODE.MALFORMED_MODEL_OUTPUT,
+          "AI provider returned empty content",
+        ),
+      ),
+    });
+    const posted = await app.request(
+      `/exceptions/${exception.exceptionId}/investigate`,
+      { method: "POST" },
+    );
+    expect(posted.status).toBe(200);
+    const body = (await posted.json()) as {
+      investigation: { investigator: string; result: { confidence: string } };
+    };
+    expect(body.investigation.investigator).toBe("unavailable");
+    expect(body.investigation.result.confidence).toBe("LOW");
+    expect(await exceptions.findById(exception.exceptionId)).toEqual(exception);
+    expect(await payments.get(PROVIDER, PAYMENT)).toMatchObject({
+      state: "CREATED",
+      amountMinor: 10000n,
+    });
   });
 
   it("does not persist hallucinated evidence when the model is invalid", async () => {

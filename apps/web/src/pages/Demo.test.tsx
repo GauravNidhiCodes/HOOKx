@@ -34,6 +34,13 @@ describe("golden demo", () => {
     expect(screen.queryByText("CONNECTED")).toBeNull();
     expect(screen.queryByText(/uptime/i)).toBeNull();
     expect(api.runGoldenDemo).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(api.listGoldenDemoRuns).toHaveBeenCalledTimes(1);
+    });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 80);
+    });
+    expect(api.listGoldenDemoRuns).toHaveBeenCalledTimes(1);
   });
 
   it("runs the backend demo and marks steps from the report", async () => {

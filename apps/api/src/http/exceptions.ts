@@ -13,6 +13,8 @@ export type ExceptionRouteDependencies = {
   readonly exceptions?: ExceptionRepository;
 };
 
+const EXCEPTION_LIST_LIMIT = 200;
+
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -38,7 +40,7 @@ function parseFilters(context: Context): ExceptionListFilter | Response {
   const payment = context.req.query("paymentId")?.trim();
   const webhookEventId = context.req.query("webhookEventId")?.trim();
   const q = context.req.query("q")?.trim();
-  let filter: ExceptionListFilter = {};
+  let filter: ExceptionListFilter = { limit: EXCEPTION_LIST_LIMIT };
   if (status !== undefined && status.length > 0) {
     if (!isExceptionStatus(status)) {
       return badRequest(context, "INVALID_EXCEPTION_STATUS");

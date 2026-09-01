@@ -609,7 +609,7 @@ describe("end-to-end webhook processing pipeline", () => {
     ).toHaveLength(1);
   });
 
-  it("ten sequential identical deliveries produce one event and one transition", async () => {
+  it("100 sequential identical deliveries produce one event and one transition", async () => {
     const eventRef = `SYNTHETIC:evt:${randomUUID()}`;
     const paymentRef = `SYNTHETIC:pay:${randomUUID()}`;
     const payload = syntheticOpenedPayload({
@@ -617,13 +617,13 @@ describe("end-to-end webhook processing pipeline", () => {
       payment_ref: paymentRef,
     });
     const statuses: string[] = [];
-    for (let index = 0; index < 10; index += 1) {
+    for (let index = 0; index < 100; index += 1) {
       const response = await postSigned(payload);
       expect(response.status).toBe(200);
       statuses.push(String((await readJson(response)).status));
     }
     expect(statuses.filter((status) => status === "accepted")).toHaveLength(1);
-    expect(statuses.filter((status) => status === "duplicate")).toHaveLength(9);
+    expect(statuses.filter((status) => status === "duplicate")).toHaveLength(99);
     expect(
       await store.repository.listByPayment(PROVIDER, paymentId(paymentRef)),
     ).toHaveLength(1);

@@ -15,6 +15,7 @@ import { failureModeForLab } from "./bind.js";
 import { createLabProcessFn } from "./injection.js";
 import { runFailureLabScenario } from "./run.js";
 import type { FailureLabRunReport } from "./report.js";
+import { retainLabRuns } from "./run-retention.js";
 
 export const FAILURE_LAB_RESET_CONFIRM = "SYNTHETIC_FAILURE_LAB";
 
@@ -90,6 +91,7 @@ export async function handleFailureLabRun(
     dependencies.syntheticWebhookSecret,
   );
   runs.set(report.runId, report);
+  retainLabRuns(runs);
   return context.json({ run: report });
 }
 

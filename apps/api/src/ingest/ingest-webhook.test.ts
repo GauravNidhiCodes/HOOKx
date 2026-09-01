@@ -405,4 +405,68 @@ describe("processIncomingWebhook", () => {
     expect(sigRows[0]?.reason).toBe("MISSING_SIGNATURE");
     expect(JSON.stringify(sigRows)).not.toContain(SECRET);
   });
+
+  it("does not report success when PostgreSQL store fails after verification", async () => {
+    class UnavailableStore extends MemoryWebhookEventRepository {
+      public override async store(): Promise<never> {
+        throw new Error("ECONNREFUSED");
+      }
+    }
+    const repository = new UnavailableStore();
+    const payments = new MemoryPaymentRepository();
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:ingest-db-store",
+    });
+    const rawBody = rawBodyOf(payload);
+    const result = await processIncomingWebhook(
+      createDeps(repository, { payments }),
+      {
+        provider: "SYNTHETIC",
+        rawBody,
+        headers: signedHeaders(rawBody),
+        requestId: "req-db-store",
+        now: NOW,
+      },
+    );
+    expect(result.httpStatus).toBe(500);
+    expect(result.body).toEqual({
+      status: "error",
+      requestId: "req-db-store",
+      code: "TEMPORARY_PROCESSING_FAILURE",
+    });
+    expect(result.body).not.toHaveProperty("stack");
+    expect(JSON.stringify(result.body)).not.toMatch(/ECONNREFUSED|postgres/i);
+    expect(repository.records).toHaveLength(0);
+    expect(payments.records).toHaveLength(0);
+  });
+
+  it("does not report a payment transition when persistOutcome fails", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const payments = new MemoryPaymentRepository();
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:ingest-db-persist",
+      payment_ref: "SYNTHETIC:pay:ingest-db-persist",
+    });
+    const rawBody = rawBodyOf(payload);
+    const result = await processIncomingWebhook(
+      createDeps(repository, {
+        payments,
+        persistOutcome: async () => {
+          throw new Error("ECONNREFUSED");
+        },
+      }),
+      {
+        provider: "SYNTHETIC",
+        rawBody,
+        headers: signedHeaders(rawBody),
+        requestId: "req-db-persist",
+        now: NOW,
+      },
+    );
+    expect(result.httpStatus).toBe(500);
+    expect(result.body.code).toBe("TEMPORARY_PROCESSING_FAILURE");
+    expect(JSON.stringify(result.body)).not.toMatch(/ECONNREFUSED|postgres/i);
+    expect(repository.records).toHaveLength(1);
+    expect(payments.records).toHaveLength(0);
+  });
 });

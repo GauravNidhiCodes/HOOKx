@@ -11,6 +11,7 @@ import { createLabProcessFn } from "../failure-lab/injection.js";
 import { runFailureLabScenario } from "../failure-lab/run.js";
 import type { FailureLabRunReport } from "../failure-lab/report.js";
 import type { FailureLabRouteDependencies } from "../failure-lab/http.js";
+import { retainLabRuns } from "../failure-lab/run-retention.js";
 
 export const GOLDEN_DEMO_EXPLANATION =
   "Observe how HOOKX handles a webhook failure without allowing the financial state to become inconsistent.";
@@ -135,6 +136,7 @@ export async function handleDemoRun(
     );
   }
   runs.set(report.runId, report);
+  retainLabRuns(runs);
   return context.json({ demo: wrap(report) });
 }
 

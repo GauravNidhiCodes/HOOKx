@@ -89,4 +89,36 @@ describe("GET exception routes", () => {
       ((await byPaymentQuery.json()) as { exceptions: unknown[] }).exceptions,
     ).toHaveLength(1);
   });
+
+  it("caps the exception list instead of returning an unbounded set", async () => {
+    const exceptions = new MemoryExceptionRepository();
+    for (let index = 0; index < 201; index += 1) {
+      await exceptions.create(
+        createExceptionDraft({
+          exceptionCode: "PROCESSING_FAILURE",
+          paymentId: paymentId(`SYNTHETIC:pay:http-ex-cap-${index}`),
+          webhookEventId: null,
+          provider: providerId("SYNTHETIC"),
+          reason: "PROCESSING_FAILURE",
+          detectedAt: NOW,
+          correlationId: `corr-ex-cap-${index}`,
+        }),
+      );
+    }
+    const app = createApp({
+      repository: new MemoryWebhookEventRepository(),
+      retry: new MemoryRetryRepository(),
+      audit: new MemoryAuditRepository(),
+      exceptions,
+      verifiers: createSignatureVerifierRegistry({
+        syntheticSecret: SECRET,
+        syntheticToleranceSeconds: 300,
+      }),
+      clock: fixedClock(NOW),
+    });
+    const listed = await app.request("/exceptions");
+    expect(listed.status).toBe(200);
+    const body = (await listed.json()) as { exceptions: unknown[] };
+    expect(body.exceptions).toHaveLength(200);
+  });
 });

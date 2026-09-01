@@ -7,10 +7,14 @@ import {
   RAZORPAY_SIGNATURE_HEADER,
   razorpayPaymentAuthorizedPayload,
   signRazorpayWebhook,
+  invalidAmountSyntheticPayload,
+  invalidCurrencySyntheticPayload,
+  malformedSyntheticPayload,
   signSyntheticWebhook,
   SYNTHETIC_SIGNATURE_HEADER,
   syntheticOpenedPayload,
   unixSecondsFromInstant,
+  unknownSyntheticEventPayload,
 } from "@hookx/webhook";
 import {
   createSequentialOutcomeWriter,
@@ -249,6 +253,214 @@ describe("POST /webhooks/:provider", () => {
     expect(response.status).toBe(413);
     expect((await readJson(response)).code).toBe("PAYLOAD_TOO_LARGE");
     expect(repository.storeCalls).toBe(0);
+  });
+
+  it("rejects an empty body after a valid signature", async () => {
+    const { app, repository, payments } = createTestApp();
+    const rawBody = "";
+    const response = await postSigned(app, { rawBody });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_PAYLOAD");
+    expect(repository.records).toHaveLength(0);
+    expect(payments.records).toHaveLength(0);
+  });
+
+  it("rejects invalid JSON after a valid signature", async () => {
+    const { app, repository } = createTestApp();
+    const response = await postSigned(app, { rawBody: "{not-json" });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_PAYLOAD");
+    expect(repository.records).toHaveLength(0);
+  });
+
+  it("rejects a malformed envelope after a valid signature", async () => {
+    const { app, repository } = createTestApp();
+    const response = await postSigned(app, {
+      payload: malformedSyntheticPayload(),
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_PAYLOAD");
+    expect(repository.records).toHaveLength(0);
+  });
+
+  it("rejects missing identifiers, amount, and currency without persisting", async () => {
+    const { app, repository, payments } = createTestApp();
+    const cases: Array<{ payload: unknown; code: string }> = [
+      {
+        payload: syntheticOpenedPayload({ event_ref: "" }),
+        code: "MISSING_EXTERNAL_ID",
+      },
+      {
+        payload: {
+          ...syntheticOpenedPayload({ event_ref: "SYNTHETIC:evt:http-no-pay" }),
+          entity: {
+            ...syntheticOpenedPayload().entity,
+            payment_ref: "",
+          },
+        },
+        code: "MISSING_PAYMENT_ID",
+      },
+      {
+        payload: {
+          ...syntheticOpenedPayload({ event_ref: "SYNTHETIC:evt:http-no-amt" }),
+          entity: {
+            ...syntheticOpenedPayload().entity,
+            money: { ccy: "INR" },
+          },
+        },
+        code: "INVALID_AMOUNT",
+      },
+      {
+        payload: invalidAmountSyntheticPayload(),
+        code: "INVALID_AMOUNT",
+      },
+      {
+        payload: syntheticOpenedPayload({
+          event_ref: "SYNTHETIC:evt:http-neg",
+          minor_units: "-1",
+        }),
+        code: "INVALID_AMOUNT",
+      },
+      {
+        payload: invalidCurrencySyntheticPayload(),
+        code: "INVALID_CURRENCY",
+      },
+      {
+        payload: unknownSyntheticEventPayload(),
+        code: "UNSUPPORTED_EVENT",
+      },
+    ];
+    for (const row of cases) {
+      const response = await postSigned(app, { payload: row.payload });
+      expect(response.status).toBe(400);
+      expect((await readJson(response)).code).toBe(row.code);
+    }
+    expect(repository.records).toHaveLength(0);
+    expect(payments.records).toHaveLength(0);
+  });
+
+  it("keeps occurredAt, receivedAt, and processing time distinct", async () => {
+    const { app, repository, payments, audit } = createTestApp();
+    const occurredAt = "2020-06-01T00:00:00.000Z";
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:http-old-clock",
+      payment_ref: "SYNTHETIC:pay:http-old-clock",
+      booked_at: occurredAt,
+    });
+    const response = await postSigned(app, { payload });
+    expect(response.status).toBe(200);
+    const stored = repository.records[0];
+    expect(stored?.event.occurredAt).toBe(occurredAt);
+    expect(stored?.event.receivedAt).toBe(NOW);
+    expect(stored?.event.occurredAt).not.toBe(stored?.event.receivedAt);
+    const payment = payments.records[0];
+    expect(payment?.lastOccurredAt).toBe(occurredAt);
+    expect(payment?.updatedAt).toBe(NOW);
+    expect(payment?.updatedAt).not.toBe(payment?.lastOccurredAt);
+    const changed = audit.records.find(
+      (row) => row.eventType === "PAYMENT_STATE_CHANGED",
+    );
+    expect(changed?.occurredAt).toBe(occurredAt);
+    expect(changed?.recordedAt).toBe(NOW);
+    expect(changed?.occurredAt).not.toBe(changed?.recordedAt);
+  });
+
+  it("stores a future occurredAt without substituting the receive clock", async () => {
+    const { app, repository } = createTestApp();
+    const occurredAt = "2099-01-01T00:00:00.000Z";
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:http-future-clock",
+      booked_at: occurredAt,
+    });
+    const response = await postSigned(app, { payload });
+    expect(response.status).toBe(200);
+    expect(repository.records[0]?.event.occurredAt).toBe(occurredAt);
+    expect(repository.records[0]?.event.receivedAt).toBe(NOW);
+  });
+
+  it("accepts zero, unit, and large minor amounts as bigint", async () => {
+    const { app, repository } = createTestApp();
+    const cases: Array<{ event_ref: string; minor_units: string; amount: bigint }> = [
+      {
+        event_ref: "SYNTHETIC:evt:http-amt-0",
+        minor_units: "0",
+        amount: 0n,
+      },
+      {
+        event_ref: "SYNTHETIC:evt:http-amt-1",
+        minor_units: "1",
+        amount: 1n,
+      },
+      {
+        event_ref: "SYNTHETIC:evt:http-amt-large",
+        minor_units: "1000000000000000000",
+        amount: 10n ** 18n,
+      },
+    ];
+    for (const row of cases) {
+      const response = await postSigned(app, {
+        payload: syntheticOpenedPayload({
+          event_ref: row.event_ref,
+          payment_ref: `SYNTHETIC:pay:${row.event_ref.slice(-8)}`,
+          minor_units: row.minor_units,
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(
+        repository.records.find((item) => item.event.externalEventId === row.event_ref)
+          ?.event.amountMinor,
+      ).toBe(row.amount);
+    }
+  });
+
+  it("preserves the original amount and currency on a conflicting redelivery", async () => {
+    const { app, repository, payments } = createTestApp();
+    const eventRef = "SYNTHETIC:evt:http-ccy-conflict";
+    const first = await postSigned(app, {
+      payload: syntheticOpenedPayload({
+        event_ref: eventRef,
+        payment_ref: "SYNTHETIC:pay:http-ccy-conflict",
+        minor_units: "10000",
+        ccy: "INR",
+      }),
+    });
+    const second = await postSigned(app, {
+      payload: syntheticOpenedPayload({
+        event_ref: eventRef,
+        payment_ref: "SYNTHETIC:pay:http-ccy-conflict",
+        minor_units: "10000",
+        ccy: "USD",
+      }),
+    });
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(409);
+    expect(repository.records).toHaveLength(1);
+    expect(repository.records[0]?.event.currency).toBe("INR");
+    expect(repository.records[0]?.event.amountMinor).toBe(10000n);
+    expect(payments.records).toHaveLength(1);
+    expect(payments.records[0]?.currency).toBe("INR");
+  });
+
+  it("100 identical deliveries produce one stored event and one economic effect", async () => {
+    const { app, repository, payments, audit } = createTestApp();
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:http-dup-100",
+      payment_ref: "SYNTHETIC:pay:http-dup-100",
+    });
+    const statuses: string[] = [];
+    for (let index = 0; index < 100; index += 1) {
+      const response = await postSigned(app, { payload });
+      expect(response.status).toBe(200);
+      statuses.push(String((await readJson(response)).status));
+    }
+    expect(statuses.filter((status) => status === "accepted")).toHaveLength(1);
+    expect(statuses.filter((status) => status === "duplicate")).toHaveLength(99);
+    expect(repository.records).toHaveLength(1);
+    expect(payments.records).toHaveLength(1);
+    expect(payments.records[0]?.state).toBe("CREATED");
+    expect(
+      audit.records.filter((row) => row.eventType === "PAYMENT_STATE_CHANGED"),
+    ).toHaveLength(1);
   });
 });
 
