@@ -4,6 +4,7 @@ import type {
   FailureLabCatalog,
   FailureLabResetResult,
   FailureLabRunReport,
+  MetricsSummary,
   PublicAuditEvent,
   PublicException,
   PublicIncident,
@@ -554,9 +555,12 @@ export const sampleFailureLabCatalog: FailureLabCatalog = {
       id: "TRANSIENT_FAILURE",
       number: "04",
       title: "TRANSIENT FAILURE",
-      explanation: "Lab-only FAIL_ONCE injection.",
-      expected: "Processing fails, retry is scheduled, retry succeeds.",
+      explanation:
+        "A signed synthetic payment webhook is delivered through ingest. Lab-only FAIL_ONCE injection causes the first processing attempt to fail.",
+      expected:
+        "HOOKX verifies, normalizes, and persists the event; records the failure; schedules a retry; retries; recovers payment state.",
       failureMode: "FAIL_ONCE",
+      architectureDemo: true,
     },
     {
       id: "RETRY_EXHAUSTION",
@@ -582,6 +586,8 @@ export const sampleFailureLabRun: FailureLabRunReport = {
   scenario: "DUPLICATE_DELIVERY",
   title: "DUPLICATE DELIVERY",
   synthetic: true,
+  demoRun: false,
+  labels: ["SYNTHETIC"],
   notice: "The Failure Lab never sends real payment requests.",
   startedAt: "2026-01-15T14:21:03.000Z",
   finishedAt: "2026-01-15T14:21:03.000Z",
@@ -688,6 +694,33 @@ export const sampleFailureLabReset: FailureLabResetResult = {
   },
 };
 
+export const sampleMetricsEmpty: MetricsSummary = {
+  asOf: "2026-01-15T14:00:00.000Z",
+  persisted: {
+    source: "database",
+    webhookEvents: 0,
+    exceptions: 0,
+    retries: 0,
+    deadLetters: 0,
+    auditByType: {},
+  },
+};
+
+export const sampleMetricsPopulated: MetricsSummary = {
+  asOf: "2026-01-15T14:00:00.000Z",
+  persisted: {
+    source: "database",
+    webhookEvents: 4,
+    exceptions: 2,
+    retries: 1,
+    deadLetters: 0,
+    auditByType: {
+      WEBHOOK_DUPLICATE: 1,
+      RETRY_SUCCEEDED: 1,
+    },
+  },
+};
+
 export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
   return {
     listExceptions: vi.fn(async () => [sampleException]),
@@ -716,6 +749,7 @@ export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
     runFailureLab: vi.fn(async () => sampleFailureLabRun),
     getFailureLabRun: vi.fn(async () => sampleFailureLabRun),
     resetFailureLab: vi.fn(async () => sampleFailureLabReset),
+    getMetricsSummary: vi.fn(async () => sampleMetricsEmpty),
     ...overrides,
   };
 }

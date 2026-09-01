@@ -29,7 +29,12 @@ import {
 } from "../components/chrome";
 import { chronologicalEvents, filterEvents, type EventListFilter } from "../lib/event-filter";
 import { isSyntheticRef } from "../lib/format";
-import { ADVISORY_AUTHORITATIVE } from "../lib/operator-catalog";
+import {
+  ADVISORY_AUTHORITATIVE,
+  AI_GENERATED_INVESTIGATION,
+  AI_NO_FINANCIAL_STATE_CHANGES,
+  AI_READONLY,
+} from "../lib/operator-catalog";
 import { buildReplay } from "../lib/replay";
 import { hasRetryHistory, retryHistoryFromAudit } from "../lib/retry-history";
 import { stateHistoryFromAudit } from "../lib/state-history";
@@ -217,7 +222,24 @@ export function PaymentDetail({ paymentId }: { readonly paymentId: string }) {
               onSubmit={setEventFilter}
               searchLabel="External event ID"
             />
-            <EventTable events={visibleEvents} showPayment={false} />
+            <EventTable
+              events={visibleEvents}
+              showPayment={false}
+              emptyTitle={
+                eventFilter.eventType === undefined &&
+                eventFilter.processingStatus === undefined &&
+                eventFilter.q === undefined
+                  ? "NO EVENTS"
+                  : "NO EVENTS MATCH"
+              }
+              emptyBody={
+                eventFilter.eventType === undefined &&
+                eventFilter.processingStatus === undefined &&
+                eventFilter.q === undefined
+                  ? "No webhook events are currently available."
+                  : "No stored webhook events match the current filter."
+              }
+            />
           </>
         )}
       </Section>
@@ -251,12 +273,19 @@ export function PaymentDetail({ paymentId }: { readonly paymentId: string }) {
           />
         )}
       </Section>
-      <Section title="INVESTIGATION">
+      <Section title="AI INVESTIGATION">
+        <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
+        <p className="advisory">
+          {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
+        </p>
         <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
         {investigationLoading ? (
           <StatusLine>LOADING INVESTIGATION…</StatusLine>
         ) : investigations.length === 0 ? (
-          <p>No investigation has been recorded for exceptions on this payment.</p>
+          <section className="empty">
+            <h3 className="kicker">NO INVESTIGATION</h3>
+            <p>Run an investigation when evidence is available.</p>
+          </section>
         ) : (
           investigations.map((row) => (
             <InvestigationPanel key={row.investigationId} investigation={row} />

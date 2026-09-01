@@ -252,6 +252,8 @@ describe("Failure Lab HTTP", () => {
     expect(report.stateChange).toBe(1);
     expect(report.deadLetter).toBeNull();
     expect(report.exception?.exceptionCode).toBe("PROCESSING_FAILURE");
+    expect(report.demoRun).toBe(true);
+    expect(report.labels).toEqual(["SYNTHETIC", "DEMO RUN"]);
   });
 
   it("dead-letters after the configured retry policy is exhausted", async () => {

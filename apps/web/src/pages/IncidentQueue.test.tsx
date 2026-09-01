@@ -49,7 +49,7 @@ describe("incident queue", () => {
       listIncidents: async () => [],
     });
     render(<App api={api} initialHref="/incidents" />);
-    expect(await screen.findByText("NO OPEN INCIDENTS")).toBeTruthy();
+    expect(await screen.findByText("NO INCIDENTS")).toBeTruthy();
   });
 
   it("shows a loading state", async () => {
@@ -82,22 +82,24 @@ describe("incident detail", () => {
   it("renders incident, payment, event, and timeline", async () => {
     const api = createMockApi();
     render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
-    expect(await screen.findByRole("heading", { name: "INCIDENT" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "WHAT HAPPENED?" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "DETERMINISTIC RESULT" })).toBeTruthy();
     expect(screen.getAllByText("CONFLICTING_EVENT").length).toBeGreaterThan(0);
     expect(screen.getByText("TIMELINE")).toBeTruthy();
-    expect(screen.getByText("WEBHOOK RECEIVED")).toBeTruthy();
-    expect(screen.getByText(/SIGNATURE VERIFIED/)).toBeTruthy();
-    expect(screen.getByText(/EVENT PERSISTED/)).toBeTruthy();
-    expect(screen.getByText("CONFLICT DETECTED")).toBeTruthy();
-    expect(screen.getByText("EXCEPTION CREATED")).toBeTruthy();
-    expect(screen.getByText("INVESTIGATION AVAILABLE")).toBeTruthy();
+    expect(screen.getAllByText("WEBHOOK RECEIVED").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/SIGNATURE VERIFIED/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/EVENT PERSISTED/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("CONFLICT DETECTED").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EXCEPTION CREATED").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("INVESTIGATION AVAILABLE").length).toBeGreaterThan(0);
+    expect(screen.getByText(/PROCESSED TIME/)).toBeTruthy();
     expect(screen.getByText("SYNTHETIC — simulator data. Does not represent a real customer transaction.")).toBeTruthy();
   });
 
   it("links payment, event, and exception identifiers", async () => {
     const api = createMockApi();
     render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
-    await screen.findByRole("heading", { name: "INCIDENT" });
+    await screen.findByRole("heading", { name: "WHAT HAPPENED?" });
     expect(
       screen.getByRole("link", { name: PAYMENT_ID }),
     ).toBeTruthy();
@@ -149,6 +151,9 @@ describe("incident detail", () => {
     render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
     expect(await screen.findByText("UNABLE TO LOAD INCIDENT")).toBeTruthy();
     expect(screen.getByText("corr-missing")).toBeTruthy();
+    expect(
+      screen.getByText("This operator request did not change payment or ledger state."),
+    ).toBeTruthy();
   });
 
   it("shows an empty timeline", async () => {
@@ -162,6 +167,18 @@ describe("incident detail", () => {
     expect(
       await screen.findByText("No persisted timeline exists for this incident."),
     ).toBeTruthy();
+    expect(screen.getByText("NO TIMELINE")).toBeTruthy();
+  });
+
+  it("shows NO INVESTIGATION until an investigation is requested", async () => {
+    const api = createMockApi({
+      listIncidentInvestigations: vi.fn(async () => []),
+    });
+    render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
+    expect(await screen.findByText("NO INVESTIGATION")).toBeTruthy();
+    expect(
+      screen.getByText("Run an investigation when evidence is available."),
+    ).toBeTruthy();
   });
 
   it("runs INVESTIGATE INCIDENT and shows structured AI analysis", async () => {
@@ -170,8 +187,10 @@ describe("incident detail", () => {
     });
     const user = userEvent.setup();
     render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
-    await screen.findByRole("heading", { name: "INCIDENT" });
-    expect(screen.getByText("AI-GENERATED ANALYSIS — NOT AN AUTOMATED FINANCIAL DECISION")).toBeTruthy();
+    await screen.findByRole("heading", { name: "WHAT HAPPENED?" });
+    expect(screen.getAllByText("AI-GENERATED INVESTIGATION").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/READ-ONLY/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/NO FINANCIAL STATE CHANGES/).length).toBeGreaterThan(0);
     await user.click(
       screen.getByRole("button", { name: "INVESTIGATE INCIDENT" }),
     );

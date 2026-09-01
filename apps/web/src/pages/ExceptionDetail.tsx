@@ -23,7 +23,12 @@ import {
   SyntheticMark,
 } from "../components/chrome";
 import { blank, isSyntheticRef } from "../lib/format";
-import { ADVISORY_AUTHORITATIVE } from "../lib/operator-catalog";
+import {
+  ADVISORY_AUTHORITATIVE,
+  AI_GENERATED_INVESTIGATION,
+  AI_NO_FINANCIAL_STATE_CHANGES,
+  AI_READONLY,
+} from "../lib/operator-catalog";
 import { hasRetryHistory, retryHistoryFromAudit } from "../lib/retry-history";
 import { buildTimeline } from "../lib/timeline";
 import { Link } from "../routing/router";
@@ -283,8 +288,16 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
           />
         )}
       </Section>
-      <Section title="INVESTIGATION">
+      <Section title="AI INVESTIGATION">
+        <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
+        <p className="advisory">
+          {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
+        </p>
         <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
+        <p>
+          The deterministic exception record is authoritative. AI explains
+          evidence and does not change payment state.
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -302,12 +315,17 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
             title="INVESTIGATION REQUEST FAILED"
             correlationId={investigationError.correlationId}
             code={investigationError.code}
+            safety="Payment state was not changed. The deterministic exception record is unchanged."
+            next="Retry the investigation, or inspect the event timeline."
           />
         ) : null}
         {investigation !== null ? (
           <InvestigationPanel investigation={investigation} />
         ) : investigationLoading ? null : (
-          <p>No investigation has been recorded for this exception.</p>
+          <section className="empty">
+            <h3 className="kicker">NO INVESTIGATION</h3>
+            <p>Run an investigation when evidence is available.</p>
+          </section>
         )}
       </Section>
     </>

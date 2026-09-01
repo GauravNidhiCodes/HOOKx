@@ -86,12 +86,17 @@ function IncidentResults({ query }: { readonly query: IncidentListQuery }) {
           query.provider === undefined &&
           query.from === undefined &&
           query.to === undefined
-            ? "NO OPEN INCIDENTS"
+            ? "NO INCIDENTS"
             : "NO INCIDENTS MATCH THE FILTERS"}
         </h2>
         <p>
-          {query.status === "OPEN"
-            ? "No persisted exception has been recorded as an OPEN incident for this filter."
+          {query.status === "OPEN" &&
+          query.severity === undefined &&
+          query.exceptionCode === undefined &&
+          query.provider === undefined &&
+          query.from === undefined &&
+          query.to === undefined
+            ? "No webhook incidents have been recorded yet."
             : "No stored incidents match the selected filters."}
         </p>
       </section>

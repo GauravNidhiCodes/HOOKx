@@ -5,15 +5,19 @@ import { Link } from "../routing/router";
 export function EventTable({
   events,
   showPayment = true,
+  emptyTitle = "NO EVENTS",
+  emptyBody = "No webhook events are currently available.",
 }: {
   readonly events: readonly PublicWebhookEvent[];
   readonly showPayment?: boolean;
+  readonly emptyTitle?: string;
+  readonly emptyBody?: string;
 }) {
   if (events.length === 0) {
     return (
       <section className="empty">
-        <h2 className="kicker">NO EVENTS MATCH</h2>
-        <p>No stored webhook events match the current filter.</p>
+        <h2 className="kicker">{emptyTitle}</h2>
+        <p>{emptyBody}</p>
       </section>
     );
   }

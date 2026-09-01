@@ -10,15 +10,21 @@ Primary destinations:
 
 | Path | Purpose |
 | --- | --- |
+| `/` | Overview: product sentence, architecture, principles, persisted counts or **NO DATA** |
+| `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
+| `/incidents` | Exception-backed incident list (no fabricated KPIs) |
+| `/incidents/:id` | Incident chronology, deterministic result, optional AI investigation |
+
+Linked investigation routes (not primary nav):
+
+| Path | Purpose |
+| --- | --- |
 | `/exceptions` | Deterministic exception queue |
 | `/exceptions/:id` | Exception investigation |
-| `/incidents` | Exception-backed incident list (no fabricated KPIs) |
-| `/incidents/:id` | Incident chronology composed by the API |
 | `/payments` | Persisted payment index |
 | `/payments/:paymentId` | Payment workspace |
 | `/events` | Persisted webhook event index |
 | `/events/:eventId` | Event inspector (`:eventId` is the stored webhook id) |
-| `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
 
 There is no analytics dashboard and no extra sidebar of invented sections.
 
@@ -73,7 +79,7 @@ That is the investigation loop: payment → events → exceptions → back to pa
 
 `/incidents` lists persisted exceptions as incidents. Successful webhooks do not appear. `/incidents/:id` loads one backend timeline (`GET /incidents/:id/timeline`) instead of reconstructing chronology from many client calls. Clock order is delivery/recording time; event time and received time are both shown when stored.
 
-**INVESTIGATE INCIDENT** requests `POST /incidents/:id/investigate`. The page then shows structured **AI INVESTIGATION** (summary, root cause, evidence with SUPPORTED BY citations, impact, recommended actions, confidence, limitations). The banners **AI-GENERATED ANALYSIS — NOT AN AUTOMATED FINANCIAL DECISION** and **ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE** are always visible. This is not a chatbot.
+**INVESTIGATE INCIDENT** requests `POST /incidents/:id/investigate`. The page separates **DETERMINISTIC RESULT** from **AI INVESTIGATION**. Banners **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**, and **ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE** are visible. This is not a chatbot.
 
 See `docs/observability.md` and `docs/ai-investigator.md`.
 

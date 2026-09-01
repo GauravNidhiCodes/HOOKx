@@ -406,10 +406,24 @@ function expandAudit(
     return [{ lifecycle: "RETRY_SCHEDULED", retry, decision: event.reason }];
   }
   if (event.eventType === "RETRY_ATTEMPTED") {
-    return [{ lifecycle: "RETRY_ATTEMPTED", retry, decision: event.reason }];
+    return [
+      {
+        lifecycle: "RETRY_ATTEMPTED",
+        processedTime: event.recordedAt,
+        retry,
+        decision: event.reason,
+      },
+    ];
   }
   if (event.eventType === "RETRY_SUCCEEDED") {
-    return [{ lifecycle: "RETRY_SUCCEEDED", retry, decision: event.reason }];
+    return [
+      {
+        lifecycle: "RETRY_SUCCEEDED",
+        processedTime: event.recordedAt,
+        retry,
+        decision: event.reason,
+      },
+    ];
   }
   if (event.eventType === "RETRY_DEAD_LETTERED") {
     return [{ lifecycle: "RETRY_EXHAUSTED", retry, decision: event.reason }];

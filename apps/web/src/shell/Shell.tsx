@@ -13,32 +13,26 @@ export function Shell({ children }: { readonly children: React.ReactNode }) {
         </div>
         <div className="masthead__meta">
           <p>OPERATOR CONSOLE</p>
-          <p>DETERMINISTIC PROCESSING</p>
+          <p>AI OUTSIDE THE FINANCIAL PATH</p>
         </div>
       </header>
       <nav className="nav" aria-label="Primary">
-        <Link href="/exceptions" className="nav__item">
-          Exceptions
-        </Link>
-        <Link href="/incidents" className="nav__item">
-          Incidents
-        </Link>
-        <Link href="/payments" className="nav__item">
-          Payments
-        </Link>
-        <Link href="/events" className="nav__item">
-          Events
+        <Link href="/" className="nav__item">
+          Overview
         </Link>
         <Link href="/failure-lab" className="nav__item">
           Failure Lab
+        </Link>
+        <Link href="/incidents" className="nav__item">
+          Incidents
         </Link>
       </nav>
       <main id="main" className="main" tabIndex={-1}>
         {children}
       </main>
       <footer className="colophon">
-        <p>DETERMINISTIC PROCESSING · AI INVESTIGATION IS ADVISORY</p>
-        <p>SYNTHETIC EVENTS ARE LABELLED</p>
+        <p>DETERMINISTIC PROCESSING · AI INVESTIGATION IS READ-ONLY</p>
+        <p>SYNTHETIC EVENTS ARE LABELLED · NO FINANCIAL STATE CHANGES FROM AI</p>
       </footer>
     </div>
   );

@@ -11,6 +11,7 @@ import {
 } from "react";
 
 export type ConsoleRoute =
+  | { readonly name: "overview" }
   | { readonly name: "exceptions"; readonly search: string }
   | { readonly name: "exception"; readonly id: string }
   | { readonly name: "incidents"; readonly search: string }
@@ -22,9 +23,17 @@ export type ConsoleRoute =
   | { readonly name: "failure-lab" }
   | { readonly name: "unknown"; readonly path: string };
 
+export function pathOf(href: string): string {
+  const withoutHash = href.split("#")[0] ?? href;
+  return withoutHash.split("?")[0] ?? withoutHash;
+}
+
 export function parseRoute(pathname: string, search = ""): ConsoleRoute {
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (path === "/" || path === "/exceptions") {
+  if (path === "/") {
+    return { name: "overview" };
+  }
+  if (path === "/exceptions") {
     return { name: "exceptions", search };
   }
   const exception = /^\/exceptions\/([^/]+)$/.exec(path);
@@ -79,21 +88,18 @@ export function Router({
     }
     const path = window.location.pathname.replace(/\/+$/, "") || "/";
     const search = window.location.search;
-    if (path === "/") {
-      return "/exceptions";
-    }
-    return `${path}${search}`;
+    const hash = window.location.hash;
+    return `${path}${search}${hash}`;
   });
 
   useEffect(() => {
     if (initialHref !== undefined) {
       return;
     }
-    if (window.location.pathname === "/" || window.location.pathname === "") {
-      window.history.replaceState(null, "", "/exceptions");
-    }
     const onPop = () => {
-      setHref(`${window.location.pathname}${window.location.search}`);
+      setHref(
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -141,7 +147,7 @@ export function Link({
   readonly className?: string;
 }) {
   const { href: current, navigate } = useRouter();
-  const active = current.split("?")[0] === href.split("?")[0];
+  const active = pathOf(current) === pathOf(href);
   function onClick(event: MouseEvent<HTMLAnchorElement>) {
     if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) {
       return;

@@ -41,6 +41,8 @@ export type FailureLabRunReport = {
   readonly scenario: string;
   readonly title: string;
   readonly synthetic: true;
+  readonly demoRun: boolean;
+  readonly labels: readonly string[];
   readonly notice: string;
   readonly startedAt: string;
   readonly finishedAt: string;

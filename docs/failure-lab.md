@@ -6,7 +6,9 @@ The Failure Lab is a controlled synthetic environment where an operator triggers
 
 It never calls Razorpay. It never creates live payments. It never requires production credentials. Every identifier is prefixed so it cannot be mistaken for a customer payment.
 
-The entire operator surface is labelled **SYNTHETIC FAILURE LAB**.
+The entire operator surface is labelled **SYNTHETIC FAILURE LAB**. The page states **THIS IS SYNTHETIC**.
+
+The architecture demonstration is scenario `TRANSIENT_FAILURE` (**SYNTHETIC · DEMO RUN**): webhook through real ingest, controlled fail-once, retry, recovery, incident, timeline, optional AI investigation. See `docs/demo.md`.
 
 ## Purpose
 

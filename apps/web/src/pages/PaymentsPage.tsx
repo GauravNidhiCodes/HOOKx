@@ -55,8 +55,12 @@ function PaymentIndexResults({ q }: { readonly q: string }) {
   if (rows.length === 0) {
     return (
       <section className="empty">
-        <h2 className="kicker">NO PAYMENTS MATCH</h2>
-        <p>No persisted payments match the current search.</p>
+        <h2 className="kicker">{q.length === 0 ? "NO PAYMENTS" : "NO PAYMENTS MATCH"}</h2>
+        <p>
+          {q.length === 0
+            ? "No webhook payment projections have been recorded yet."
+            : "No persisted payments match the current search."}
+        </p>
       </section>
     );
   }

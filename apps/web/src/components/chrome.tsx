@@ -29,10 +29,14 @@ export function ErrorPanel({
   title,
   correlationId,
   code,
+  safety = "This operator request did not change payment or ledger state.",
+  next = "Retry the request, or continue from Overview, Failure Lab, or Incidents.",
 }: {
   readonly title: string;
   readonly correlationId?: string;
   readonly code?: string;
+  readonly safety?: string;
+  readonly next?: string;
 }) {
   return (
     <section className="empty" role="alert">
@@ -44,6 +48,8 @@ export function ErrorPanel({
           <p className="mono">{correlationId}</p>
         </>
       ) : null}
+      <p>{safety}</p>
+      <p>{next}</p>
     </section>
   );
 }

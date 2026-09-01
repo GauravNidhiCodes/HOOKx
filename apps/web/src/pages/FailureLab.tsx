@@ -9,12 +9,16 @@ import type {
 } from "../api/types";
 import { ErrorPanel, StatusLine } from "../components/chrome";
 import { blank, formatClock } from "../lib/format";
-import { Link } from "../routing/router";
+import { Link, useRouter } from "../routing/router";
 
 const RESET_CONFIRM = "SYNTHETIC_FAILURE_LAB";
 
 function lifecycleLabel(value: string): string {
   return value.replaceAll("_", " ");
+}
+
+function isDemoScenario(scenario: FailureLabCatalogEntry): boolean {
+  return scenario.architectureDemo === true || scenario.id === "TRANSIENT_FAILURE";
 }
 
 function ScenarioStatus({
@@ -44,13 +48,21 @@ function ScenarioStatus({
 }
 
 function RunReport({ report }: { readonly report: FailureLabRunReport }) {
+  const demo = report.demoRun === true || report.scenario === "TRANSIENT_FAILURE";
   return (
-    <section className="lab-report" aria-live="polite">
-      <h2 className="kicker">RUN RESULT</h2>
+    <section className="lab-report" aria-live="polite" id="lab-result">
+      <h2 className="kicker">WHAT ACTUALLY HAPPENED</h2>
+      <p className="synthetic-flag" role="note">
+        {demo ? "SYNTHETIC · DEMO RUN" : "SYNTHETIC"}
+      </p>
       <dl className="spec">
         <div className="spec__row">
           <dt>SCENARIO</dt>
           <dd className="mono">{report.title}</dd>
+        </div>
+        <div className="spec__row">
+          <dt>RUN ID</dt>
+          <dd className="mono">{report.runId}</dd>
         </div>
         <div className="spec__row">
           <dt>INPUT</dt>
@@ -134,8 +146,13 @@ function RunReport({ report }: { readonly report: FailureLabRunReport }) {
         ) : null}
       </dl>
       {report.links.incident !== null ? (
-        <p>
+        <p className="lab-follow">
           <Link href={report.links.incident}>VIEW INCIDENT</Link>
+          <Link href={`${report.links.incident}#timeline`}>VIEW TIMELINE</Link>
+          <Link href={`${report.links.incident}#investigation`}>INVESTIGATE</Link>
+          {report.links.event !== null ? (
+            <Link href={report.links.event}>VIEW EVIDENCE</Link>
+          ) : null}
         </p>
       ) : null}
       {report.log.length > 0 ? (
@@ -171,8 +188,12 @@ function ScenarioBlock({
   readonly disabled: boolean;
   readonly onRun: (id: FailureLabScenarioId) => void;
 }) {
+  const demo = isDemoScenario(scenario);
   return (
-    <article className="lab-scenario">
+    <article
+      className={demo ? "lab-scenario lab-scenario--demo" : "lab-scenario"}
+      id={demo ? "architecture-demo" : undefined}
+    >
       <header className="lab-scenario__head">
         <h2>
           {scenario.number} — {scenario.title}
@@ -186,9 +207,16 @@ function ScenarioBlock({
           RUN
         </button>
       </header>
-      <p>{scenario.explanation}</p>
+      {demo ? (
+        <p className="synthetic-flag" role="note">
+          SYNTHETIC · DEMO RUN
+        </p>
+      ) : null}
       <p>
-        <span className="kicker">EXPECTED</span> {scenario.expected}
+        <span className="kicker">WHAT WE SIMULATE</span> {scenario.explanation}
+      </p>
+      <p>
+        <span className="kicker">WHAT HOOKX SHOULD DO</span> {scenario.expected}
       </p>
       <ScenarioStatus report={report} executing={executing} />
     </article>
@@ -197,6 +225,7 @@ function ScenarioBlock({
 
 export function FailureLab() {
   const api = useApi();
+  const { href } = useRouter();
   const [catalog, setCatalog] = useState<FailureLabCatalog | null>(null);
   const [loadError, setLoadError] = useState<ApiError | null>(null);
   const [runError, setRunError] = useState<ApiError | null>(null);
@@ -232,6 +261,16 @@ export function FailureLab() {
       cancelled = true;
     };
   }, [api]);
+
+  useEffect(() => {
+    if (catalog === null) {
+      return;
+    }
+    const hash = href.includes("#") ? href.slice(href.indexOf("#") + 1) : "";
+    if (hash === "architecture-demo" || hash === "lab-result") {
+      document.getElementById(hash)?.scrollIntoView?.();
+    }
+  }, [href, catalog, active]);
 
   async function run(id: FailureLabScenarioId): Promise<void> {
     setRunning(id);
@@ -285,6 +324,8 @@ export function FailureLab() {
         title="UNABLE TO LOAD FAILURE LAB"
         correlationId={loadError.correlationId}
         code={loadError.code}
+        safety="This page load did not run a scenario. Production payment state is not involved."
+        next="Retry this page, or return to Overview."
       />
     );
   }
@@ -297,12 +338,16 @@ export function FailureLab() {
       <header className="page-head">
         <h1 className="kicker">SYNTHETIC FAILURE LAB</h1>
         <p className="synthetic-flag" role="note">
-          {catalog.notice}
+          THIS IS SYNTHETIC. {catalog.notice}
         </p>
         <p>
           Each run posts signed synthetic webhooks through ingest, validation,
           persistence, processing, retry, replay, and audit. Nothing is sent to
           Razorpay.
+        </p>
+        <p>
+          Operator path: run a scenario → read what actually happened → open
+          the incident → inspect the timeline → investigate → inspect evidence.
         </p>
       </header>
       {catalog.scenarios.map((scenario) => (
@@ -322,6 +367,8 @@ export function FailureLab() {
           title="UNABLE TO RUN FAILURE LAB SCENARIO"
           correlationId={runError.correlationId}
           code={runError.code}
+          safety="This Failure Lab request uses synthetic lab identifiers only. Production payment state is not involved."
+          next="Retry the scenario, or continue from Overview or Incidents."
         />
       ) : null}
       {active !== null ? <RunReport report={active} /> : null}

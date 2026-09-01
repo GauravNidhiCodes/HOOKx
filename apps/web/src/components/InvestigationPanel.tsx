@@ -1,7 +1,9 @@
 import type { InvestigationEvidence, PublicInvestigation } from "../api/types";
 import {
   ADVISORY_AUTHORITATIVE,
-  AI_GENERATED_ANALYSIS,
+  AI_GENERATED_INVESTIGATION,
+  AI_NO_FINANCIAL_STATE_CHANGES,
+  AI_READONLY,
   INVESTIGATION_UNAVAILABLE,
 } from "../lib/operator-catalog";
 import { Link } from "../routing/router";
@@ -34,14 +36,17 @@ export function InvestigationPanel({
     [investigation.result.recommendedAction];
   return (
     <div className="investigation">
+      <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
+      <p className="advisory">
+        {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
+      </p>
       <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
-      <p className="advisory">{AI_GENERATED_ANALYSIS}</p>
       {unavailable ? (
-        <p className="advisory">{INVESTIGATION_UNAVAILABLE} — NO PAYMENT STATE CHANGED</p>
-      ) : (
-        <p className="advisory">AI INVESTIGATION — DOES NOT MUTATE PAYMENT STATE</p>
-      )}
-      <h3 className="kicker">AI INVESTIGATION</h3>
+        <p className="advisory">
+          {INVESTIGATION_UNAVAILABLE} — NO PAYMENT STATE CHANGED
+        </p>
+      ) : null}
+      <h3 className="kicker">SUMMARY</h3>
       <p className="mono investigation__meta">
         {investigation.investigationId}
         {investigation.createdAt ? ` · ${investigation.createdAt}` : ""}
@@ -50,7 +55,6 @@ export function InvestigationPanel({
           ? ` · ${investigation.result.incidentType}`
           : ""}
       </p>
-      <h3 className="kicker">SUMMARY</h3>
       <p>{investigation.result.summary}</p>
       {investigation.result.facts !== undefined &&
       investigation.result.facts.length > 0 ? (

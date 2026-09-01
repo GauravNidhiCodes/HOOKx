@@ -3,6 +3,7 @@ import { parseRoute } from "./router";
 
 describe("parseRoute", () => {
   it("maps the operator paths that exist", () => {
+    expect(parseRoute("/")).toEqual({ name: "overview" });
     expect(parseRoute("/exceptions", "?status=OPEN")).toEqual({
       name: "exceptions",
       search: "?status=OPEN",

@@ -84,6 +84,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("DUPLICATE: one stored event, one transition, duplicate HTTP", async () => {
     const report = await runLab(app, "DUPLICATE_DELIVERY");
+    expect(report.demoRun).toBe(false);
     expect(report.result.accepted).toBe(1);
     expect(report.result.duplicate).toBe(1);
     expect(report.stateChange).toBe(1);
@@ -133,6 +134,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("TRANSIENT_FAILURE: retry succeeds using FAIL_ONCE", async () => {
     const report = await runLab(app, "TRANSIENT_FAILURE");
+    expect(report.demoRun).toBe(true);
     expect(report.failureMode).toBe("FAIL_ONCE");
     expect(report.retry?.status).toBe("SUCCEEDED");
     expect(report.payment.state).toBe("CREATED");

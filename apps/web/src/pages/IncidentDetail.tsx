@@ -17,14 +17,18 @@ import {
   SyntheticMark,
 } from "../components/chrome";
 import { blank } from "../lib/format";
+import { incidentBrief } from "../lib/incident-brief";
 import {
   ADVISORY_AUTHORITATIVE,
-  AI_GENERATED_ANALYSIS,
+  AI_GENERATED_INVESTIGATION,
+  AI_NO_FINANCIAL_STATE_CHANGES,
+  AI_READONLY,
 } from "../lib/operator-catalog";
-import { Link } from "../routing/router";
+import { Link, useRouter } from "../routing/router";
 
 export function IncidentDetail({ incidentId }: { readonly incidentId: string }) {
   const api = useApi();
+  const { href } = useRouter();
   const [incident, setIncident] = useState<PublicIncident | null>(null);
   const [timeline, setTimeline] = useState<readonly PublicIncidentTimelineItem[] | null>(
     null,
@@ -76,6 +80,16 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
     };
   }, [api, incidentId]);
 
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+    const hash = href.includes("#") ? href.slice(href.indexOf("#") + 1) : "";
+    if (hash === "timeline" || hash === "investigation") {
+      document.getElementById(hash)?.scrollIntoView?.();
+    }
+  }, [href, loading, timeline, investigations]);
+
   async function runInvestigation() {
     investigationLocked.current = true;
     setInvestigationLoading(true);
@@ -105,6 +119,7 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
         title="UNABLE TO LOAD INCIDENT"
         correlationId={error.correlationId}
         code={error.code}
+        next="Retry this page, or return to Incidents."
       />
     );
   }
@@ -113,6 +128,7 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
   }
 
   const latest = investigations[0] ?? null;
+  const brief = incidentBrief(incident, timeline);
 
   return (
     <>
@@ -122,7 +138,25 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
         <span className="mono">{incident.incidentId}</span>
       </p>
       <SyntheticMark show={incident.synthetic} />
-      <Section title="INCIDENT">
+      <Section title="WHAT HAPPENED?">
+        <p>{brief.what}</p>
+      </Section>
+      <Section title="WHY?">
+        <p className="mono">{brief.why}</p>
+      </Section>
+      <Section title="WHAT DID THE SYSTEM DO?">
+        <p>{brief.systemDid}</p>
+      </Section>
+      <Section title="WHAT HAPPENED AFTERWARD?">
+        <p>{brief.afterward}</p>
+      </Section>
+      <Section title="WHAT CAN THE OPERATOR DO?">
+        <p>{brief.operator}</p>
+      </Section>
+      <Section title="DETERMINISTIC RESULT">
+        <p className="advisory">
+          DETERMINISTIC RESULT — PAYMENT STATE IS DECIDED HERE
+        </p>
         <SpecList
           rows={[
             { label: "Code", value: incident.exceptionCode },
@@ -157,18 +191,12 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
                 </span>
               ),
             },
-          ]}
-        />
-      </Section>
-      <Section title="PAYMENT">
-        {incident.paymentId === null ? (
-          <p>No payment is attached to this incident.</p>
-        ) : (
-          <SpecList
-            rows={[
-              {
-                label: "Payment ID",
-                value: (
+            {
+              label: "Payment ID",
+              value:
+                incident.paymentId === null ? (
+                  "—"
+                ) : (
                   <span className="copyable">
                     <Link href={`/payments/${encodeURIComponent(incident.paymentId)}`}>
                       {incident.paymentId}
@@ -176,21 +204,14 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
                     <CopyButton value={incident.paymentId} label="payment ID" />
                   </span>
                 ),
-              },
-              { label: "Provider", value: blank(incident.provider) },
-            ]}
-          />
-        )}
-      </Section>
-      <Section title="EVENT">
-        {incident.eventId === null ? (
-          <p>No webhook row is attached to this incident.</p>
-        ) : (
-          <SpecList
-            rows={[
-              {
-                label: "Event ID",
-                value: (
+            },
+            { label: "Provider", value: blank(incident.provider) },
+            {
+              label: "Event ID",
+              value:
+                incident.eventId === null ? (
+                  "—"
+                ) : (
                   <span className="copyable">
                     <Link href={`/events/${encodeURIComponent(incident.eventId)}`}>
                       {incident.eventId}
@@ -198,21 +219,29 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
                     <CopyButton value={incident.eventId} label="event ID" />
                   </span>
                 ),
-              },
-            ]}
-          />
-        )}
+            },
+          ]}
+        />
       </Section>
-      <Section title="TIMELINE">
+      <section className="section" id="timeline">
+        <h2 className="kicker">TIMELINE</h2>
         {timeline === null ? (
           <StatusLine>LOADING TIMELINE…</StatusLine>
         ) : (
           <IncidentTimeline items={timeline} />
         )}
-      </Section>
-      <Section title="AI INVESTIGATION">
+      </section>
+      <section className="section" id="investigation">
+        <h2 className="kicker">AI INVESTIGATION</h2>
+        <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
+        <p className="advisory">
+          {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
+        </p>
         <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
-        <p className="advisory">{AI_GENERATED_ANALYSIS}</p>
+        <p>
+          The deterministic engine decided the financial state above. AI
+          explains evidence. It does not approve or change payments.
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -230,12 +259,17 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
             title="INVESTIGATION REQUEST FAILED"
             correlationId={investigationError.correlationId}
             code={investigationError.code}
+            safety="Payment state was not changed. The deterministic incident record is unchanged."
+            next="Retry the investigation, or inspect the timeline."
           />
         ) : null}
         {latest !== null ? (
           <InvestigationPanel investigation={latest} />
         ) : investigationLoading ? null : (
-          <p>No investigation has been recorded for this incident.</p>
+          <section className="empty">
+            <h3 className="kicker">NO INVESTIGATION</h3>
+            <p>Run an investigation when evidence is available.</p>
+          </section>
         )}
         {investigations.length > 1 ? (
           <>
@@ -249,7 +283,7 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
             </ul>
           </>
         ) : null}
-      </Section>
+      </section>
     </>
   );
 }

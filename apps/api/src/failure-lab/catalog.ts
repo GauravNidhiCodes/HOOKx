@@ -35,7 +35,11 @@ export type FailureLabScenarioCatalogEntry = {
   readonly explanation: string;
   readonly expected: string;
   readonly failureMode: SyntheticFailureMode;
+  readonly architectureDemo?: true;
 };
+
+export const ARCHITECTURE_DEMO_SCENARIO =
+  FAILURE_LAB_SCENARIO.TRANSIENT_FAILURE;
 
 export const FAILURE_LAB_NOTICE =
   "The Failure Lab never sends real payment requests.";
@@ -77,9 +81,11 @@ export const FAILURE_LAB_CATALOG: readonly FailureLabScenarioCatalogEntry[] =
       number: "04",
       title: "TRANSIENT FAILURE",
       explanation:
-        "Lab-only FAIL_ONCE injection on a synthetic payment. Production ingest is not used.",
-      expected: "Processing fails, retry is scheduled, retry succeeds.",
+        "A signed synthetic payment webhook is delivered through ingest. Lab-only FAIL_ONCE injection causes the first processing attempt to fail. Production ingest is not used.",
+      expected:
+        "HOOKX verifies, normalizes, and persists the event; records the failure; schedules a retry; retries; recovers payment state; records an incident and an audit trail.",
       failureMode: "FAIL_ONCE",
+      architectureDemo: true,
     }),
     Object.freeze({
       id: FAILURE_LAB_SCENARIO.RETRY_EXHAUSTION,

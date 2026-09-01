@@ -12,7 +12,12 @@ export function IncidentTimeline({
   readonly items: readonly PublicIncidentTimelineItem[];
 }) {
   if (items.length === 0) {
-    return <p>No persisted timeline exists for this incident.</p>;
+    return (
+      <section className="empty">
+        <h2 className="kicker">NO TIMELINE</h2>
+        <p>No persisted timeline exists for this incident.</p>
+      </section>
+    );
   }
   return (
     <ol className="incident-timeline">
@@ -35,20 +40,25 @@ export function IncidentTimeline({
           {item.decision !== null ? (
             <p className="incident-timeline__decision">{item.decision}</p>
           ) : null}
-          {item.eventTime !== null || item.receivedTime !== null ? (
+          {item.eventTime !== null ||
+          item.receivedTime !== null ||
+          item.processedTime !== null ? (
             <p className="incident-timeline__times">
               {item.eventTime !== null ? (
-                <span>
-                  EVENT TIME {formatClock(item.eventTime)}
-                </span>
+                <span>EVENT TIME {formatClock(item.eventTime)}</span>
               ) : null}
               {item.eventTime !== null && item.receivedTime !== null ? (
                 <span aria-hidden="true"> · </span>
               ) : null}
               {item.receivedTime !== null ? (
-                <span>
-                  RECEIVED TIME {formatClock(item.receivedTime)}
-                </span>
+                <span>RECEIVED TIME {formatClock(item.receivedTime)}</span>
+              ) : null}
+              {(item.eventTime !== null || item.receivedTime !== null) &&
+              item.processedTime !== null ? (
+                <span aria-hidden="true"> · </span>
+              ) : null}
+              {item.processedTime !== null ? (
+                <span>PROCESSED TIME {formatClock(item.processedTime)}</span>
               ) : null}
             </p>
           ) : null}

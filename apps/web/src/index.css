@@ -127,10 +127,10 @@ a {
 
 .masthead__mark {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-size: clamp(1.5rem, 3.5vw, 2.25rem);
   font-weight: 700;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
 }
 
 .masthead__name {
@@ -673,6 +673,57 @@ button:disabled:hover {
   margin-bottom: var(--space-2);
 }
 
+.lab-scenario--demo {
+  border-top: var(--rule-heavy);
+  border-bottom: var(--rule);
+  padding-bottom: var(--space-4);
+}
+
+.lab-follow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.architecture-flow {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  border: var(--rule);
+}
+
+.architecture-flow li {
+  padding: 0.45rem 0.7rem;
+  border-right: var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.architecture-flow li:last-child {
+  border-right: 0;
+}
+
+.principles {
+  list-style: none;
+  padding: 0;
+  max-width: 42rem;
+}
+
+.principles li {
+  padding: 0.45rem 0;
+  border-bottom: var(--rule);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+}
+
+.principles li:first-child {
+  border-top: var(--rule);
+}
+
 @media (max-width: 840px) {
   .spec__row {
     grid-template-columns: 1fr;
@@ -681,6 +732,19 @@ button:disabled:hover {
 
   .replay__cols {
     grid-template-columns: 1fr;
+  }
+
+  .architecture-flow {
+    flex-direction: column;
+  }
+
+  .architecture-flow li {
+    border-right: 0;
+    border-bottom: var(--rule);
+  }
+
+  .architecture-flow li:last-child {
+    border-bottom: 0;
   }
 }
 

@@ -186,6 +186,7 @@ export type FailureLabCatalogEntry = {
   readonly explanation: string;
   readonly expected: string;
   readonly failureMode: string;
+  readonly architectureDemo?: true;
 };
 
 export type FailureLabCatalog = {
@@ -206,6 +207,8 @@ export type FailureLabRunReport = {
   readonly scenario: FailureLabScenarioId;
   readonly title: string;
   readonly synthetic: true;
+  readonly demoRun?: boolean;
+  readonly labels?: readonly string[];
   readonly notice: string;
   readonly startedAt: string;
   readonly finishedAt: string;
@@ -286,6 +289,22 @@ export type FailureLabResetResult = {
     readonly audit: number;
     readonly webhooks: number;
     readonly payments: number;
+  };
+};
+
+export type MetricsSummary = {
+  readonly asOf: string;
+  readonly persisted: {
+    readonly source: "database";
+    readonly webhookEvents: number;
+    readonly exceptions?: number;
+    readonly retries: number;
+    readonly deadLetters: number;
+    readonly auditByType: Readonly<Record<string, number>>;
+  };
+  readonly runtime?: {
+    readonly source: string;
+    readonly counts: Readonly<Record<string, number>>;
   };
 };
 

@@ -17,6 +17,7 @@ import type {
   FailureLabResetResult,
   FailureLabRunReport,
   FailureLabScenarioId,
+  MetricsSummary,
 } from "./types";
 
 export class ApiError extends Error {
@@ -80,6 +81,7 @@ export type HookxApi = {
   runFailureLab(scenario: FailureLabScenarioId): Promise<FailureLabRunReport>;
   getFailureLabRun(runId: string): Promise<FailureLabRunReport>;
   resetFailureLab(confirm: string): Promise<FailureLabResetResult>;
+  getMetricsSummary(): Promise<MetricsSummary>;
 };
 
 function queryString(query: Record<string, string | undefined>): string {
@@ -482,6 +484,22 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
         fail(status, body, correlationId, "UNABLE TO RESET FAILURE LAB");
       }
       return body as FailureLabResetResult;
+    },
+
+    async getMetricsSummary() {
+      const { status, body, correlationId } = await request("/metrics/summary");
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD OVERVIEW");
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("persisted" in body) ||
+        !("asOf" in body)
+      ) {
+        fail(status, body, correlationId, "UNABLE TO LOAD OVERVIEW");
+      }
+      return body as MetricsSummary;
     },
   };
 }

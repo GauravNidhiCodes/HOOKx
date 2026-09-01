@@ -20,11 +20,15 @@ describe("failure lab", () => {
       await screen.findByRole("heading", { name: "SYNTHETIC FAILURE LAB" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("The Failure Lab never sends real payment requests."),
+      screen.getByText(/The Failure Lab never sends real payment requests/),
     ).toBeTruthy();
+    expect(screen.getByText(/THIS IS SYNTHETIC/)).toBeTruthy();
     expect(screen.getByText(/01 — DUPLICATE DELIVERY/)).toBeTruthy();
     expect(screen.getByText(/06 — REPLAY RECOVERY/)).toBeTruthy();
     expect(screen.getAllByText("NOT RUN").length).toBe(6);
+    expect(screen.getAllByText("WHAT WE SIMULATE").length).toBe(6);
+    expect(screen.getAllByText("WHAT HOOKX SHOULD DO").length).toBe(6);
+    expect(screen.getByText("SYNTHETIC · DEMO RUN")).toBeTruthy();
     expect(api.getFailureLabCatalog).toHaveBeenCalled();
   });
 
@@ -47,12 +51,12 @@ describe("failure lab", () => {
     const api = createMockApi();
     render(<App api={api} initialHref="/failure-lab" />);
     await screen.findByRole("heading", { name: "SYNTHETIC FAILURE LAB" });
-    expect(screen.queryByText("RUN RESULT")).toBeNull();
+    expect(screen.queryByText("WHAT ACTUALLY HAPPENED")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Run DUPLICATE DELIVERY" }));
     await waitFor(() => {
       expect(api.runFailureLab).toHaveBeenCalledWith("DUPLICATE_DELIVERY");
     });
-    expect(await screen.findByText("RUN RESULT")).toBeTruthy();
+    expect(await screen.findByText("WHAT ACTUALLY HAPPENED")).toBeTruthy();
     expect(screen.getByText("2 webhook deliveries")).toBeTruthy();
     expect(
       screen.getAllByText(/1 accepted · 1 duplicate · 0 conflict · 0 error/)
@@ -64,6 +68,12 @@ describe("failure lab", () => {
     expect(screen.getByText("DUPLICATE DETECTED")).toBeTruthy();
     expect(screen.getByRole("link", { name: "VIEW INCIDENT" }).getAttribute("href")).toBe(
       `/incidents/${EXCEPTION_ID}`,
+    );
+    expect(screen.getByRole("link", { name: "VIEW TIMELINE" }).getAttribute("href")).toBe(
+      `/incidents/${EXCEPTION_ID}#timeline`,
+    );
+    expect(screen.getByRole("link", { name: "INVESTIGATE" }).getAttribute("href")).toBe(
+      `/incidents/${EXCEPTION_ID}#investigation`,
     );
   });
 
@@ -81,7 +91,7 @@ describe("failure lab", () => {
     await user.click(screen.getByRole("button", { name: "Run DUPLICATE DELIVERY" }));
     expect(await screen.findByText("EXECUTING")).toBeTruthy();
     finish?.(sampleFailureLabRun);
-    expect(await screen.findByText("RUN RESULT")).toBeTruthy();
+    expect(await screen.findByText("WHAT ACTUALLY HAPPENED")).toBeTruthy();
   });
 
   it("shows a run failure from the API", async () => {
@@ -101,7 +111,7 @@ describe("failure lab", () => {
     await user.click(screen.getByRole("button", { name: "Run DUPLICATE DELIVERY" }));
     expect(await screen.findByText("UNABLE TO RUN FAILURE LAB SCENARIO")).toBeTruthy();
     expect(screen.getByText("corr-lab-err")).toBeTruthy();
-    expect(screen.queryByText("RUN RESULT")).toBeNull();
+    expect(screen.queryByText("WHAT ACTUALLY HAPPENED")).toBeNull();
   });
 
   it("requires confirmation before reset", async () => {

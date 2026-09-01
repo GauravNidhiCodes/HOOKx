@@ -74,7 +74,25 @@ function EventIndexResults({ query }: { readonly query: EventListFilter }) {
   if (rows === null) {
     return <StatusLine>LOADING EVENTS…</StatusLine>;
   }
-  return <EventTable events={rows} />;
+  return (
+    <EventTable
+      events={rows}
+      emptyTitle={
+        query.eventType === undefined &&
+        query.processingStatus === undefined &&
+        query.q === undefined
+          ? "NO EVENTS"
+          : "NO EVENTS MATCH"
+      }
+      emptyBody={
+        query.eventType === undefined &&
+        query.processingStatus === undefined &&
+        query.q === undefined
+          ? "No webhook events are currently available."
+          : "No stored webhook events match the current filter."
+      }
+    />
+  );
 }
 
 export function EventsPage() {

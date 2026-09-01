@@ -23,6 +23,7 @@ import {
   simulatorScenarioForLab,
 } from "./bind.js";
 import {
+  ARCHITECTURE_DEMO_SCENARIO,
   FAILURE_LAB_NOTICE,
   failureLabCatalogEntry,
   type FailureLabScenarioId,
@@ -266,11 +267,14 @@ export async function runFailureLabScenario(
     (item) => item.eventType === "PAYMENT_STATE_CHANGED",
   ).length;
 
+  const demoRun = scenarioId === ARCHITECTURE_DEMO_SCENARIO;
   return {
     runId,
     scenario: scenarioId,
     title: catalog.title,
     synthetic: true,
+    demoRun,
+    labels: demoRun ? ["SYNTHETIC", "DEMO RUN"] : ["SYNTHETIC"],
     notice: FAILURE_LAB_NOTICE,
     startedAt,
     finishedAt: dependencies.clock.now(),

@@ -8,7 +8,12 @@ export function ExceptionLinkTable({
   readonly exceptions: readonly PublicException[];
 }) {
   if (exceptions.length === 0) {
-    return <p>No exceptions are stored for this payment.</p>;
+    return (
+      <section className="empty">
+        <h3 className="kicker">NO EXCEPTIONS</h3>
+        <p>No exceptions are stored for this payment.</p>
+      </section>
+    );
   }
   return (
     <div className="table-wrap">

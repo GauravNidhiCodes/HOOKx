@@ -8,6 +8,7 @@ import { ExceptionQueue } from "./pages/ExceptionQueue";
 import { FailureLab } from "./pages/FailureLab";
 import { IncidentDetail } from "./pages/IncidentDetail";
 import { IncidentQueue } from "./pages/IncidentQueue";
+import { Overview } from "./pages/Overview";
 import { PaymentDetail } from "./pages/PaymentDetail";
 import { PaymentsPage } from "./pages/PaymentsPage";
 import { Router, useRouter } from "./routing/router";
@@ -15,6 +16,9 @@ import { Shell } from "./shell/Shell";
 
 function Routes() {
   const { route } = useRouter();
+  if (route.name === "overview") {
+    return <Overview />;
+  }
   if (route.name === "exceptions") {
     return <ExceptionQueue />;
   }
