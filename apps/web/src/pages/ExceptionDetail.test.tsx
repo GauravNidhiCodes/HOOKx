@@ -36,7 +36,7 @@ describe("exception detail", () => {
     render(<App api={api} initialHref={`/exceptions/${EXCEPTION_ID}`} />);
     expect(await screen.findByText("REPLAY")).toBeTruthy();
     expect(screen.getAllByText("DELAYED").length).toBeGreaterThan(0);
-    expect(screen.getByText("AUTHORIZED")).toBeTruthy();
+    expect(screen.getAllByText("AUTHORIZED").length).toBeGreaterThan(0);
     expect(screen.getAllByText("CAPTURED").length).toBeGreaterThan(0);
   });
 
@@ -76,7 +76,7 @@ describe("exception detail", () => {
       await screen.findByText("Deterministic conflict classification with no financial mutation."),
     ).toBeTruthy();
     expect(
-      screen.getAllByText("ADVISORY — SYSTEM OF RECORD REMAINS DETERMINISTIC").length,
+      screen.getAllByText("ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE").length,
     ).toBeGreaterThan(0);
     expect(screen.getAllByText("INVESTIGATE_CONFLICTING_PAYLOAD").length).toBeGreaterThan(0);
     expect(screen.getByText("MEDIUM")).toBeTruthy();

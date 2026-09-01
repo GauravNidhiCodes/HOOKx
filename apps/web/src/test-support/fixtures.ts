@@ -5,6 +5,7 @@ import type {
   PublicException,
   PublicInvestigation,
   PublicPayment,
+  PublicPaymentListItem,
   PublicRetry,
   PublicWebhookEvent,
 } from "../api/types";
@@ -12,6 +13,7 @@ import type {
 export const EXCEPTION_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const WEBHOOK_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 export const CAPTURE_WEBHOOK_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+export const AUTH_WEBHOOK_ID = "99999999-9999-4999-8999-999999999999";
 export const PAYMENT_ID = "SYNTHETIC:pay:ui-console";
 
 export const sampleException = {
@@ -42,8 +44,14 @@ export const samplePayment: PublicPayment = {
   state: "CAPTURED",
   amountMinor: "10000",
   currency: "INR",
+  createdAt: "2026-01-15T14:02:11.000Z",
   lastOccurredAt: "2026-01-15T14:02:18.000Z",
   updatedAt: "2026-01-15T14:02:18.000Z",
+};
+
+export const samplePaymentListItem: PublicPaymentListItem = {
+  ...samplePayment,
+  exceptionCount: 1,
 };
 
 export const sampleWebhooks: readonly PublicWebhookEvent[] = [
@@ -58,6 +66,7 @@ export const sampleWebhooks: readonly PublicWebhookEvent[] = [
     amountMinor: "10000",
     currency: "INR",
     processingStatus: "PROCESSED",
+    deliveryAttempt: 1,
   },
   {
     webhookEventId: CAPTURE_WEBHOOK_ID,
@@ -70,6 +79,49 @@ export const sampleWebhooks: readonly PublicWebhookEvent[] = [
     amountMinor: "10000",
     currency: "INR",
     processingStatus: "PROCESSED",
+    deliveryAttempt: 1,
+  },
+];
+
+export const outOfOrderWebhooks: readonly PublicWebhookEvent[] = [
+  {
+    webhookEventId: WEBHOOK_ID,
+    provider: "SYNTHETIC",
+    externalEventId: "SYNTHETIC:evt:ui-created",
+    paymentId: PAYMENT_ID,
+    eventType: "payment.created",
+    occurredAt: "2026-01-15T14:02:11.000Z",
+    receivedAt: "2026-01-15T14:02:11.100Z",
+    amountMinor: "10000",
+    currency: "INR",
+    processingStatus: "PROCESSED",
+    deliveryAttempt: 1,
+  },
+  {
+    webhookEventId: CAPTURE_WEBHOOK_ID,
+    provider: "SYNTHETIC",
+    externalEventId: "SYNTHETIC:evt:ui-captured",
+    paymentId: PAYMENT_ID,
+    eventType: "payment.captured",
+    occurredAt: "2026-01-15T14:02:14.000Z",
+    receivedAt: "2026-01-15T14:02:12.000Z",
+    amountMinor: "10000",
+    currency: "INR",
+    processingStatus: "PROCESSED",
+    deliveryAttempt: 1,
+  },
+  {
+    webhookEventId: AUTH_WEBHOOK_ID,
+    provider: "SYNTHETIC",
+    externalEventId: "SYNTHETIC:evt:ui-authorized",
+    paymentId: PAYMENT_ID,
+    eventType: "payment.authorized",
+    occurredAt: "2026-01-15T14:02:13.000Z",
+    receivedAt: "2026-01-15T14:02:15.000Z",
+    amountMinor: "10000",
+    currency: "INR",
+    processingStatus: "PROCESSED",
+    deliveryAttempt: 1,
   },
 ];
 
@@ -87,6 +139,21 @@ export const sampleAudit: readonly PublicAuditEvent[] = [
     actor: "SYSTEM",
     reason: "TRANSITION",
     correlationId: "corr-ui-created",
+    metadata: {},
+  },
+  {
+    auditEventId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+    eventType: "PAYMENT_STATE_CHANGED",
+    occurredAt: "2026-01-15T14:02:13.000Z",
+    recordedAt: "2026-01-15T14:02:13.200Z",
+    provider: "SYNTHETIC",
+    paymentId: PAYMENT_ID,
+    webhookEventId: AUTH_WEBHOOK_ID,
+    previousState: "CREATED",
+    resultingState: "AUTHORIZED",
+    actor: "SYSTEM",
+    reason: "TRANSITION",
+    correlationId: "corr-ui-authorized",
     metadata: {},
   },
   {
@@ -121,6 +188,54 @@ export const sampleAudit: readonly PublicAuditEvent[] = [
   },
 ];
 
+export const sampleRetryAudit: readonly PublicAuditEvent[] = [
+  {
+    auditEventId: "33333333-3333-4333-8333-333333333333",
+    eventType: "RETRY_SCHEDULED",
+    occurredAt: "2026-01-15T14:02:20.000Z",
+    recordedAt: "2026-01-15T14:02:20.000Z",
+    provider: "SYNTHETIC",
+    paymentId: PAYMENT_ID,
+    webhookEventId: WEBHOOK_ID,
+    previousState: null,
+    resultingState: null,
+    actor: "SYSTEM",
+    reason: "TEMPORARY_PROCESSING_FAILURE",
+    correlationId: "corr-ui-retry-1",
+    metadata: { attempt: 1 },
+  },
+  {
+    auditEventId: "44444444-4444-4444-8444-444444444444",
+    eventType: "RETRY_ATTEMPTED",
+    occurredAt: "2026-01-15T14:03:18.000Z",
+    recordedAt: "2026-01-15T14:03:18.000Z",
+    provider: "SYNTHETIC",
+    paymentId: PAYMENT_ID,
+    webhookEventId: WEBHOOK_ID,
+    previousState: null,
+    resultingState: null,
+    actor: "SYSTEM",
+    reason: "TEMPORARY_PROCESSING_FAILURE",
+    correlationId: "corr-ui-retry-2",
+    metadata: { attempt: 2 },
+  },
+  {
+    auditEventId: "55555555-5555-4555-8555-555555555555",
+    eventType: "RETRY_SUCCEEDED",
+    occurredAt: "2026-01-15T14:03:18.100Z",
+    recordedAt: "2026-01-15T14:03:18.100Z",
+    provider: "SYNTHETIC",
+    paymentId: PAYMENT_ID,
+    webhookEventId: WEBHOOK_ID,
+    previousState: null,
+    resultingState: null,
+    actor: "SYSTEM",
+    reason: "ACCEPTED",
+    correlationId: "corr-ui-retry-3",
+    metadata: { attempt: 2 },
+  },
+];
+
 export const sampleRetry: PublicRetry = {
   webhookEventId: WEBHOOK_ID,
   attemptCount: 2,
@@ -148,6 +263,11 @@ export const sampleInvestigation: PublicInvestigation = {
         sourceId: EXCEPTION_ID,
         fact: "Deterministic engine classified CONFLICTING_EVENT.",
       },
+      {
+        sourceType: "WEBHOOK_EVENT",
+        sourceId: WEBHOOK_ID,
+        fact: "Stored webhook identity was retained.",
+      },
     ],
     likelyCause: "The provider may have retried the same event identity with a different payload.",
     recommendedAction: {
@@ -164,7 +284,10 @@ export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
   return {
     listExceptions: vi.fn(async () => [sampleException]),
     getException: vi.fn(async () => sampleException),
+    listPayments: vi.fn(async () => [samplePaymentListItem]),
     getPayment: vi.fn(async () => samplePayment),
+    listPaymentExceptions: vi.fn(async () => [sampleException]),
+    listWebhooks: vi.fn(async () => sampleWebhooks),
     getWebhook: vi.fn(async () => sampleWebhooks[0] ?? null),
     listPaymentWebhooks: vi.fn(async () => sampleWebhooks),
     listPaymentAudit: vi.fn(async () => sampleAudit),

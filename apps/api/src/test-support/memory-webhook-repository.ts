@@ -4,9 +4,10 @@ import type {
   StoredWebhookEvent,
   StoreWebhookEventResult,
   WebhookEventRepository,
+  WebhookListFilter,
   WebhookProcessingStatus,
 } from "@hookx/storage";
-import { StorageError } from "@hookx/storage";
+import { selectWebhookList, StorageError } from "@hookx/storage";
 import type { NormalizedWebhookEvent, WebhookIdentity } from "@hookx/webhook";
 
 export class MemoryWebhookEventRepository implements WebhookEventRepository {
@@ -53,6 +54,12 @@ export class MemoryWebhookEventRepository implements WebhookEventRepository {
 
   public async findById(id: string): Promise<StoredWebhookEvent | null> {
     return this.records.find((row) => row.id === id) ?? null;
+  }
+
+  public async list(
+    filter?: WebhookListFilter,
+  ): Promise<readonly StoredWebhookEvent[]> {
+    return selectWebhookList(this.records, filter);
   }
 
   public async listByPayment(

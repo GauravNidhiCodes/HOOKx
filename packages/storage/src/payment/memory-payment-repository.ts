@@ -1,4 +1,5 @@
 import type { PaymentId, ProviderId } from "@hookx/domain";
+import { selectPaymentList, type PaymentListFilter } from "./list.js";
 import type { PaymentRepository } from "./repository.js";
 import type { StoredPayment } from "./types.js";
 
@@ -24,6 +25,12 @@ export class MemoryPaymentRepository implements PaymentRepository {
     paymentId: PaymentId,
   ): Promise<StoredPayment | null> {
     return this.records.find((row) => row.paymentId === paymentId) ?? null;
+  }
+
+  public async list(
+    filter?: PaymentListFilter,
+  ): Promise<readonly StoredPayment[]> {
+    return selectPaymentList(this.records, filter);
   }
 
   public async upsert(record: StoredPayment): Promise<StoredPayment> {

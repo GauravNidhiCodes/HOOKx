@@ -13,15 +13,23 @@ describe("parseRoute", () => {
     });
     expect(parseRoute("/payments")).toEqual({
       name: "payments",
-      paymentId: null,
+      search: "",
+    });
+    expect(parseRoute("/payments", "?q=pay-1")).toEqual({
+      name: "payments",
+      search: "?q=pay-1",
     });
     expect(parseRoute("/payments/SYNTHETIC:pay:1")).toEqual({
-      name: "payments",
+      name: "payment",
       paymentId: "SYNTHETIC:pay:1",
     });
     expect(parseRoute("/events")).toEqual({
       name: "events",
-      webhookEventId: null,
+      search: "",
+    });
+    expect(parseRoute("/events/abc")).toEqual({
+      name: "event",
+      webhookEventId: "abc",
     });
   });
 });

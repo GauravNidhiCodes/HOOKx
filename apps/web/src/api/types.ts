@@ -18,8 +18,13 @@ export type PublicPayment = {
   readonly state: string;
   readonly amountMinor: string;
   readonly currency: string;
+  readonly createdAt: string;
   readonly lastOccurredAt: string;
   readonly updatedAt: string;
+};
+
+export type PublicPaymentListItem = PublicPayment & {
+  readonly exceptionCount: number;
 };
 
 export type PublicWebhookEvent = {
@@ -33,6 +38,7 @@ export type PublicWebhookEvent = {
   readonly amountMinor: string;
   readonly currency: string;
   readonly processingStatus: string;
+  readonly deliveryAttempt: number;
 };
 
 export type PublicAuditEvent = {
@@ -84,7 +90,22 @@ export type ExceptionListQuery = {
   readonly severity?: string;
   readonly exceptionCode?: string;
   readonly provider?: string;
+  readonly paymentId?: string;
   readonly q?: string;
+};
+
+export type PaymentListQuery = {
+  readonly q?: string;
+  readonly provider?: string;
+  readonly state?: string;
+};
+
+export type WebhookListQuery = {
+  readonly q?: string;
+  readonly eventType?: string;
+  readonly processingStatus?: string;
+  readonly paymentId?: string;
+  readonly provider?: string;
 };
 
 export const PUBLIC_EXCEPTION_KEYS = [

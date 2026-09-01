@@ -22,6 +22,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.4.0",
+    "iconv-lite": "0.6.3",
     "jsdom": "^26.1.0",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.56.0",

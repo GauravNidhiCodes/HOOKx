@@ -177,6 +177,8 @@ describe("GET /", () => {
     expect(body.retries).toBe("/retries");
     expect(body.deadLetters).toBe("/dead-letters");
     expect(body.payment).toBe("/payments/:paymentId");
+    expect(body.payments).toBe("/payments");
+    expect(body.webhooks).toBe("/webhooks");
     expect(body.paymentAudit).toBe("/payments/:paymentId/audit");
   });
 });

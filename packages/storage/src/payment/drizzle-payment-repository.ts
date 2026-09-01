@@ -1,8 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, like, type SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { PaymentId, ProviderId } from "@hookx/domain";
 import { dateFromInstant } from "../mapping.js";
 import { payments } from "../schema/payments.js";
+import { likeContains } from "../sql-search.js";
+import { PAYMENT_LIST_LIMIT, type PaymentListFilter } from "./list.js";
 import { toStoredPayment } from "./mapping.js";
 import type { PaymentRepository } from "./repository.js";
 import type { StoredPayment } from "./types.js";
@@ -37,6 +39,33 @@ export class DrizzlePaymentRepository implements PaymentRepository {
       .limit(1);
     const row = rows[0];
     return row === undefined ? null : toStoredPayment(row);
+  }
+
+  public async list(
+    filter?: PaymentListFilter,
+  ): Promise<readonly StoredPayment[]> {
+    const clauses: SQL[] = [];
+    if (filter?.provider !== undefined) {
+      clauses.push(eq(payments.provider, filter.provider));
+    }
+    if (filter?.state !== undefined) {
+      clauses.push(eq(payments.state, filter.state));
+    }
+    if (filter?.q !== undefined) {
+      const q = filter.q;
+      clauses.push(like(payments.paymentId, likeContains(q)));
+    }
+    const query =
+      clauses.length === 0
+        ? this.db.select().from(payments)
+        : this.db
+            .select()
+            .from(payments)
+            .where(and(...clauses));
+    const rows = await query
+      .orderBy(desc(payments.updatedAt), desc(payments.paymentId))
+      .limit(PAYMENT_LIST_LIMIT);
+    return rows.map((row) => toStoredPayment(row));
   }
 
   public async upsert(record: StoredPayment): Promise<StoredPayment> {

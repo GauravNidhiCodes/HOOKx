@@ -9,7 +9,7 @@ import { MemoryAuditRepository } from "../audit/memory-audit-repository.js";
 import type { NormalizedWebhookEvent, WebhookIdentity } from "@hookx/webhook";
 import type { WebhookProcessingStatus } from "../status.js";
 import type { StoredWebhookEvent, StoreWebhookEventResult } from "../types.js";
-import type { WebhookEventRepository } from "../repository.js";
+import type { WebhookEventRepository, WebhookListFilter } from "../repository.js";
 import { StorageError } from "../errors.js";
 import { collectingRetryLifecycleSink } from "./lifecycle.js";
 import { MemoryRetryRepository } from "./memory-retry-repository.js";
@@ -17,6 +17,7 @@ import { RetryableProcessingError } from "./classify.js";
 import { addMilliseconds } from "./time.js";
 import { processFreshEvent, runRetryTick } from "./worker.js";
 import { processPaymentEvents } from "../process-payment-events.js";
+import { selectWebhookList } from "../webhook-list.js";
 
 const NOW = instant("2026-01-15T10:00:01.000Z");
 const POLICY = { maxAttempts: 3, baseDelayMs: 1_000, maxDelayMs: 8_000 };
@@ -63,6 +64,12 @@ class MemoryEvents implements WebhookEventRepository {
 
   public async findById(id: string): Promise<StoredWebhookEvent | null> {
     return this.records.find((row) => row.id === id) ?? null;
+  }
+
+  public async list(
+    filter?: WebhookListFilter,
+  ): Promise<readonly StoredWebhookEvent[]> {
+    return selectWebhookList(this.records, filter);
   }
 
   public async listByPayment(

@@ -84,8 +84,11 @@ export {
   webhookReceiptDraft,
 } from "./audit/live.js";
 export type { StoredPayment } from "./payment/types.js";
-export type { PaymentRepository } from "./payment/repository.js";
+export type { PaymentListFilter, PaymentRepository } from "./payment/repository.js";
+export { PAYMENT_LIST_LIMIT } from "./payment/list.js";
 export { MemoryPaymentRepository } from "./payment/memory-payment-repository.js";
+export type { WebhookListFilter } from "./repository.js";
+export { WEBHOOK_LIST_LIMIT, selectWebhookList } from "./webhook-list.js";
 export { storedPaymentFromReplay } from "./payment/from-replay.js";
 export type {
   ExceptionCreateResult,

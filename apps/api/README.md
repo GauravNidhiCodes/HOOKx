@@ -112,14 +112,16 @@ A 500 after persist means the webhook row is durable and a retry is scheduled. A
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/` | Service descriptor |
+| GET | `/payments` | Persisted payment index (`q`, `provider`, `state`) |
 | GET | `/payments/:paymentId` | Durable payment projection |
 | GET | `/payments/:paymentId/audit` | Append-only audit for a payment |
+| GET | `/webhooks` | Persisted webhook index (`q`, `eventType`, `processingStatus`, `paymentId`, `provider`) |
 | GET | `/webhooks/:webhookEventId/audit` | Audit for one stored webhook |
 | GET | `/audit?correlationId=` | Audit by correlation id |
 | GET | `/retries` / `/retries/:webhookEventId` | Active retry inspection |
 | GET | `/dead-letters` / `/dead-letters/:webhookEventId` | Dead-letter inspection |
 | GET | `/payments/:paymentId/webhooks` | Stored webhooks for a payment |
-| GET | `/webhooks/:webhookEventId` | One stored webhook (no payload hash) |
+| GET | `/webhooks/:webhookEventId` | One stored webhook (no payload hash; processing summary from audit) |
 | GET | `/exceptions` | Read-only exceptions (`status`, `severity`, `exceptionCode`, `provider`, `paymentId`, `webhookEventId`, `q`) |
 | GET | `/exceptions/:id` | One exception |
 | GET | `/payments/:paymentId/exceptions` | Exceptions for a payment |

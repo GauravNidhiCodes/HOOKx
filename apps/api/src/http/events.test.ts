@@ -64,5 +64,15 @@ describe("GET webhook event routes", () => {
     expect(listed.status).toBe(200);
     const listedBody = (await listed.json()) as { webhooks: unknown[] };
     expect(listedBody.webhooks).toHaveLength(1);
+
+    const index = await app.request("/webhooks?eventType=payment.created");
+    expect(index.status).toBe(200);
+    const indexBody = (await index.json()) as {
+      webhooks: Array<{ eventType: string; deliveryAttempt: number }>;
+    };
+    expect(indexBody.webhooks).toHaveLength(1);
+    expect(indexBody.webhooks[0]?.eventType).toBe("payment.created");
+    expect(indexBody.webhooks[0]?.deliveryAttempt).toBe(1);
+    expect(JSON.stringify(indexBody)).not.toContain("payloadHash");
   });
 });

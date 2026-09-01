@@ -1,58 +1,45 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ApiError, isApiError } from "../api/client";
 import { useApi } from "../api/context";
-import type { PublicException, PublicPayment } from "../api/types";
-import { ErrorPanel, Section, SpecList, StatusLine, SyntheticMark } from "../components/chrome";
-import { isSyntheticRef } from "../lib/format";
+import type { PublicPaymentListItem } from "../api/types";
+import { ErrorPanel, StatusLine } from "../components/chrome";
+import { formatClock, isSyntheticRef } from "../lib/format";
 import { Link, useRouter } from "../routing/router";
 
-function PaymentRecord({ paymentId }: { readonly paymentId: string }) {
+function queryFromSearch(search: string): string {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  return params.get("q")?.trim() ?? "";
+}
+
+function PaymentIndexResults({ q }: { readonly q: string }) {
   const api = useApi();
-  const [payment, setPayment] = useState<PublicPayment | null>(null);
-  const [exceptions, setExceptions] = useState<readonly PublicException[]>([]);
+  const [rows, setRows] = useState<readonly PublicPaymentListItem[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void api
-      .getPayment(paymentId)
-      .then(async (record) => {
-        if (cancelled) {
-          return;
+      .listPayments(q.length > 0 ? { q } : {})
+      .then((listed) => {
+        if (!cancelled) {
+          setRows(listed);
         }
-        if (record === null) {
-          setMissing(true);
-          setLoading(false);
-          return;
-        }
-        const listed = await api.listExceptions({ q: paymentId });
-        if (cancelled) {
-          return;
-        }
-        setPayment(record);
-        setExceptions(listed);
-        setLoading(false);
       })
       .catch((caught: unknown) => {
-        if (!cancelled) {
-          setLoading(false);
-          setError(
-            isApiError(caught)
-              ? caught
-              : new ApiError("REQUEST_FAILED", "", 0, "UNABLE TO LOAD PAYMENT"),
-          );
+        if (cancelled) {
+          return;
         }
+        setError(
+          isApiError(caught)
+            ? caught
+            : new ApiError("REQUEST_FAILED", "", 0, "UNABLE TO LOAD PAYMENT"),
+        );
       });
     return () => {
       cancelled = true;
     };
-  }, [api, paymentId]);
+  }, [api, q]);
 
-  if (loading) {
-    return <StatusLine>LOADING PAYMENT…</StatusLine>;
-  }
   if (error !== null) {
     return (
       <ErrorPanel
@@ -62,88 +49,94 @@ function PaymentRecord({ paymentId }: { readonly paymentId: string }) {
       />
     );
   }
-  if (missing || payment === null) {
+  if (rows === null) {
+    return <StatusLine>LOADING PAYMENTS…</StatusLine>;
+  }
+  if (rows.length === 0) {
     return (
       <section className="empty">
-        <h2 className="kicker">PAYMENT NOT FOUND</h2>
-        <p className="mono">{paymentId}</p>
+        <h2 className="kicker">NO PAYMENTS MATCH</h2>
+        <p>No persisted payments match the current search.</p>
       </section>
     );
   }
   return (
-    <>
-      <SyntheticMark show={isSyntheticRef(payment.provider) || isSyntheticRef(payment.paymentId)} />
-      <Section title="PAYMENT">
-        <SpecList
-          rows={[
-            { label: "Payment ID", value: payment.paymentId },
-            { label: "Provider", value: payment.provider },
-            { label: "State", value: payment.state },
-            { label: "Currency", value: payment.currency },
-            { label: "Amount (minor)", value: payment.amountMinor },
-          ]}
-        />
-      </Section>
-      <Section title="EXCEPTIONS">
-        {exceptions.length === 0 ? (
-          <p>No exceptions are stored for this payment.</p>
-        ) : (
-          <ul className="plain-list">
-            {exceptions.map((row) => (
-              <li key={row.exceptionId}>
-                <Link href={`/exceptions/${encodeURIComponent(row.exceptionId)}`}>
-                  {row.exceptionCode}
+    <div className="table-wrap">
+      <table className="queue">
+        <caption className="visually-hidden">Payments</caption>
+        <thead>
+          <tr>
+            <th scope="col">Payment ID</th>
+            <th scope="col">Provider</th>
+            <th scope="col">State</th>
+            <th scope="col">Created</th>
+            <th scope="col">Updated</th>
+            <th scope="col">Exceptions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={`${row.provider}:${row.paymentId}`}>
+              <th scope="row">
+                <Link
+                  href={`/payments/${encodeURIComponent(row.paymentId)}`}
+                  className="queue-link"
+                >
+                  {row.paymentId}
                 </Link>
-                <span className="mono"> {row.exceptionId}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Section>
-    </>
+                {isSyntheticRef(row.provider) || isSyntheticRef(row.paymentId) ? (
+                  <span className="inline-flag">SYNTHETIC</span>
+                ) : null}
+              </th>
+              <td className="mono">{row.provider}</td>
+              <td>{row.state}</td>
+              <td className="mono" title={row.createdAt}>
+                {formatClock(row.createdAt)}
+              </td>
+              <td className="mono" title={row.updatedAt}>
+                {formatClock(row.updatedAt)}
+              </td>
+              <td className="mono">{String(row.exceptionCount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
-export function PaymentsPage({ paymentId }: { readonly paymentId: string | null }) {
-  const { navigate } = useRouter();
+export function PaymentsPage() {
+  const { route, navigate } = useRouter();
+  const search = route.name === "payments" ? route.search : "";
+  const q = useMemo(() => queryFromSearch(search), [search]);
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const raw = form.get("paymentId");
-    const id = typeof raw === "string" ? raw.trim() : "";
-    if (id.length === 0) {
-      return;
-    }
-    navigate(`/payments/${encodeURIComponent(id)}`);
+    const raw = form.get("q");
+    const next = typeof raw === "string" ? raw.trim() : "";
+    navigate(next.length === 0 ? "/payments" : `/payments?q=${encodeURIComponent(next)}`);
   }
 
   return (
     <>
       <header className="page-head">
         <h1 className="kicker">PAYMENTS</h1>
-        <p>Lookup a durable payment projection by identifier. This is not a volume report.</p>
+        <p>Persisted payment projections. This is not a volume report.</p>
       </header>
-      <form className="filters" onSubmit={onSubmit} aria-label="Payment lookup">
+      <form className="filters" onSubmit={onSubmit} aria-label="Payment search">
         <label className="filters__search">
           Payment ID
           <input
-            name="paymentId"
-            defaultValue={paymentId ?? ""}
+            name="q"
+            defaultValue={q}
             autoComplete="off"
             spellCheck={false}
           />
         </label>
-        <button type="submit">Load</button>
+        <button type="submit">Apply</button>
       </form>
-      {paymentId === null ? (
-        <section className="empty">
-          <h2 className="kicker">ENTER A PAYMENT ID</h2>
-          <p>Payments are loaded from the API by identifier. No catalog totals are displayed.</p>
-        </section>
-      ) : (
-        <PaymentRecord key={paymentId} paymentId={paymentId} />
-      )}
+      <PaymentIndexResults key={`results:${search || "all"}`} q={q} />
     </>
   );
 }

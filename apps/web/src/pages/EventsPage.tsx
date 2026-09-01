@@ -1,59 +1,67 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ApiError, isApiError } from "../api/client";
 import { useApi } from "../api/context";
-import type { PublicAuditEvent, PublicWebhookEvent } from "../api/types";
-import { AuditHistory } from "../components/AuditHistory";
-import { ErrorPanel, Section, SpecList, StatusLine, SyntheticMark } from "../components/chrome";
-import { isSyntheticRef } from "../lib/format";
-import { Link, useRouter } from "../routing/router";
+import type { PublicWebhookEvent } from "../api/types";
+import { ErrorPanel, StatusLine } from "../components/chrome";
+import { EventFilters } from "../components/EventFilters";
+import { EventTable } from "../components/EventTable";
+import type { EventListFilter } from "../lib/event-filter";
+import { useRouter } from "../routing/router";
 
-function EventRecord({ webhookEventId }: { readonly webhookEventId: string }) {
+function queryFromSearch(search: string): EventListFilter {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const read = (key: string) => params.get(key)?.trim() || undefined;
+  return {
+    eventType: read("eventType"),
+    processingStatus: read("processingStatus"),
+    q: read("q"),
+  };
+}
+
+function searchFromQuery(query: EventListFilter): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value.length > 0) {
+      params.set(key, value);
+    }
+  }
+  const encoded = params.toString();
+  return encoded.length === 0 ? "/events" : `/events?${encoded}`;
+}
+
+function EventIndexResults({ query }: { readonly query: EventListFilter }) {
   const api = useApi();
-  const [webhook, setWebhook] = useState<PublicWebhookEvent | null>(null);
-  const [audit, setAudit] = useState<readonly PublicAuditEvent[]>([]);
+  const [rows, setRows] = useState<readonly PublicWebhookEvent[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [missing, setMissing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     void api
-      .getWebhook(webhookEventId)
-      .then(async (record) => {
-        if (cancelled) {
-          return;
+      .listWebhooks({
+        q: query.q,
+        eventType: query.eventType,
+        processingStatus: query.processingStatus,
+      })
+      .then((listed) => {
+        if (!cancelled) {
+          setRows(listed);
         }
-        if (record === null) {
-          setMissing(true);
-          setLoading(false);
-          return;
-        }
-        const rows = await api.listWebhookAudit(webhookEventId);
-        if (cancelled) {
-          return;
-        }
-        setWebhook(record);
-        setAudit(rows);
-        setLoading(false);
       })
       .catch((caught: unknown) => {
-        if (!cancelled) {
-          setLoading(false);
-          setError(
-            isApiError(caught)
-              ? caught
-              : new ApiError("REQUEST_FAILED", "", 0, "UNABLE TO LOAD EVENT"),
-          );
+        if (cancelled) {
+          return;
         }
+        setError(
+          isApiError(caught)
+            ? caught
+            : new ApiError("REQUEST_FAILED", "", 0, "UNABLE TO LOAD EVENT"),
+        );
       });
     return () => {
       cancelled = true;
     };
-  }, [api, webhookEventId]);
+  }, [api, query]);
 
-  if (loading) {
-    return <StatusLine>LOADING EVENT…</StatusLine>;
-  }
   if (error !== null) {
     return (
       <ErrorPanel
@@ -63,85 +71,30 @@ function EventRecord({ webhookEventId }: { readonly webhookEventId: string }) {
       />
     );
   }
-  if (missing || webhook === null) {
-    return (
-      <section className="empty">
-        <h2 className="kicker">EVENT NOT FOUND</h2>
-        <p className="mono">{webhookEventId}</p>
-      </section>
-    );
+  if (rows === null) {
+    return <StatusLine>LOADING EVENTS…</StatusLine>;
   }
-  return (
-    <>
-      <SyntheticMark
-        show={isSyntheticRef(webhook.provider) || isSyntheticRef(webhook.paymentId)}
-      />
-      <Section title="EVENT">
-        <SpecList
-          rows={[
-            { label: "Event ID", value: webhook.webhookEventId },
-            { label: "Type", value: webhook.eventType },
-            { label: "Status", value: webhook.processingStatus },
-            {
-              label: "Payment ID",
-              value: (
-                <Link href={`/payments/${encodeURIComponent(webhook.paymentId)}`}>
-                  {webhook.paymentId}
-                </Link>
-              ),
-            },
-            { label: "occurredAt", value: webhook.occurredAt },
-            { label: "receivedAt", value: webhook.receivedAt },
-          ]}
-        />
-      </Section>
-      <Section title="AUDIT HISTORY">
-        <AuditHistory events={audit} />
-      </Section>
-    </>
-  );
+  return <EventTable events={rows} />;
 }
 
-export function EventsPage({ webhookEventId }: { readonly webhookEventId: string | null }) {
-  const { navigate } = useRouter();
-
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const raw = form.get("webhookEventId");
-    const id = typeof raw === "string" ? raw.trim() : "";
-    if (id.length === 0) {
-      return;
-    }
-    navigate(`/events/${encodeURIComponent(id)}`);
-  }
+export function EventsPage() {
+  const { route, navigate } = useRouter();
+  const search = route.name === "events" ? route.search : "";
+  const query = useMemo(() => queryFromSearch(search), [search]);
 
   return (
     <>
       <header className="page-head">
         <h1 className="kicker">EVENTS</h1>
-        <p>Lookup a stored webhook by internal event id. Raw provider payloads are not stored.</p>
+        <p>Persisted webhook events. Raw provider payloads are not stored.</p>
       </header>
-      <form className="filters" onSubmit={onSubmit} aria-label="Event lookup">
-        <label className="filters__search">
-          Webhook event ID
-          <input
-            name="webhookEventId"
-            defaultValue={webhookEventId ?? ""}
-            autoComplete="off"
-            spellCheck={false}
-          />
-        </label>
-        <button type="submit">Load</button>
-      </form>
-      {webhookEventId === null ? (
-        <section className="empty">
-          <h2 className="kicker">ENTER A WEBHOOK EVENT ID</h2>
-          <p>Events are loaded from persistence by identifier.</p>
-        </section>
-      ) : (
-        <EventRecord key={webhookEventId} webhookEventId={webhookEventId} />
-      )}
+      <EventFilters
+        key={`filters:${search || "all"}`}
+        value={query}
+        onSubmit={(next) => navigate(searchFromQuery(next))}
+        includePaymentSearch
+      />
+      <EventIndexResults key={`results:${search || "all"}`} query={query} />
     </>
   );
 }

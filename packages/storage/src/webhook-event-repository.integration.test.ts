@@ -296,6 +296,12 @@ describe("webhook event repository", () => {
     const listedA = await store.repository.listByPayment(provider, payA);
     expect(listedA.map((row) => row.event.paymentId)).toEqual([payA]);
 
+    const listedType = await store.repository.list({
+      eventType: "payment.captured",
+      paymentId: payB,
+    });
+    expect(listedType.map((row) => row.event.paymentId)).toEqual([payB]);
+
     const replayA = await processPaymentEvents(store.repository, provider, payA);
     expect(replayA.payment?.state).toBe("CREATED");
     expect(replayA.decisions).toHaveLength(1);

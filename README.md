@@ -80,7 +80,7 @@ What this revision does not implement or claim:
 ```
 apps/
   api/                 Hono HTTP + webhook pipeline + retry/audit inspection
-  web/                 React/Vite operator console (exception queue + payment/event lookup)
+  web/                 React/Vite operator console (exceptions, payments, events)
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event, identity, signature verifiers
@@ -165,7 +165,7 @@ pnpm simulate list
 | Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
 | Deterministic exception detection | Implemented (rules + PostgreSQL + read APIs) |
 | Read-only AI investigation | Implemented (stub default; optional isolated LLM adapter) |
-| Operator console | Implemented (exception queue, payment/event lookup; no fake KPIs) |
+| Operator console | Implemented (exception queue, payment workspace, event inspector; no fake KPIs) |
 | Production deployment | Not implemented |
 
-The web shell is a black-and-white operator console. It reads exceptions, payments, webhook events, audit history, retries, and investigations from the API. It does not display fabricated volume or success metrics.
+The web shell is a black-and-white operator console. It reads exceptions, payments, webhook events, audit history, retries, and investigations from the API. See `docs/operator-console.md`. It does not display fabricated volume or success metrics.

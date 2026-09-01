@@ -13,8 +13,10 @@ import {
 export type ConsoleRoute =
   | { readonly name: "exceptions"; readonly search: string }
   | { readonly name: "exception"; readonly id: string }
-  | { readonly name: "payments"; readonly paymentId: string | null }
-  | { readonly name: "events"; readonly webhookEventId: string | null }
+  | { readonly name: "payments"; readonly search: string }
+  | { readonly name: "payment"; readonly paymentId: string }
+  | { readonly name: "events"; readonly search: string }
+  | { readonly name: "event"; readonly webhookEventId: string }
   | { readonly name: "unknown"; readonly path: string };
 
 export function parseRoute(pathname: string, search = ""): ConsoleRoute {
@@ -27,18 +29,18 @@ export function parseRoute(pathname: string, search = ""): ConsoleRoute {
     return { name: "exception", id: decodeURIComponent(exception[1]) };
   }
   if (path === "/payments") {
-    return { name: "payments", paymentId: null };
+    return { name: "payments", search };
   }
   const payment = /^\/payments\/(.+)$/.exec(path);
   if (payment?.[1] !== undefined) {
-    return { name: "payments", paymentId: decodeURIComponent(payment[1]) };
+    return { name: "payment", paymentId: decodeURIComponent(payment[1]) };
   }
   if (path === "/events") {
-    return { name: "events", webhookEventId: null };
+    return { name: "events", search };
   }
   const event = /^\/events\/([^/]+)$/.exec(path);
   if (event?.[1] !== undefined) {
-    return { name: "events", webhookEventId: decodeURIComponent(event[1]) };
+    return { name: "event", webhookEventId: decodeURIComponent(event[1]) };
   }
   return { name: "unknown", path };
 }

@@ -1,13 +1,15 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 import type { PaymentId, ProviderId } from "@hookx/domain";
 import type { NormalizedWebhookEvent, WebhookIdentity } from "@hookx/webhook";
 import { StorageError } from "./errors.js";
 import { toInsertValues, toStoredWebhookEvent } from "./mapping.js";
-import type { WebhookEventRepository } from "./repository.js";
+import type { WebhookEventRepository, WebhookListFilter } from "./repository.js";
 import { webhookEvents } from "./schema/webhook-events.js";
+import { isUuid, likeContains } from "./sql-search.js";
 import type { WebhookProcessingStatus } from "./status.js";
 import type { StoredWebhookEvent, StoreWebhookEventResult } from "./types.js";
+import { WEBHOOK_LIST_LIMIT } from "./webhook-list.js";
 
 type StorageDatabase = ReturnType<typeof drizzle>;
 
@@ -104,6 +106,52 @@ export class DrizzleWebhookEventRepository implements WebhookEventRepository {
       .limit(1);
     const row = rows[0];
     return row === undefined ? null : toStoredWebhookEvent(row);
+  }
+
+  public async list(
+    filter?: WebhookListFilter,
+  ): Promise<readonly StoredWebhookEvent[]> {
+    const clauses: SQL[] = [];
+    if (filter?.provider !== undefined) {
+      clauses.push(eq(webhookEvents.provider, filter.provider));
+    }
+    if (filter?.paymentId !== undefined) {
+      clauses.push(eq(webhookEvents.paymentId, filter.paymentId));
+    }
+    if (filter?.eventType !== undefined) {
+      clauses.push(eq(webhookEvents.eventType, filter.eventType));
+    }
+    if (filter?.processingStatus !== undefined) {
+      clauses.push(eq(webhookEvents.processingStatus, filter.processingStatus));
+    }
+    if (filter?.q !== undefined) {
+      const q = filter.q;
+      const pattern = likeContains(q);
+      const search = isUuid(q)
+        ? or(
+            eq(webhookEvents.id, q),
+            like(webhookEvents.externalEventId, pattern),
+            like(webhookEvents.paymentId, pattern),
+          )
+        : or(
+            like(webhookEvents.externalEventId, pattern),
+            like(webhookEvents.paymentId, pattern),
+          );
+      if (search !== undefined) {
+        clauses.push(search);
+      }
+    }
+    const query =
+      clauses.length === 0
+        ? this.db.select().from(webhookEvents)
+        : this.db
+            .select()
+            .from(webhookEvents)
+            .where(and(...clauses));
+    const rows = await query
+      .orderBy(desc(webhookEvents.receivedAt), desc(webhookEvents.id))
+      .limit(WEBHOOK_LIST_LIMIT);
+    return rows.map((row) => toStoredWebhookEvent(row));
   }
 
   public async listByPayment(

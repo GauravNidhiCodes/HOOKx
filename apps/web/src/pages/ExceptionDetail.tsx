@@ -11,6 +11,7 @@ import type {
   PublicWebhookEvent,
 } from "../api/types";
 import { AuditHistory } from "../components/AuditHistory";
+import { CopyButton } from "../components/CopyButton";
 import { EventTimeline } from "../components/EventTimeline";
 import { InvestigationPanel } from "../components/InvestigationPanel";
 import { RetryInformation } from "../components/RetryInformation";
@@ -22,6 +23,8 @@ import {
   SyntheticMark,
 } from "../components/chrome";
 import { blank, isSyntheticRef } from "../lib/format";
+import { ADVISORY_AUTHORITATIVE } from "../lib/operator-catalog";
+import { hasRetryHistory, retryHistoryFromAudit } from "../lib/retry-history";
 import { buildTimeline } from "../lib/timeline";
 import { Link } from "../routing/router";
 
@@ -154,12 +157,16 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
     isSyntheticRef(exception.provider) ||
     isSyntheticRef(exception.paymentId) ||
     isSyntheticRef(payment?.provider);
+  const timeline = buildTimeline(webhooks, audit);
+  const eventId = webhook?.webhookEventId ?? exception.webhookEventId;
+  const retryAttempts = retryHistoryFromAudit(
+    audit,
+    exception.webhookEventId ?? undefined,
+  );
   const retryRelated =
     exception.exceptionCode === "PROCESSING_FAILURE" ||
     exception.exceptionCode === "RETRY_EXHAUSTED" ||
-    retry !== null ||
-    deadLetter !== null;
-  const timeline = buildTimeline(webhooks, audit);
+    hasRetryHistory(retry, deadLetter, retryAttempts);
 
   return (
     <>
@@ -175,6 +182,27 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
             { label: "Code", value: exception.exceptionCode },
             { label: "Severity", value: exception.severity },
             { label: "Status", value: exception.status },
+            {
+              label: "Exception ID",
+              value: (
+                <span className="copyable">
+                  {exception.exceptionId}
+                  <CopyButton value={exception.exceptionId} label="exception ID" />
+                </span>
+              ),
+            },
+            {
+              label: "Correlation ID",
+              value: (
+                <span className="copyable">
+                  {exception.correlationId}
+                  <CopyButton
+                    value={exception.correlationId}
+                    label="correlation ID"
+                  />
+                </span>
+              ),
+            },
           ]}
         />
       </Section>
@@ -187,9 +215,12 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
               {
                 label: "Payment ID",
                 value: exception.paymentId ? (
-                  <Link href={`/payments/${encodeURIComponent(exception.paymentId)}`}>
-                    {exception.paymentId}
-                  </Link>
+                  <span className="copyable">
+                    <Link href={`/payments/${encodeURIComponent(exception.paymentId)}`}>
+                      {exception.paymentId}
+                    </Link>
+                    <CopyButton value={exception.paymentId} label="payment ID" />
+                  </span>
                 ) : (
                   "—"
                 ),
@@ -206,7 +237,19 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
         ) : (
           <SpecList
             rows={[
-              { label: "Event ID", value: blank(webhook?.webhookEventId ?? exception.webhookEventId) },
+              {
+                label: "Event ID",
+                value: eventId ? (
+                  <span className="copyable">
+                    <Link href={`/events/${encodeURIComponent(eventId)}`}>
+                      {eventId}
+                    </Link>
+                    <CopyButton value={eventId} label="event ID" />
+                  </span>
+                ) : (
+                  "—"
+                ),
+              },
               { label: "Event type", value: blank(webhook?.eventType) },
               { label: "occurredAt", value: blank(webhook?.occurredAt) },
               { label: "receivedAt", value: blank(webhook?.receivedAt) },
@@ -234,13 +277,14 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
         {historyLoading ? (
           <StatusLine>LOADING EVENT HISTORY…</StatusLine>
         ) : (
-          <AuditHistory events={audit} />
+          <AuditHistory
+            events={audit}
+            emptyLabel="No audit rows for this exception."
+          />
         )}
       </Section>
       <Section title="INVESTIGATION">
-        <p className="advisory">
-          ADVISORY — SYSTEM OF RECORD REMAINS DETERMINISTIC
-        </p>
+        <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
         <button
           type="button"
           onClick={() => {

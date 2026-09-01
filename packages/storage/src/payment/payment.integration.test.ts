@@ -70,5 +70,8 @@ describe("payment persistence", () => {
       provider,
       state: "AUTHORIZED",
     });
+    const listed = await store.payments.list({ q: id });
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.state).toBe("AUTHORIZED");
   });
 });

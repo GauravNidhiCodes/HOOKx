@@ -1,12 +1,15 @@
 import type {
   ExceptionListQuery,
+  PaymentListQuery,
   PublicAuditEvent,
   PublicDeadLetter,
   PublicException,
   PublicInvestigation,
   PublicPayment,
+  PublicPaymentListItem,
   PublicRetry,
   PublicWebhookEvent,
+  WebhookListQuery,
 } from "./types";
 
 export class ApiError extends Error {
@@ -44,7 +47,10 @@ export function isApiError(value: unknown): value is ApiError {
 export type HookxApi = {
   listExceptions(query: ExceptionListQuery): Promise<readonly PublicException[]>;
   getException(id: string): Promise<PublicException>;
+  listPayments(query?: PaymentListQuery): Promise<readonly PublicPaymentListItem[]>;
   getPayment(paymentId: string, provider?: string): Promise<PublicPayment | null>;
+  listPaymentExceptions(paymentId: string): Promise<readonly PublicException[]>;
+  listWebhooks(query?: WebhookListQuery): Promise<readonly PublicWebhookEvent[]>;
   getWebhook(webhookEventId: string): Promise<PublicWebhookEvent | null>;
   listPaymentWebhooks(paymentId: string, provider?: string): Promise<readonly PublicWebhookEvent[]>;
   listPaymentAudit(paymentId: string): Promise<readonly PublicAuditEvent[]>;
@@ -112,6 +118,7 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
           exceptionCode: query.exceptionCode,
           provider: query.provider,
           q: query.q,
+          paymentId: query.paymentId,
         })}`,
       );
       if (status !== 200) {
@@ -136,6 +143,23 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
       return (body as { exception: PublicException }).exception;
     },
 
+    async listPayments(query = {}) {
+      const { status, body, correlationId } = await request(
+        `/payments${queryString({
+          q: query.q,
+          provider: query.provider,
+          state: query.state,
+        })}`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD PAYMENT");
+      }
+      if (typeof body !== "object" || body === null || !("payments" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD PAYMENT");
+      }
+      return (body as { payments: PublicPaymentListItem[] }).payments;
+    },
+
     async getPayment(paymentId, provider) {
       const { status, body, correlationId } = await request(
         `/payments/${encodeURIComponent(paymentId)}${queryString({ provider })}`,
@@ -147,6 +171,38 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
         fail(status, body, correlationId, "UNABLE TO LOAD PAYMENT");
       }
       return (body as { payment: PublicPayment }).payment;
+    },
+
+    async listPaymentExceptions(paymentId) {
+      const { status, body, correlationId } = await request(
+        `/payments/${encodeURIComponent(paymentId)}/exceptions`,
+      );
+      if (status === 404) {
+        return [];
+      }
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD EXCEPTION");
+      }
+      return (body as { exceptions: PublicException[] }).exceptions;
+    },
+
+    async listWebhooks(query = {}) {
+      const { status, body, correlationId } = await request(
+        `/webhooks${queryString({
+          q: query.q,
+          eventType: query.eventType,
+          processingStatus: query.processingStatus,
+          paymentId: query.paymentId,
+          provider: query.provider,
+        })}`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD EVENT");
+      }
+      if (typeof body !== "object" || body === null || !("webhooks" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD EVENT");
+      }
+      return (body as { webhooks: PublicWebhookEvent[] }).webhooks;
     },
 
     async getWebhook(webhookEventId) {
