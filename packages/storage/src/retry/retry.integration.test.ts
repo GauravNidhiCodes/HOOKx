@@ -85,12 +85,33 @@ describe("retry persistence and worker", () => {
     };
     const scheduled = await processFreshEvent(deps, stored.record.id, NOW);
     expect(scheduled.status).toBe("RETRY_SCHEDULED");
-    const tick = await runRetryTick(deps, addMilliseconds(NOW, 1_000));
+    expect(scheduled.attemptCount).toBeGreaterThanOrEqual(1);
+    const tick = await runRetryTick(
+      {
+        ...deps,
+        audit: store.audit,
+        persistOutcome: store.persistOutcome,
+        actor: "RETRY_WORKER",
+      },
+      addMilliseconds(NOW, 1_000),
+    );
     expect(tick.succeeded).toBe(1);
     const event = await store.repository.findById(stored.record.id);
     expect(event?.processingStatus).toBe("PROCESSED");
     const retry = await store.retry.getByWebhookEventId(stored.record.id);
     expect(retry?.status).toBe("SUCCEEDED");
+    expect(retry?.attemptCount).toBeGreaterThanOrEqual(2);
+    const audit = await store.audit.listByWebhook(stored.record.id);
+    expect(audit.map((row) => row.eventType)).toEqual(
+      expect.arrayContaining([
+        "RETRY_ATTEMPTED",
+        "RETRY_SUCCEEDED",
+        "PAYMENT_STATE_CHANGED",
+      ]),
+    );
+    expect(
+      audit.filter((row) => row.eventType === "PAYMENT_STATE_CHANGED"),
+    ).toHaveLength(1);
   });
 
   it("dead-letters a permanent failure without pointless retries", async () => {

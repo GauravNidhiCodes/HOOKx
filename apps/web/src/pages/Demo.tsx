@@ -195,6 +195,9 @@ export function Demo() {
         <p className="synthetic-flag" role="note">
           SYNTHETIC DEMONSTRATION
         </p>
+        <p className="synthetic-flag" role="note">
+          NOT LIVE PAYMENT PROCESSING
+        </p>
         <p>{EXPLANATION}</p>
       </header>
 

@@ -2,6 +2,8 @@
 
 HTTP API for HOOKX webhook ingest, retry inspection, and read-only payment/audit queries.
 
+Endpoint catalog: [`docs/api.md`](../../docs/api.md). Error codes: [`docs/error-codes.md`](../../docs/error-codes.md).
+
 This service is the request boundary. It does not own payment transition rules, provider parsing, schema SQL, or retry backoff.
 
 Live Razorpay **API** integration is not implemented. Razorpay **webhook ingest** is implemented: signature verification and normalization only. See `docs/providers/razorpay.md`. Tested with synthetic fixtures; not against a Razorpay account. The synthetic provider (`SYNTHETIC`) remains the local simulator.
@@ -52,7 +54,7 @@ Correlation ids are generated at this boundary, never inside the state machine.
 
 Verification runs on the original raw body **before** `JSON.parse`.
 
-The synthetic verifier expects `X-Hookx-Synthetic-Signature` (`t=<unix>,v1=<hex>`). The secret comes from `HOOKX_SYNTHETIC_WEBHOOK_SECRET`.
+The synthetic verifier expects `X-Hookx-Signature` (`t=<unix>,v1=<hex>`). The secret comes from `HOOKX_SYNTHETIC_WEBHOOK_SECRET`.
 
 Razorpay expects `X-Razorpay-Signature` (HMAC-SHA256 hex of the raw body). The secret comes from `RAZORPAY_WEBHOOK_SECRET` and is optional at process start. See `docs/providers/razorpay.md`.
 

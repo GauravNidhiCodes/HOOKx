@@ -6,29 +6,17 @@ import { ErrorPanel, StatusLine } from "../components/chrome";
 import { Link } from "../routing/router";
 
 const PRODUCT_SENTENCE =
-  "Payment webhook infrastructure that detects, contains, and recovers from delivery failures.";
-
-const PRODUCT_STORY = [
-  "Payment webhook",
-  "Verify",
-  "Normalize",
-  "Idempotency",
-  "Deterministic processing",
-  "Failure / exception",
-  "Retry / replay",
-  "Audit trail",
-  "AI investigation",
-  "Operator decision",
-] as const;
+  "Webhook delivery is not the same thing as reliable financial processing. HOOKX verifies signed webhooks, stores each identity once, applies deterministic transitions, retries transient failures, and records an audit trail.";
 
 const ARCHITECTURE = [
   "Provider",
+  "Verification",
   "Adapter",
-  "Ingestion",
-  "Domain",
-  "Processing",
-  "Exceptions",
-  "Recovery",
+  "Normalization",
+  "Idempotent ingestion",
+  "Deterministic processing",
+  "Retry / replay",
+  "Exception",
   "Audit",
   "Investigation",
   "Operator",
@@ -140,17 +128,19 @@ export function Overview() {
   return (
     <>
       <header className="page-head">
-        <h1 className="kicker">OVERVIEW</h1>
+        <h1 className="kicker">HOOKX</h1>
+        <p className="kicker">PAYMENT WEBHOOK RELIABILITY ENGINE</p>
         <p>{PRODUCT_SENTENCE}</p>
+        <p>
+          When a webhook fails, the event is kept, classified, retried or
+          dead-lettered, and audited. Duplicates do not apply a second economic
+          effect. AI investigation is read-only and cannot change financial
+          state.
+        </p>
+        <p>
+          <Link href="/demo">RUN GOLDEN DEMO</Link>
+        </p>
       </header>
-      <section className="section">
-        <h2 className="kicker">PRODUCT STORY</h2>
-        <ol className="architecture-flow" aria-label="Product story">
-          {PRODUCT_STORY.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </section>
       <section className="section">
         <h2 className="kicker">ARCHITECTURE</h2>
         <ol className="architecture-flow" aria-label="System architecture">
@@ -159,10 +149,9 @@ export function Overview() {
           ))}
         </ol>
         <p>
-          Provider payloads stop at the adapter. The domain and processing
-          engine do not import HTTP, UI, a database, or the AI investigator.
-          Investigation explains stored evidence. It does not change payment
-          state.
+          HMAC runs on the raw body before parse. Provider payloads stop at the
+          adapter. The domain and processing engine do not import HTTP, UI, a
+          database, or the AI investigator.
         </p>
       </section>
       <section className="section">
@@ -181,17 +170,6 @@ export function Overview() {
         ) : (
           <OverviewMetrics summary={summary} />
         )}
-      </section>
-      <section className="section">
-        <h2 className="kicker">GOLDEN DEMO</h2>
-        <p>
-          A synthetic Razorpay-shaped webhook is posted through the real ingest
-          pipeline: verify, normalize, persist, fail once, retry, recover,
-          incident, timeline, optional AI investigation.
-        </p>
-        <p>
-          <Link href="/demo">RUN GOLDEN DEMO</Link>
-        </p>
       </section>
     </>
   );

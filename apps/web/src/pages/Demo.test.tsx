@@ -21,6 +21,7 @@ describe("golden demo", () => {
       screen.getByText("PAYMENT WEBHOOK RELIABILITY ENGINE"),
     ).toBeTruthy();
     expect(screen.getByText("SYNTHETIC DEMONSTRATION")).toBeTruthy();
+    expect(screen.getByText("NOT LIVE PAYMENT PROCESSING")).toBeTruthy();
     expect(
       screen.getByText(
         "Observe how HOOKX handles a webhook failure without allowing the financial state to become inconsistent.",

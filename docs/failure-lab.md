@@ -4,7 +4,7 @@ The Failure Lab is a controlled synthetic environment where an operator triggers
 
 **The Failure Lab never sends real payment requests.**
 
-It never calls Razorpay. It never creates live payments. It never requires production credentials. Every lab payment id is prefixed `SYNTHETIC:pay:lab-` so it cannot be mistaken for a customer payment. Scenario `RAZORPAY_SHAPED_DUPLICATE` uses PROVIDER `razorpay` and DATA SOURCE SYNTHETIC.
+It never calls Razorpay. It never creates live payments. It never requires Razorpay dashboard credentials. Every lab payment id is prefixed `SYNTHETIC:pay:lab-` so it cannot be mistaken for a customer payment. Scenario `RAZORPAY_SHAPED_DUPLICATE` uses PROVIDER `razorpay` and DATA SOURCE SYNTHETIC.
 
 The entire operator surface is labelled **SYNTHETIC FAILURE LAB**. The page states **THIS IS SYNTHETIC**.
 
@@ -66,7 +66,7 @@ Unknown scenario names return `400 UNKNOWN_FAILURE_LAB_SCENARIO`.
 
 ## Failure injection
 
-Processing failures used by the lab are **not** a client header and are **not** part of production ingest.
+Processing failures used by the lab are **not** a client header and are **not** part of default ingest.
 
 The lab constructs an isolated `processPaymentEvents` wrapper with an explicit mode:
 
@@ -81,7 +81,7 @@ Injection runs only when **both** are true:
 1. payment id starts with `SYNTHETIC:pay:lab-`
 2. provider is `SYNTHETIC` or `razorpay`
 
-A live-shaped Razorpay id (`pay_…`), a normal production webhook, or a simulator `SYNTHETIC:pay:sim-*` id cannot activate injection. The wrapper is attached only to the inner Hono app used for that lab/demo run. Default production `processPaymentEvents` is unchanged.
+A live-shaped Razorpay id (`pay_…`), a non-lab webhook, or a simulator `SYNTHETIC:pay:sim-*` id cannot activate injection. The wrapper is attached only to the inner Hono app used for that lab/demo run. Default ingest `processPaymentEvents` is unchanged.
 
 The mode is chosen by the server from the scenario id. Clients cannot supply an arbitrary failure function.
 

@@ -21,18 +21,33 @@ Razorpay-specific code lives under `packages/webhook/src/razorpay/`. The core en
 
 ```mermaid
 flowchart TD
-  P[Provider] --> A[Adapter]
-  A --> I[Ingestion]
-  I --> D[Domain]
-  D --> E[Processing]
-  E --> X[Exceptions]
-  X --> R[Recovery]
-  R --> U[Audit]
-  U --> V[Investigation]
-  V --> O[Operator]
+  P[Provider] --> V[Verification]
+  V --> A[Adapter]
+  A --> N[Normalization]
+  N --> I[Idempotent ingestion]
+  I --> D[Deterministic processing]
+  D --> R[Retry / replay]
+  R --> X[Exception]
+  X --> U[Audit]
+  U --> G[Investigation]
+  G --> O[Operator]
 ```
 
 Ingestion in order: capture raw body → verify signature → adapter normalize → idempotent persist → process / replay → durable payment + audit → HTTP response.
+
+```
+Provider
+  → Verification
+  → Adapter
+  → Normalization
+  → Idempotent ingestion
+  → Deterministic processing
+  → Retry / replay
+  → Exception
+  → Audit
+  → Investigation
+  → Operator
+```
 
 ## Retries and replay
 
@@ -41,6 +56,10 @@ A persisted event that fails temporarily is claimed (`SELECT … FOR UPDATE SKIP
 ## Audit and investigation
 
 `audit_events` is append-only from application writes. Covered operations include ingest, processing decision, exception, retry, replay, and investigation recording. Investigation reads sanitized evidence and records `INVESTIGATION_RECORDED`. Payment rows are unchanged by that write.
+
+## Before production
+
+HOOKX is a local reliability engine and operator workspace. It is not a production payment processor. Gaps include authentication, rate limiting, provider onboarding, secret rotation, operational alerting, high availability, load testing, live Razorpay webhook verification, and deployment infrastructure. See [docs/reviewer-guide.md](reviewer-guide.md).
 
 ## Operator surface
 

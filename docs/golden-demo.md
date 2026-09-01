@@ -1,6 +1,6 @@
 # Golden Demo
 
-The Golden Demo is a single operator path that runs a **synthetic** Razorpay-shaped webhook through the **existing** HOOKX pipeline. It is not a second processing engine and it does not invent results in the browser.
+The Golden Demo is a single operator path that runs a **synthetic** Razorpay-shaped webhook through the **existing** HOOKX pipeline. It is a **SYNTHETIC DEMONSTRATION**, not live payment processing. It is not a second processing engine and it does not invent results in the browser.
 
 Purpose: show a reviewer, in a few minutes, how HOOKX verifies, stores, fails, retries, recovers, audits, and explains a webhook without applying a second economic effect.
 
@@ -42,7 +42,7 @@ Nothing is sent to Razorpay. Data source is SYNTHETIC. Provider on the stored ev
 
 ## Failure injection
 
-`FAIL_ONCE` / `ALWAYS_FAIL` run only when the payment id is `SYNTHETIC:pay:lab-*` **and** the provider is `SYNTHETIC` or `razorpay`. Live-shaped ids (`pay_…`) and simulator ids (`SYNTHETIC:pay:sim-*`) are never injected. The wrapper is attached only to the inner app for that lab/demo run. Production `processPaymentEvents` is unchanged. Clients cannot pass an injection function.
+`FAIL_ONCE` / `ALWAYS_FAIL` run only when the payment id is `SYNTHETIC:pay:lab-*` **and** the provider is `SYNTHETIC` or `razorpay`. Live-shaped ids (`pay_…`) and simulator ids (`SYNTHETIC:pay:sim-*`) are never injected. The wrapper is attached only to the inner app for that lab/demo run. Default ingest `processPaymentEvents` is unchanged. Clients cannot pass an injection function.
 
 ## Retry behavior
 
@@ -75,15 +75,22 @@ If processing created an exception, the report includes `incidentId` and links t
 - Requires `HOOKX_SYNTHETIC_WEBHOOK_SECRET` and `RAZORPAY_WEBHOOK_SECRET` (placeholder is fine). Missing Razorpay secret → `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE` / **DEMO FAILED**.
 - In-memory run history is per API process. Database rows remain until Failure Lab scoped reset.
 - **NEW DEMO RUN** starts a new id. It does not delete previous synthetic rows.
-- Not a live Razorpay connection, not production traffic, not a second queue or database.
+- Not a live Razorpay connection, not live payment processing, not a second queue or database.
 - Default investigator is a stub unless `HOOKX_INVESTIGATION_PROVIDER` is configured for a model.
 
 ## Run HOOKX locally
 
-Requires Node.js 22+, pnpm 11, PostgreSQL 16+.
+Requires Node.js 22+, pnpm 11, PostgreSQL 16+. Commands below are the repository scripts.
+
+1. **Install**
 
 ```bash
 pnpm install
+```
+
+2. **Environment setup**
+
+```bash
 cp .env.example .env
 ```
 
@@ -95,16 +102,50 @@ HOOKX_SYNTHETIC_WEBHOOK_SECRET=dev-only-synthetic-webhook-secret
 RAZORPAY_WEBHOOK_SECRET=dev-only-razorpay-webhook-secret
 ```
 
-`RAZORPAY_WEBHOOK_SECRET` may be any local placeholder. It is not a Razorpay dashboard credential requirement for this demo.
+`RAZORPAY_WEBHOOK_SECRET` may be any local placeholder. It is not a Razorpay dashboard credential. Missing it → `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE` / **DEMO FAILED**.
+
+3. **Database setup**
+
+Create the database named in `HOOKX_DATABASE_URL` if it does not exist:
 
 ```bash
-pnpm --filter @hookx/storage db:migrate
+createdb hookx
+```
+
+4. **Migration**
+
+```bash
+pnpm migrate
+```
+
+Equivalent: `pnpm --filter @hookx/storage db:migrate`. This applies schema. It does not create the database.
+
+5. **Start application**
+
+```bash
 pnpm dev
 ```
 
-- API: `http://127.0.0.1:8787`
-- Console: `http://127.0.0.1:5173/demo`
+Starts API `http://127.0.0.1:8787` and console `http://127.0.0.1:5173`.
 
-Click **RUN DEMO**. Then **VIEW INCIDENT**, **VIEW TIMELINE**, **INVESTIGATE INCIDENT**. `HOOKX_INVESTIGATION_PROVIDER` may stay `stub`.
+6. **Open demo**
+
+Open `http://127.0.0.1:5173/demo`. The page is labelled **SYNTHETIC DEMONSTRATION** / **NOT LIVE PAYMENT PROCESSING**.
+
+7. **Run scenario**
+
+Click **RUN DEMO**. The console calls `POST /demo/run`. Lifecycle steps mark complete only from the backend report.
+
+8. **Inspect incident**
+
+**VIEW INCIDENT** opens `/incidents/:id` for the persisted `PROCESSING_FAILURE` exception, if one exists.
+
+9. **Inspect timeline**
+
+**VIEW TIMELINE** (or the timeline on the demo page) is stored incident chronology, not a frontend animation.
+
+10. **Run investigation**
+
+**INVESTIGATE INCIDENT** calls `POST /incidents/:id/investigate`. Labels: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. `HOOKX_INVESTIGATION_PROVIDER` may stay `stub`.
 
 Automated equivalent: `apps/api/src/demo/golden.e2e.test.ts` (PostgreSQL). Exhaustion negative path: `apps/api/src/demo/exhaustion.e2e.test.ts`.

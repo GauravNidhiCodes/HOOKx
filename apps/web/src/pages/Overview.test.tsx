@@ -14,10 +14,13 @@ describe("overview", () => {
   it("explains HOOKX and keeps primary navigation to operator sections", async () => {
     const api = createMockApi();
     render(<App api={api} initialHref="/" />);
-    expect(await screen.findByRole("heading", { name: "OVERVIEW" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "HOOKX" })).toBeTruthy();
+    expect(
+      screen.getByText("PAYMENT WEBHOOK RELIABILITY ENGINE"),
+    ).toBeTruthy();
     expect(
       screen.getByText(
-        "Payment webhook infrastructure that detects, contains, and recovers from delivery failures.",
+        /Webhook delivery is not the same thing as reliable financial processing/,
       ),
     ).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Primary" });
@@ -30,15 +33,22 @@ describe("overview", () => {
     expect(nav.textContent).not.toContain("Events");
     expect(screen.getByRole("heading", { name: "ARCHITECTURE" })).toBeTruthy();
     expect(screen.getByLabelText("System architecture").textContent).toContain(
-      "Provider",
+      "Verification",
+    );
+    expect(screen.getByLabelText("System architecture").textContent).toContain(
+      "Idempotent ingestion",
     );
     expect(screen.getByText("AI outside the financial decision path")).toBeTruthy();
     expect(screen.getByText("NO DATA")).toBeTruthy();
     expect(screen.queryByText(/uptime/i)).toBeNull();
     expect(screen.queryByText(/99\.99/)).toBeNull();
+    const demo = screen.getByRole("link", { name: "RUN GOLDEN DEMO" });
+    expect(demo.getAttribute("href")).toBe("/demo");
+    const architecture = screen.getByRole("heading", { name: "ARCHITECTURE" });
     expect(
-      screen.getByRole("link", { name: "RUN GOLDEN DEMO" }).getAttribute("href"),
-    ).toBe("/demo");
+      demo.compareDocumentPosition(architecture) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("shows persisted counts from the metrics API", async () => {

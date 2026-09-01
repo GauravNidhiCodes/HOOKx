@@ -5,7 +5,17 @@ import { parseRazorpayAmountMinor } from "./amount.js";
 describe("parseRazorpayAmountMinor", () => {
   it("accepts a safe integer JSON number as bigint minor units", () => {
     expect(parseRazorpayAmountMinor(0)).toBe(0n);
+    expect(parseRazorpayAmountMinor(1)).toBe(1n);
     expect(parseRazorpayAmountMinor(10000)).toBe(10000n);
+    expect(parseRazorpayAmountMinor(Number.MAX_SAFE_INTEGER)).toBe(
+      BigInt(Number.MAX_SAFE_INTEGER),
+    );
+  });
+
+  it("rejects values outside the safe integer range without coercing", () => {
+    expect(() => parseRazorpayAmountMinor(Number.MAX_SAFE_INTEGER + 1)).toThrow(
+      WebhookError,
+    );
   });
 
   it("accepts an integer decimal string without using floating-point math", () => {

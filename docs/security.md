@@ -5,7 +5,7 @@ This document describes controls that exist in the code. It is not a penetration
 ## Secrets
 
 - `.env` is gitignored. `.env.example` lists names only. `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are unused placeholders; webhook ingest reads `RAZORPAY_WEBHOOK_SECRET`.
-- Webhook secrets and `HOOKX_OPENAI_API_KEY` are read from the environment. They are not hardcoded for production use. Simulator/dev HMAC material is explicitly `dev-only-…` for local synthetic traffic.
+- Webhook secrets and `HOOKX_OPENAI_API_KEY` are read from the environment. They are not hardcoded. Simulator/dev HMAC material is explicitly `dev-only-…` for local synthetic traffic.
 - Signature headers are verified; expected signatures and secrets are not returned on HTTP responses.
 
 ## Logging and API errors
@@ -27,7 +27,7 @@ This document describes controls that exist in the code. It is not a penetration
 ## Destructive operations
 
 - Failure Lab reset requires confirmation `SYNTHETIC_FAILURE_LAB` and deletes only `SYNTHETIC:pay:lab-*` rows.
-- There is no operator control to truncate production payments.
+- There is no operator control to truncate non-lab payment rows.
 
 ## Input
 
@@ -37,4 +37,4 @@ This document describes controls that exist in the code. It is not a penetration
 
 ## Authentication
 
-The HTTP API and operator console are unauthenticated. They are a local operator workspace, not a multi-tenant production control plane. Do not expose them on a public network without an authenticating proxy.
+The HTTP API and operator console are unauthenticated. They are a local operator workspace, not a multi-tenant control plane. Do not expose them on a public network without an authenticating proxy.

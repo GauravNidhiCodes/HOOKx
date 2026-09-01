@@ -713,7 +713,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
   demoRunId: GOLDEN_DEMO_RUN_ID,
   correlationId: GOLDEN_CORRELATION,
   synthetic: true,
-  notice: "This is a synthetic demonstration. Nothing is sent to Razorpay.",
+  notice: "This is a synthetic demonstration. Not live payment processing. Nothing is sent to Razorpay.",
   invariant: {
     storedEventCount: 1,
     stateChange: 0,
@@ -727,7 +727,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
     synthetic: true,
     demoRun: true,
     labels: ["SYNTHETIC", "RAZORPAY ADAPTER", "DEMO RUN"],
-    notice: "This is a synthetic demonstration. Nothing is sent to Razorpay.",
+    notice: "This is a synthetic demonstration. Not live payment processing. Nothing is sent to Razorpay.",
     startedAt: "2026-01-15T14:30:00.000Z",
     finishedAt: "2026-01-15T14:30:01.000Z",
     failureMode: "FAIL_ONCE",

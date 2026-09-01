@@ -198,6 +198,45 @@ describe("replayEvents", () => {
     expect(result.decisions[1]?.reason).toBe("IDENTICAL_DELIVERY");
   });
 
+  it("replays a failed payment without inventing a later capture", () => {
+    const created = syntheticPaymentCreated({ occurredAt: T0 });
+    const failed = syntheticPaymentFailed({ occurredAt: T1 });
+    const result = replayEvents([created, failed]);
+    expect(result.payment?.state).toBe("FAILED");
+    expect(result.decisions.map((decision) => decision.eventId)).toEqual([
+      created.externalEventId,
+      failed.externalEventId,
+    ]);
+    expect(result.decisions.map((decision) => decision.decision)).toEqual([
+      "ACCEPTED",
+      "ACCEPTED",
+    ]);
+    expect(serializeReplay(replayEvents([created, failed]))).toBe(
+      serializeReplay(result),
+    );
+  });
+
+  it("classifies same identity with a different payload hash as CONFLICT", () => {
+    const created = syntheticPaymentCreated({
+      occurredAt: T0,
+      payloadHash: "SYNTHETIC:hash:original",
+    });
+    const conflicting = syntheticPaymentCreated({
+      occurredAt: T0,
+      payloadHash: "SYNTHETIC:hash:other",
+      amountMinor: 25000n,
+    });
+    const result = replayEvents([created, conflicting]);
+    expect(result.payment?.state).toBe("CREATED");
+    expect(result.payment?.amountMinor).toBe(created.amountMinor);
+    expect(result.decisions.map((decision) => decision.decision)).toEqual([
+      "ACCEPTED",
+      "CONFLICT",
+    ]);
+    expect(result.decisions[1]?.reason).toBe("MATERIAL_CONFLICT");
+    expect(result.requiresInvestigation).toBe(true);
+  });
+
   it("produces an identical result when replayed twice", () => {
     const created = syntheticPaymentCreated({ occurredAt: T0 });
     const captured = syntheticPaymentCaptured({ occurredAt: T2 });

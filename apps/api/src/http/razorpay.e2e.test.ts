@@ -176,6 +176,50 @@ describe("Razorpay webhook ingest through the real pipeline", () => {
     expect(listed).toHaveLength(1);
   });
 
+  it("ten sequential identical Razorpay deliveries produce one stored event", async () => {
+    const eventId = `evt_${randomUUID()}`;
+    const payId = `pay_${randomUUID()}`;
+    const payload = razorpayPaymentAuthorizedPayload({ id: payId });
+    const statuses: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const response = await postRazorpay({ payload, eventId });
+      expect(response.status).toBe(200);
+      statuses.push(String((await readJson(response)).status));
+    }
+    expect(statuses.filter((status) => status === "accepted")).toHaveLength(1);
+    expect(statuses.filter((status) => status === "duplicate")).toHaveLength(9);
+    expect(
+      await store.repository.listByPayment(PROVIDER, paymentId(payId)),
+    ).toHaveLength(1);
+    expect(
+      (await store.audit.listByPayment(paymentId(payId))).filter(
+        (row) => row.eventType === "PAYMENT_STATE_CHANGED",
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("concurrent identical Razorpay deliveries produce one stored event", async () => {
+    const eventId = `evt_${randomUUID()}`;
+    const payId = `pay_${randomUUID()}`;
+    const payload = razorpayPaymentAuthorizedPayload({ id: payId });
+    const rawBody = JSON.stringify(payload);
+    const signature = signRazorpayWebhook({ secret: RAZORPAY_SECRET, rawBody });
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        postRazorpay({ payload, eventId, rawBody, signature }),
+      ),
+    );
+    expect(responses.map((row) => row.status)).toEqual(Array(8).fill(200));
+    const bodies = await Promise.all(responses.map((row) => readJson(row)));
+    const outcomes = bodies.map((row) => row.status);
+    expect(outcomes.filter((status) => status === "accepted")).toHaveLength(1);
+    expect(outcomes.filter((status) => status === "duplicate")).toHaveLength(7);
+    expect(
+      await store.repository.listByPayment(PROVIDER, paymentId(payId)),
+    ).toHaveLength(1);
+    expect(JSON.stringify(bodies)).not.toContain(RAZORPAY_SECRET);
+  });
+
   it("keeps the original row on a same-identity payload-hash conflict", async () => {
     const eventId = `evt_${randomUUID()}`;
     const payId = `pay_${randomUUID()}`;
@@ -283,6 +327,59 @@ describe("Razorpay webhook ingest through the real pipeline", () => {
   it("rejects an invalid amount", async () => {
     const response = await postRazorpay({
       payload: razorpayPaymentAuthorizedPayload({ amount: 10.5 }),
+      eventId: `evt_${randomUUID()}`,
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_AMOUNT");
+  });
+
+  it("stores zero and smallest-unit Razorpay amounts as bigint minor units", async () => {
+    const zeroId = `evt_${randomUUID()}`;
+    const zeroPay = `pay_${randomUUID()}`;
+    const zero = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ id: zeroPay, amount: 0 }),
+      eventId: zeroId,
+    });
+    expect(zero.status).toBe(200);
+    expect(
+      (await store.repository.findByIdentity(
+        createWebhookIdentity("razorpay", zeroId),
+      ))?.event.amountMinor,
+    ).toBe(0n);
+
+    const unitId = `evt_${randomUUID()}`;
+    const unitPay = `pay_${randomUUID()}`;
+    const unit = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ id: unitPay, amount: 1 }),
+      eventId: unitId,
+    });
+    expect(unit.status).toBe(200);
+    expect(
+      (await store.repository.findByIdentity(
+        createWebhookIdentity("razorpay", unitId),
+      ))?.event.amountMinor,
+    ).toBe(1n);
+  });
+
+  it("stores a large safe-integer Razorpay amount as bigint", async () => {
+    const eventId = `evt_${randomUUID()}`;
+    const payId = `pay_${randomUUID()}`;
+    const amount = Number.MAX_SAFE_INTEGER;
+    const response = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ id: payId, amount }),
+      eventId,
+    });
+    expect(response.status).toBe(200);
+    expect(
+      (await store.repository.findByIdentity(
+        createWebhookIdentity("razorpay", eventId),
+      ))?.event.amountMinor,
+    ).toBe(BigInt(amount));
+  });
+
+  it("rejects a negative Razorpay amount", async () => {
+    const response = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ amount: -1 }),
       eventId: `evt_${randomUUID()}`,
     });
     expect(response.status).toBe(400);

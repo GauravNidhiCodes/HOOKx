@@ -355,7 +355,7 @@ export function FailureLab() {
         title="UNABLE TO LOAD FAILURE LAB"
         correlationId={loadError.correlationId}
         code={loadError.code}
-        safety="This page load did not run a scenario. Production payment state is not involved."
+        safety="This page load did not run a scenario. Live payment records are not involved."
         next="Retry this page, or return to Overview."
       />
     );
@@ -399,7 +399,7 @@ export function FailureLab() {
           title="UNABLE TO RUN FAILURE LAB SCENARIO"
           correlationId={runError.correlationId}
           code={runError.code}
-          safety="This Failure Lab request uses synthetic lab identifiers only. Production payment state is not involved."
+          safety="This Failure Lab request uses synthetic lab identifiers only. Live payment records are not involved."
           next="Retry the scenario, or continue from Overview or Incidents."
         />
       ) : null}

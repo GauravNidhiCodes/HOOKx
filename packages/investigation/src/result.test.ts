@@ -13,6 +13,7 @@ import {
 } from "./sample-context.js";
 import {
   createInvestigationResult,
+  isForbiddenFinancialAction,
   parseModelJson,
   validateInvestigationResult,
 } from "./index.js";
@@ -205,6 +206,18 @@ describe("structured investigation result", () => {
         expect(error.code).toBe(INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION);
       }
     }
+  });
+});
+
+describe("financial mutation guard", () => {
+  it("flags capture/refund language and leaves advisory codes unmarked", () => {
+    expect(isForbiddenFinancialAction("Please capture payment immediately.")).toBe(
+      true,
+    );
+    expect(isForbiddenFinancialAction("Do not refund payment from this tool.")).toBe(
+      true,
+    );
+    expect(isForbiddenFinancialAction("REQUEST_OPERATOR_REVIEW")).toBe(false);
   });
 });
 

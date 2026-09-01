@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm --parallel --filter @hookx/api --filter @hookx/web dev",
+    "migrate": "pnpm --filter @hookx/storage db:migrate",
     "build": "pnpm -r --if-present build",
     "test": "vitest run",
     "lint": "eslint .",

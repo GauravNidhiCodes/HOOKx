@@ -9,7 +9,7 @@ export function Shell({ children }: { readonly children: React.ReactNode }) {
       <header className="masthead">
         <div className="masthead__identity">
           <p className="masthead__mark">HOOKX</p>
-          <p className="masthead__name">Payment Webhook Reliability</p>
+          <p className="masthead__name">Payment Webhook Reliability Engine</p>
         </div>
         <div className="masthead__meta">
           <p>OPERATOR CONSOLE</p>

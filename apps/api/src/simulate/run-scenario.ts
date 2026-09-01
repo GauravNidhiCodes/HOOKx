@@ -78,7 +78,7 @@ function noteFor(
 }
 
 /**
- * Drive a scenario through the production Hono webhook route, then inspect
+ * Drive a scenario through the running API Hono webhook route, then inspect
  * stored results. Does not call internal ingest functions directly.
  */
 export async function runScenario(

@@ -11,6 +11,21 @@ describe("money representation", () => {
     expect(value.currency).toBe("INR");
   });
 
+  it("accepts zero, the smallest unit, and a large bigint without floating point", () => {
+    expect(money(0n, "INR").amountMinor).toBe(0n);
+    expect(money(1n, "INR").amountMinor).toBe(1n);
+    const large = 10n ** 18n;
+    expect(money(large, "USD").amountMinor).toBe(large);
+    expect(typeof money(large, "USD").amountMinor).toBe("bigint");
+  });
+
+  it("rejects invalid currency codes", () => {
+    expect(() => money(1n, "inr")).toThrow(DomainError);
+    expect(() => money(1n, "IN")).toThrow(DomainError);
+    expect(() => money(1n, "USDT")).toThrow(DomainError);
+    expect(() => money(1n, "")).toThrow(DomainError);
+  });
+
   it("rejects number-like amounts at runtime", () => {
     expect(() => money(10000 as unknown as bigint, "INR")).toThrow(DomainError);
     expect(() => money(10000 as unknown as bigint, "INR")).toThrow(

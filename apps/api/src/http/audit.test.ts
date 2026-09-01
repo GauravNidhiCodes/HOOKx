@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { instant } from "@hookx/domain";
 import {
   MemoryAuditRepository,
   MemoryRetryRepository,
+  type AuditRepository,
 } from "@hookx/storage";
 import {
   createSignatureVerifierRegistry,
@@ -20,6 +21,39 @@ const NOW = instant("2026-01-15T10:00:01.000Z");
 const NOW_UNIX = unixSecondsFromInstant(NOW);
 
 describe("GET audit routes", () => {
+  it("exposes append and list only on the audit repository", () => {
+    expectTypeOf<keyof AuditRepository>().toEqualTypeOf<
+      | "append"
+      | "listByPayment"
+      | "listByWebhook"
+      | "listByCorrelationId"
+      | "count"
+      | "countByEventType"
+    >();
+  });
+
+  it("does not expose audit mutation over HTTP", async () => {
+    const app = createApp({
+      repository: new MemoryWebhookEventRepository(),
+      retry: new MemoryRetryRepository(),
+      audit: new MemoryAuditRepository(),
+      verifiers: createSignatureVerifierRegistry({
+        syntheticSecret: SECRET,
+        syntheticToleranceSeconds: 300,
+      }),
+      clock: fixedClock(NOW),
+    });
+    const deleted = await app.request("/audit?correlationId=corr-1", {
+      method: "DELETE",
+    });
+    expect(deleted.status).toBe(404);
+    const patched = await app.request(
+      `/payments/${encodeURIComponent("SYNTHETIC:pay:1")}/audit`,
+      { method: "PATCH" },
+    );
+    expect(patched.status).toBe(404);
+  });
+
   it("returns chronological payment and webhook audit without secrets", async () => {
     const repository = new MemoryWebhookEventRepository();
     const audit = new MemoryAuditRepository();

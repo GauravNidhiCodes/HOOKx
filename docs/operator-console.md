@@ -10,7 +10,7 @@ Primary destinations:
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Overview: product sentence, architecture, principles, persisted counts or **NO DATA** |
+| `/` | Overview: HOOKX heading, problem sentence, **RUN GOLDEN DEMO**, architecture, principles, persisted counts or **NO DATA** |
 | `/demo` | Golden Demo: synthetic Razorpay-shaped fail-once through real ingest |
 | `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
 | `/incidents` | Exception-backed incident list (no fabricated KPIs) |

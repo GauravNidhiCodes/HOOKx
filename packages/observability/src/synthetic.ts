@@ -6,7 +6,7 @@ export function isSyntheticRef(value: string | null | undefined): boolean {
 }
 
 /**
- * HOOKX never labels traffic as live/production unless the operator has
+ * HOOKX never labels traffic as live unless the operator has
  * opted a provider into HOOKX_LIVE_PROVIDERS. Simulator data, Razorpay
  * fixtures, and undeclared origins are SYNTHETIC.
  */

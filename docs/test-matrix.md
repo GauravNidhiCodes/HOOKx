@@ -22,4 +22,4 @@ AI investigator on each lab scenario: `apps/api/src/failure-lab/investigate.e2e.
 
 Operator console: `apps/web/src/pages/*.test.tsx` (Overview, Failure Lab, incidents, empty/error/loading).
 
-Quality gates: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`. GitHub Actions runs the same commands with a PostgreSQL 16 service.
+Quality gates: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`. Schema: `pnpm migrate` (`HOOKX_DATABASE_URL`; does not create the database). GitHub Actions runs the four gates against a disposable PostgreSQL 16 service (`HOOKX_TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/hookx_test`). No deploy job. No CI secrets.

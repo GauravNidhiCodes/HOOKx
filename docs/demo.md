@@ -26,7 +26,7 @@ HOOKX_SYNTHETIC_WEBHOOK_SECRET=dev-only-synthetic-webhook-secret
 4. Apply migrations and start both processes:
 
 ```bash
-pnpm --filter @hookx/storage db:migrate
+pnpm migrate
 pnpm dev
 ```
 
@@ -36,7 +36,7 @@ pnpm dev
 
 ## Demonstration sequence
 
-1. **Overview.** Confirm the one-sentence product description, architecture flow, and principles. If the database is empty, persisted state shows **NO DATA**.
+1. **Overview.** Confirm HOOKX / Payment Webhook Reliability Engine, the problem sentence, **RUN GOLDEN DEMO**, architecture flow, and principles. If the database is empty, persisted state shows **NO DATA**.
 2. **Failure Lab.** Primary nav → Failure Lab. The page states **THIS IS SYNTHETIC**.
 3. **Run scenario.** Open **04 — TRANSIENT FAILURE** (labelled **SYNTHETIC · DEMO RUN**, also `#architecture-demo`). Read **WHAT WE SIMULATE** and **WHAT HOOKX SHOULD DO**. Click **RUN**.
 4. **View result.** **WHAT ACTUALLY HAPPENED** is the backend report: deliveries, retry `SUCCEEDED`, payment `CREATED`, `PROCESSING_FAILURE` incident, audit count, execution log. Identifiers include a unique `runId`.

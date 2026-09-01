@@ -286,8 +286,10 @@ Do not put passwords in source control. If the server requires a password, inclu
 From the repository root:
 
 ```bash
-pnpm --filter @hookx/storage db:migrate
+pnpm migrate
 ```
+
+Equivalent: `pnpm --filter @hookx/storage db:migrate`.
 
 Requires `HOOKX_DATABASE_URL`. Migrations live in `packages/storage/drizzle/`. Apply them to existing databases after pulling schema changes; tests drop and recreate dedicated databases instead.
 

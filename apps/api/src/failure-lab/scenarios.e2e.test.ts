@@ -87,6 +87,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("DUPLICATE: one stored event, one transition, duplicate HTTP", async () => {
     const report = await runLab(app, "DUPLICATE_DELIVERY");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
     expect(report.demoRun).toBe(false);
     expect(report.result.accepted).toBe(1);
     expect(report.result.duplicate).toBe(1);
@@ -102,6 +103,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("OUT_OF_ORDER: sent order differs from event time; final CAPTURED", async () => {
     const report = await runLab(app, "OUT_OF_ORDER");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
     expect(report.input.eventOrderSent).toEqual([
       "payment.created",
       "payment.captured",
@@ -123,6 +125,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("CONFLICT: original payload unchanged", async () => {
     const report = await runLab(app, "CONFLICTING_EVENT");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
     expect(report.result.conflict).toBe(1);
     expect(report.originalAmountMinor).toBe("10000");
     expect(report.exception?.exceptionCode).toBe("CONFLICTING_EVENT");
@@ -137,6 +140,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("TRANSIENT_FAILURE: retry succeeds using FAIL_ONCE", async () => {
     const report = await runLab(app, "TRANSIENT_FAILURE");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
     expect(report.demoRun).toBe(true);
     expect(report.failureMode).toBe("FAIL_ONCE");
     expect(report.retry?.status).toBe("SUCCEEDED");
@@ -147,6 +151,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("RETRY_EXHAUSTION: configured max attempts then dead-letter", async () => {
     const report = await runLab(app, "RETRY_EXHAUSTION");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
     expect(report.retryPolicy.maxAttempts).toBe(2);
     expect(report.retry?.status).toBe("DEAD_LETTERED");
     expect(report.retry?.attemptCount).toBe(2);
@@ -157,6 +162,7 @@ describe("Failure Lab end-to-end", () => {
 
   it("REPLAY: delayed capture applied once created is not duplicated", async () => {
     const report = await runLab(app, "REPLAY_RECOVERY");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
     expect(report.replay?.beforeState).toBe("CREATED");
     expect(report.replay?.afterState).toBe("CAPTURED");
     const audit = await store.audit.listByPayment(

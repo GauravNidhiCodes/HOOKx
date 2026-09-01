@@ -1,105 +1,127 @@
 # HOOKX
 
-Payment webhook infrastructure that detects, contains, and recovers from delivery failures.
+Payment Webhook Reliability Engine
 
-## Problem
+Webhook delivery is not the same thing as reliable financial processing. HOOKX verifies a payment webhook, stores it once, applies deterministic state transitions, retries transient failures, and records an audit trail. Operators may request a read-only AI explanation of stored evidence. AI does not decide or change financial state.
 
-Payment providers deliver webhooks that can be duplicated, delayed, out of order, conflicting, or transiently unprocessable. Treating each delivery as an authoritative ledger write produces incorrect payment state. Reliability has to be an explicit ingest and processing problem, not a UI concern.
+## PROBLEM
 
-## What It Does
+Payment providers deliver webhooks that can be duplicated, delayed, out of order, conflicting, or transiently unprocessable. Treating each delivery as an authoritative ledger write produces incorrect payment state. Reliability has to be an ingest and processing problem, not a UI overlay.
 
-HOOKX verifies a webhook, normalizes it behind a provider adapter, persists it idempotently, and applies deterministic state transitions. Failures become exceptions, retries, or replay. Every consequential step is audited. Operators inspect incidents and may request a read-only AI explanation of stored evidence. AI does not decide or change financial state.
+## SOLUTION
 
-## Architecture
+HOOKX focuses on:
+
+- verified ingestion (HMAC on the raw body, before parse)
+- idempotency (`provider + external_event_id`)
+- deterministic processing (`@hookx/state-machine`)
+- controlled retries with backoff and dead-letter
+- replay from the stored event log
+- exception classification
+- append-only audit
+- evidence-based investigation (read-only)
+
+It does not process live checkouts, call Razorpay REST APIs, or move money.
+
+## ARCHITECTURE
 
 ```
-Provider → Adapter → Ingestion → Domain → Processing → Exceptions → Recovery → Audit → Investigation → Operator
+Provider
+  → Verification
+  → Adapter
+  → Normalization
+  → Idempotent ingestion
+  → Deterministic processing
+  → Retry / replay
+  → Exception
+  → Audit
+  → Investigation
+  → Operator
 ```
 
-- **Provider / adapter.** A Razorpay webhook adapter and the synthetic provider stop at the adapter. The domain sees a normalized event. The reliability engine is provider-agnostic.
-- **Ingestion.** Signature verification on the raw body, then validation, persistence, and processing.
-- **Domain / processing.** Pure state machine and replay. No HTTP, UI, database, or AI imports.
-- **Exceptions / recovery.** Deterministic classification, retries with backoff, dead-letter, explicit replay.
-- **Audit / investigation / operator.** Append-only audit, optional read-only AI investigation, black-and-white console.
+Razorpay-specific code stops at the adapter (`packages/webhook/src/razorpay/`). The domain and state machine do not import HTTP, UI, a database, or the AI investigator.
 
-See `docs/architecture.md`.
+See [docs/architecture.md](docs/architecture.md).
 
-## Reliability Guarantees
+## KEY GUARANTEES
 
-Implemented today:
+These are covered by automated tests (`pnpm test`). They are not SLAs.
 
-- Idempotent ingest identity (`provider + external_event_id`). Identical redelivery does not apply a second economic transition.
-- Conflicting payload for the same identity is rejected; the stored row is not overwritten.
-- Deterministic payment transitions (`CREATED`, `AUTHORIZED`, `CAPTURED`, `FAILED`, `REFUNDED`).
-- Exact money as `bigint` minor units plus ISO 4217 currency.
-- Signature verification before parse, normalize, or store.
-- Out-of-order events delayed and replayed from the stored log.
-- Retry with exponential backoff; dead-letter after the configured policy.
-- Append-only application audit for ingest, processing, exception, retry, replay, and investigation.
-- AI investigation is requested, read-only, and off the ingest path.
+| Guarantee | Meaning |
+| --- | --- |
+| **IDEMPOTENCY** | Identical redelivery (`provider + external_event_id`, same payload hash) does not apply a second economic transition. |
+| **CONFLICT SAFETY** | Same identity, different payload hash: original row kept; incoming payload not stored. |
+| **DETERMINISM** | The same normalized events and transition table produce the same processing result. |
+| **AUDITABILITY** | Ingest, processing, exception, retry, replay, and investigation writes append audit rows. |
+| **AI SAFETY** | Investigation is requested, read-only, and off the ingest path. It cannot capture, refund, or update payment state. |
 
-Not claimed: production readiness, guaranteed delivery, live PSP checkout APIs, cryptographic ledger immutability, or SLA percentages.
+Not claimed: production readiness, guaranteed delivery, live PSP checkout, cryptographic ledger immutability, or availability percentages.
 
-## Failure Lab
+## GOLDEN DEMO
 
-`/failure-lab` is a labelled **synthetic** environment. Most scenarios sign lab webhooks and post them through `POST /webhooks/SYNTHETIC`. Scenario `RAZORPAY_SHAPED_DUPLICATE` posts Razorpay-shaped synthetic envelopes through `POST /webhooks/razorpay` (the real adapter). It does not call Razorpay. Payment ids are `SYNTHETIC:pay:lab-{runId}`.
+The fastest reviewer path is a **synthetic** Razorpay-shaped fail-once run through the real pipeline.
 
-The architecture demo is **TRANSIENT FAILURE**: controlled fail-once processing, retry, recovery, incident, timeline, optional AI investigation. See `docs/failure-lab.md` and `docs/demo.md`.
+1. Install Node.js 22+, pnpm 11, PostgreSQL 16+.
+2. `pnpm install`
+3. `cp .env.example .env` and set `HOOKX_DATABASE_URL`, `HOOKX_SYNTHETIC_WEBHOOK_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` (any local placeholder).
+4. Create the database named in `HOOKX_DATABASE_URL` (`createdb hookx` or equivalent).
+5. `pnpm migrate`
+6. `pnpm dev`
+7. Open `http://127.0.0.1:5173/demo`
+8. Click **RUN DEMO**
+9. Open **VIEW INCIDENT** and **VIEW TIMELINE**
+10. Click **INVESTIGATE INCIDENT**
 
-## Golden Demo
+This is a **SYNTHETIC DEMONSTRATION**, not live payment processing. Nothing is sent to Razorpay. Details: [docs/golden-demo.md](docs/golden-demo.md).
 
-`/demo` runs Failure Lab scenario `GOLDEN_DEMO`: a unique synthetic Razorpay-shaped `payment.authorized` webhook through `POST /webhooks/razorpay`, lab-only fail-once injection, real retry, duplicate redelivery, audit, incident timeline, and optional read-only AI investigation. The browser does not fake the lifecycle. HOOKX does not invent `payment.created`, so recovery is the stored event reaching `PROCESSED` (payment projection stays empty). **NO DUPLICATE ECONOMIC EFFECT** is shown only after the store confirms one event and zero payment state changes. See `docs/golden-demo.md`.
+## TECH STACK
 
-## AI Investigator
+TypeScript (strict), Node.js 22+, pnpm workspaces, Hono, React, Vite, black/white CSS (`#000000` / `#FFFFFF`), Vitest, ESLint, PostgreSQL, Drizzle ORM.
 
-Investigation explains persisted evidence. Labels in the console: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. Recommended actions are not executable. A missing model or malformed output does not mutate payments. Default implementation is a stub; OpenAI is optional and isolated. See `docs/ai-investigator.md`.
+## LOCAL SETUP
 
-## Tech Stack
-
-TypeScript (strict), Node.js 22+, pnpm workspaces, Hono, React, Vite, custom black/white CSS, Vitest, ESLint, PostgreSQL, Drizzle ORM.
-
-## Running Locally
-
-Requires Node.js 22+, pnpm 11, and PostgreSQL 16+ for persistence.
-
-Create the database named in `HOOKX_DATABASE_URL` if it does not exist (`createdb hookx` or equivalent). `db:migrate` applies schema; it does not create the database.
+Requires Node.js 22+, pnpm 11, PostgreSQL 16+.
 
 ```bash
 pnpm install
 cp .env.example .env
-pnpm --filter @hookx/storage db:migrate
+# set HOOKX_DATABASE_URL, HOOKX_SYNTHETIC_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET
+createdb hookx   # if the database does not exist
+pnpm migrate
 pnpm dev
 ```
 
-- API: `http://127.0.0.1:8787`
-- Operator console: `http://127.0.0.1:5173`
+`pnpm dev` starts the API (`http://127.0.0.1:8787`) and the operator console (`http://127.0.0.1:5173`) in parallel. `pnpm migrate` applies schema; it does not create the database.
 
-Set `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET` in `.env` (gitignored). See `.env.example`. Details: `packages/storage/README.md`. After pulling schema changes, run `db:migrate` again on any existing database. Tests drop and recreate their own databases.
+`.env` is gitignored. Names only: `.env.example`. Storage notes: `packages/storage/README.md`.
 
-## Testing
+## TESTING
+
+One command runs unit tests and PostgreSQL integration tests (they create and drop dedicated databases; `CREATEDB` required):
+
+```bash
+pnpm test
+```
+
+Also:
 
 ```bash
 pnpm typecheck
 pnpm lint
-pnpm test
 pnpm build
 ```
 
-Integration and Failure Lab tests talk to PostgreSQL. They create and drop dedicated databases and require `CREATEDB`. They are not skipped if the database is down. See `docs/test-matrix.md`.
+See [docs/test-matrix.md](docs/test-matrix.md). GitHub Actions runs the same four gates against a disposable PostgreSQL 16 service.
 
-GitHub Actions runs `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build` against PostgreSQL 16.
+## LIMITATIONS
 
-## Synthetic Data
+- Synthetic webhook fixtures only. Razorpay adapter: **not live-tested**.
+- No production deployment, authentication, rate limiting, or HA.
+- No live payment processing, capture, or refund APIs.
+- Supported Razorpay webhook events: `payment.authorized`, `payment.captured`, `payment.failed`, `refund.created`. There is no Razorpay `payment.created`; HOOKX does not invent one.
+- HTTP API and console are unauthenticated local tools.
+- Retry ticks are explicit (ingest path plus lab/API worker ticks), not a separate cluster scheduler.
+- Default AI investigator is a stub; OpenAI is optional and advisory.
+- Audit is append-only application history, not a cryptographic hash chain.
 
-Simulator and Failure Lab rows are labelled **SYNTHETIC**. They are not live customer payments and must not be read as production Razorpay data. Failure Lab reset deletes only `SYNTHETIC:pay:lab-*` rows.
-
-## Limitations
-
-- Not a production payment processor or hosted PSP.
-- Razorpay support is a webhook adapter (signature + normalize onto the existing event contract), not Razorpay REST/checkout. It has been tested with synthetic fixtures only.
-- Audit is append-only from application behavior, not a cryptographic hash chain.
-- Default AI investigator is a stub; live model output is optional and advisory.
-- Operator console is a local investigation workspace, not a multi-tenant SaaS product. The HTTP API is unauthenticated; do not expose it on a public network without an authenticating proxy.
-- Retry worker ticks are explicit (ingest path plus lab/API ticks), not a separate cluster scheduler.
-
-Further reading: `docs/README.md`.
+Further reading: [docs/architecture.md](docs/architecture.md) · [docs/golden-demo.md](docs/golden-demo.md) · [docs/reviewer-guide.md](docs/reviewer-guide.md) · [docs/api.md](docs/api.md) · [docs/error-codes.md](docs/error-codes.md) · [docs/providers/razorpay.md](docs/providers/razorpay.md) · [docs/test-matrix.md](docs/test-matrix.md) · [docs/README.md](docs/README.md)

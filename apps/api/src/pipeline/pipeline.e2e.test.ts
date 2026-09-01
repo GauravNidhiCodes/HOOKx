@@ -453,11 +453,16 @@ describe("end-to-end webhook processing pipeline", () => {
       body: rawBody,
     });
     expect(response.status).toBe(500);
-    expect(await readJson(response)).toEqual({
+    const errorBody = await readJson(response);
+    expect(errorBody).toEqual({
       status: "error",
       requestId,
       code: "TEMPORARY_PROCESSING_FAILURE",
     });
+    expect(errorBody).not.toHaveProperty("stack");
+    expect(JSON.stringify(errorBody)).not.toMatch(
+      /postgres:\/\/|insert into|ECONNREFUSED|at Object/i,
+    );
     const stored = await store.repository.findByIdentity(
       createWebhookIdentity("SYNTHETIC", eventRef),
     );
@@ -487,9 +492,25 @@ describe("end-to-end webhook processing pipeline", () => {
       addMilliseconds(NOW, 1_000),
     );
     expect(tick.succeeded).toBe(1);
+    const retryRow = await store.retry.getByWebhookEventId(stored!.id);
+    expect(retryRow?.status).toBe("SUCCEEDED");
+    expect(retryRow?.attemptCount).toBeGreaterThanOrEqual(2);
     expect(await store.payments.get(PROVIDER, paymentId(paymentRef))).toMatchObject(
       { state: "CREATED" },
     );
+    const paymentAudit = await store.audit.listByPayment(paymentId(paymentRef));
+    expect(paymentAudit.map((row) => row.eventType)).toEqual(
+      expect.arrayContaining([
+        "WEBHOOK_RECEIVED",
+        "RETRY_SCHEDULED",
+        "RETRY_ATTEMPTED",
+        "RETRY_SUCCEEDED",
+        "PAYMENT_STATE_CHANGED",
+      ]),
+    );
+    expect(
+      paymentAudit.filter((row) => row.eventType === "PAYMENT_STATE_CHANGED"),
+    ).toHaveLength(1);
   });
 
   it("12 permanent processing failure is dead-lettered without extra retries", async () => {
@@ -530,6 +551,9 @@ describe("end-to-end webhook processing pipeline", () => {
     expect(
       (await store.retry.getByWebhookEventId(stored!.id))?.status,
     ).toBe("DEAD_LETTERED");
+    expect(
+      (await store.retry.getByWebhookEventId(stored!.id))?.attemptCount,
+    ).toBe(1);
     expect(await store.payments.get(PROVIDER, paymentId(paymentRef))).toBeNull();
     const later = await runRetryTick(
       {
@@ -583,6 +607,77 @@ describe("end-to-end webhook processing pipeline", () => {
         (row) => row.eventType === "PAYMENT_STATE_CHANGED",
       ),
     ).toHaveLength(1);
+  });
+
+  it("ten sequential identical deliveries produce one event and one transition", async () => {
+    const eventRef = `SYNTHETIC:evt:${randomUUID()}`;
+    const paymentRef = `SYNTHETIC:pay:${randomUUID()}`;
+    const payload = syntheticOpenedPayload({
+      event_ref: eventRef,
+      payment_ref: paymentRef,
+    });
+    const statuses: string[] = [];
+    for (let index = 0; index < 10; index += 1) {
+      const response = await postSigned(payload);
+      expect(response.status).toBe(200);
+      statuses.push(String((await readJson(response)).status));
+    }
+    expect(statuses.filter((status) => status === "accepted")).toHaveLength(1);
+    expect(statuses.filter((status) => status === "duplicate")).toHaveLength(9);
+    expect(
+      await store.repository.listByPayment(PROVIDER, paymentId(paymentRef)),
+    ).toHaveLength(1);
+    expect(await store.payments.get(PROVIDER, paymentId(paymentRef))).toMatchObject(
+      { state: "CREATED" },
+    );
+    expect(
+      (await store.audit.listByPayment(paymentId(paymentRef))).filter(
+        (row) => row.eventType === "PAYMENT_STATE_CHANGED",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("replaying the stored log does not apply a second economic effect", async () => {
+    const eventRef = `SYNTHETIC:evt:${randomUUID()}`;
+    const paymentRef = `SYNTHETIC:pay:${randomUUID()}`;
+    const ingest = await postSigned(
+      syntheticOpenedPayload({
+        event_ref: eventRef,
+        payment_ref: paymentRef,
+      }),
+    );
+    expect(ingest.status).toBe(200);
+    const listed = await store.repository.listByPayment(
+      PROVIDER,
+      paymentId(paymentRef),
+    );
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.event.externalEventId).toBe(eventRef);
+
+    const first = await processPaymentEvents(
+      store.repository,
+      PROVIDER,
+      paymentId(paymentRef),
+    );
+    const second = await processPaymentEvents(
+      store.repository,
+      PROVIDER,
+      paymentId(paymentRef),
+    );
+    expect(first.payment?.state).toBe("CREATED");
+    expect(second.payment?.state).toBe("CREATED");
+    expect(first.decisions.map((row) => `${row.eventId}:${row.decision}`)).toEqual(
+      [`${eventRef}:ACCEPTED`],
+    );
+    expect(second.decisions).toEqual(first.decisions);
+    expect(
+      (await store.audit.listByPayment(paymentId(paymentRef))).filter(
+        (row) => row.eventType === "PAYMENT_STATE_CHANGED",
+      ),
+    ).toHaveLength(1);
+    expect(await store.payments.get(PROVIDER, paymentId(paymentRef))).toMatchObject(
+      { state: "CREATED", amountMinor: 10000n },
+    );
   });
 
   it("19 happy path: created → authorized → captured with durable state and audit", async () => {

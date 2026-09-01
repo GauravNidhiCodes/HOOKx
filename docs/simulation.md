@@ -2,7 +2,7 @@
 
 All simulator events are synthetic and do not represent real payment transactions.
 
-HOOKX includes a local scenario runner for development, tests, and demonstrations. It generates signed synthetic webhooks and posts them through the **same** HTTP ingest pipeline as production (`POST /webhooks/SYNTHETIC`). There is no demo shortcut around signature verification, persistence, replay, retry, or audit.
+HOOKX includes a local scenario runner for development, tests, and demonstrations. It generates signed synthetic webhooks and posts them through the **same** HTTP ingest pipeline as the running API (`POST /webhooks/SYNTHETIC`). There is no demo shortcut around signature verification, persistence, replay, retry, or audit.
 
 The simulator is not a payment simulator. It never calls Razorpay, Stripe, or any external API. No real money moves.
 

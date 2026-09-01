@@ -20,7 +20,15 @@ The core engine does not know Razorpay payload fields, SDK objects, signature he
 
 HOOKX does **not** call Razorpay APIs, create charges, capture or refund through Razorpay, or use Key Id / Key Secret. Setting `RAZORPAY_WEBHOOK_SECRET` does not enable live Razorpay processing. Live ingest labeling is a separate opt-in (`HOOKX_LIVE_PROVIDERS`) and does not send traffic to Razorpay.
 
-**Testing status:** this adapter has been exercised only with **synthetic** Razorpay-shaped fixtures and Failure Lab deliveries. It has **not** been tested against a Razorpay dashboard account or live payments.
+**Status (do not collapse these):**
+
+| Label | This repository |
+| --- | --- |
+| **IMPLEMENTED** | HMAC verify, normalize, `POST /webhooks/razorpay`, Failure Lab / Golden Demo path |
+| **TESTED WITH SYNTHETIC FIXTURES** | Yes (`packages/webhook/src/razorpay/`, `apps/api/src/http/razorpay.e2e.test.ts`, Failure Lab `RAZORPAY_SHAPED_DUPLICATE`, Golden Demo) |
+| **LIVE-TESTED** | **No.** No Razorpay dashboard account, webhook endpoint, or live/test payment was used. |
+
+Setting `RAZORPAY_WEBHOOK_SECRET` to a local placeholder does not constitute live testing.
 
 ## Official documentation consulted
 

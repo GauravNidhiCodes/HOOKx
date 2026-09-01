@@ -52,7 +52,7 @@ export const FAILURE_LAB_NOTICE =
   "The Failure Lab never sends real payment requests.";
 
 export const GOLDEN_DEMO_NOTICE =
-  "This is a synthetic demonstration. Nothing is sent to Razorpay.";
+  "This is a synthetic demonstration. Not live payment processing. Nothing is sent to Razorpay.";
 
 export const FAILURE_LAB_CATALOG: readonly FailureLabScenarioCatalogEntry[] =
   Object.freeze([
