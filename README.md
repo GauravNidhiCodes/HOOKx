@@ -31,7 +31,9 @@ Retry / Recovery
       ↓
 Immutable Audit Trail
       ↓
-Exception Detection
+      Exception Detection
+      ↓
+Read-only Investigation   (on demand; never on the ingest path)
 ```
 
 Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, PostgreSQL-backed retry/recovery, an append-only audit trail, and deterministic exception classification are implemented. Operator UI and live PSP adapters are not.
@@ -88,6 +90,7 @@ packages/
   storage/             PostgreSQL webhook events + payments + retry/dead-letter + audit + exceptions
   audit/               Append-only audit event model
   exceptions/          Deterministic exception classification
+  investigation/       Read-only AI investigation of exceptions
 ```
 
 `providers` and `observability` packages are omitted until those layers exist.
@@ -161,6 +164,7 @@ pnpm simulate list
 | Audit trail | Implemented (append-only `audit_events`) |
 | Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
 | Deterministic exception detection | Implemented (rules + PostgreSQL + read APIs) |
+| Read-only AI investigation | Implemented (stub default; optional isolated LLM adapter) |
 | Operator dashboard / live payments | Not implemented |
 | Production deployment | Not implemented |
 

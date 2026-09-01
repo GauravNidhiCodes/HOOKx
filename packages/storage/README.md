@@ -78,6 +78,23 @@ Table `exceptions` (deterministic detection records):
 
 Classification lives in `@hookx/exceptions`. This table only stores the result.
 
+Table `investigations` (advisory AI investigation records):
+
+| Column | PostgreSQL type | Purpose |
+| --- | --- | --- |
+| `id` | `uuid` PK | Investigation id |
+| `exception_id` | `uuid` FK → `exceptions` | Exception being explained |
+| `investigator` | `text` | Implementation name (`stub`, `openai`, `unavailable`, …) |
+| `model_id` | `text` nullable | Model identifier when an LLM was used |
+| `prompt_version` | `text` | Prompt identifier (`investigation-v1`) |
+| `result` | `jsonb` | Validated `InvestigationResult` |
+| `created_at` | `timestamptz` | Investigation time |
+| `correlation_id` | `text` | Request/operation id |
+
+`InvestigationRepository` can `create`, `findById`, `findLatestByExceptionId`, and `listByException`. There is no update or delete. PostgreSQL rejects `DELETE` and `UPDATE`. Investigation rows do not overwrite exceptions, payments, webhooks, or audit history.
+
+Investigation is not on the webhook ingest path. LLM unavailability must not fail event persistence.
+
 ## Uniqueness constraint
 
 ```sql
@@ -292,9 +309,9 @@ The tests:
 2. Refuse to drop `postgres` / `template0` / `template1`
 3. `DROP DATABASE IF EXISTS ... WITH (FORCE)` and `CREATE DATABASE` so the schema is empty
 4. Apply Drizzle migrations
-5. Run uniqueness, conflict, round-trip, status, concurrent insert, payment listing, out-of-order replay, retry claim, and dead-letter tests
+5. Run uniqueness, conflict, round-trip, status, concurrent insert, payment listing, out-of-order replay, retry claim, dead-letter, exception, and investigation tests
 
-Retry integration tests use a separate database pathname (`hookx_retry_test`) so they do not race `hookx_test`. API ingest e2e uses `hookx_api_test`. Pipeline e2e uses `hookx_pipeline_test`. Payment upsert tests use `hookx_payment_test`. Audit integration uses `hookx_audit_test`. Simulator e2e uses `hookx_simulator_test`. The `pnpm simulate` CLI uses `hookx_simulate`.
+Retry integration tests use a separate database pathname (`hookx_retry_test`) so they do not race `hookx_test`. API ingest e2e uses `hookx_api_test`. Pipeline e2e uses `hookx_pipeline_test`. Payment upsert tests use `hookx_payment_test`. Audit integration uses `hookx_audit_test`. Simulator e2e uses `hookx_simulator_test`. Exception persistence uses `hookx_exception_test`. Exception API e2e uses `hookx_exception_api_test`. Investigation persistence uses `hookx_investigation_test`. Investigation API e2e uses `hookx_investigation_api_test`. The `pnpm simulate` CLI uses `hookx_simulate`.
 
 If PostgreSQL is not running, those tests fail with a pointer to this README. They do not skip.
 

@@ -15,6 +15,7 @@ export default defineConfig({
       "@hookx/storage": path.join(root, "packages/storage/src/index.ts"),
       "@hookx/simulator": path.join(root, "packages/simulator/src/index.ts"),
       "@hookx/exceptions": path.join(root, "packages/exceptions/src/index.ts"),
+      "@hookx/investigation": path.join(root, "packages/investigation/src/index.ts"),
     },
   },
   test: {

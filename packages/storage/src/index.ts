@@ -103,3 +103,8 @@ export {
   exceptionDetectedDraft,
   exceptionStatusChangedDraft,
 } from "./exceptions/audit-drafts.js";
+export type {
+  InvestigationRepository,
+  NewInvestigation,
+} from "./investigations/repository.js";
+export { MemoryInvestigationRepository } from "./investigations/memory-investigation-repository.js";

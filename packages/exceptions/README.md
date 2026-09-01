@@ -13,7 +13,9 @@ Exception Detection     (this package: explicit rules)
       ↓
 Exception Record
       ↓
-Future Investigation / Operator UI
+Read-only Investigation   (@hookx/investigation, on demand)
+      ↓
+Operator UI
 ```
 
 ## Why classification is deterministic
@@ -36,7 +38,7 @@ HOOKX is not an AI system. An LLM must not decide:
 - severity
 - whether two incidents are the same condition
 
-A later operator surface may use a model to **explain** an already classified exception. That explanation is commentary. The stored code, severity, and identity remain the rule output.
+A later operator surface may use a model to **explain** an already classified exception (`@hookx/investigation`). That explanation is commentary. The stored code, severity, and identity remain the rule output.
 
 ## Exception model
 

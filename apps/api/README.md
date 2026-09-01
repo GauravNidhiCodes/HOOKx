@@ -121,8 +121,10 @@ A 500 after persist means the webhook row is durable and a retry is scheduled. A
 | GET | `/exceptions` | Read-only exceptions (`status`, `severity`, `exceptionCode`, `provider` filters) |
 | GET | `/exceptions/:id` | One exception |
 | GET | `/payments/:paymentId/exceptions` | Exceptions for a payment |
+| POST | `/exceptions/:id/investigate` | Read-only AI investigation (advisory). Does not mutate payment or exception state. |
+| GET | `/exceptions/:id/investigation` | Latest advisory investigation for an exception |
 
-There is no retry mutation API yet. There is no exception acknowledgement/resolution API yet.
+There is no retry mutation API yet. There is no exception acknowledgement/resolution API yet. Investigation cannot capture, refund, or settle a payment.
 
 ## Synthetic simulator
 
@@ -135,3 +137,5 @@ All simulator events are synthetic and do not represent real payment transaction
 ## Run
 
 Requires `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. See the repository `.env.example`.
+
+Investigation defaults to the local stub. An LLM key is optional and is never required for webhook ingest.

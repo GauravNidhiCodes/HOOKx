@@ -2,9 +2,11 @@ import { Hono } from "hono";
 import type {
   AuditRepository,
   ExceptionRepository,
+  InvestigationRepository,
   PaymentRepository,
   RetryRepository,
 } from "@hookx/storage";
+import type { Investigator } from "@hookx/investigation";
 import type { Clock } from "./clock.js";
 import {
   handleCorrelationAudit,
@@ -23,6 +25,10 @@ import {
   handleListExceptions,
   handlePaymentExceptions,
 } from "./http/exceptions.js";
+import {
+  handleGetInvestigation,
+  handlePostInvestigate,
+} from "./http/investigation.js";
 import { handleWebhookPost } from "./http/webhooks.js";
 import type { ProcessIncomingWebhookDependencies } from "./pipeline/process-incoming-webhook.js";
 
@@ -32,6 +38,8 @@ export type ApiDependencies = ProcessIncomingWebhookDependencies & {
   readonly audit: AuditRepository;
   readonly payments?: PaymentRepository;
   readonly exceptions?: ExceptionRepository;
+  readonly investigations?: InvestigationRepository;
+  readonly investigator?: Investigator;
 };
 
 export function createApp(dependencies: ApiDependencies): Hono {
@@ -51,6 +59,8 @@ export function createApp(dependencies: ApiDependencies): Hono {
       webhookAudit: "/webhooks/:webhookEventId/audit",
       exceptions: "/exceptions",
       paymentExceptions: "/payments/:paymentId/exceptions",
+      investigate: "/exceptions/:id/investigate",
+      investigation: "/exceptions/:id/investigation",
     });
   });
 
@@ -71,6 +81,12 @@ export function createApp(dependencies: ApiDependencies): Hono {
     handlePaymentExceptions(c, dependencies),
   );
   app.get("/payments/:paymentId", (c) => handleGetPayment(c, dependencies));
+  app.post("/exceptions/:id/investigate", (c) =>
+    handlePostInvestigate(c, dependencies),
+  );
+  app.get("/exceptions/:id/investigation", (c) =>
+    handleGetInvestigation(c, dependencies),
+  );
   app.get("/exceptions/:id", (c) => handleGetException(c, dependencies));
   app.get("/exceptions", (c) => handleListExceptions(c, dependencies));
   app.get("/audit", (c) => handleCorrelationAudit(c, dependencies));

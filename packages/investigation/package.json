@@ -1,0 +1,27 @@
+{
+  "name": "@hookx/investigation",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HOOKX read-only AI investigation of deterministic exceptions",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hookx/audit": "workspace:*",
+    "@hookx/domain": "workspace:*",
+    "@hookx/exceptions": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
+  }
+}

@@ -4,3 +4,4 @@ export { webhookDeadLetters } from "./webhook-dead-letters.js";
 export { auditEvents } from "./audit-events.js";
 export { payments } from "./payments.js";
 export { exceptions } from "./exceptions.js";
+export { investigations } from "./investigations.js";

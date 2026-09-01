@@ -16,6 +16,7 @@
     "@hookx/audit": "workspace:*",
     "@hookx/domain": "workspace:*",
     "@hookx/exceptions": "workspace:*",
+    "@hookx/investigation": "workspace:*",
     "@hookx/simulator": "workspace:*",
     "@hookx/storage": "workspace:*",
     "@hookx/webhook": "workspace:*",
@@ -23,6 +24,7 @@
     "hono": "^4.9.8"
   },
   "devDependencies": {
+    "@hookx/testkit": "workspace:*",
     "@types/node": "^24.3.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"

@@ -1,4 +1,5 @@
 import { serve } from "@hono/node-server";
+import { createInvestigatorFromEnv } from "@hookx/investigation";
 import { redactDatabaseUrl, resolveDatabaseUrl } from "@hookx/storage";
 import { openWebhookEventStore } from "@hookx/storage";
 import { createSignatureVerifierRegistry } from "@hookx/webhook";
@@ -35,6 +36,8 @@ async function start(): Promise<void> {
     payments: store.payments,
     persistOutcome: store.persistOutcome,
     exceptions: store.exceptions,
+    investigations: store.investigations,
+    investigator: createInvestigatorFromEnv(process.env),
     retryPolicy: retryConfig.policy,
     leaseMs: retryConfig.leaseMs,
     clock: systemClock(),

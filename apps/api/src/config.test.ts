@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  createInvestigatorFromEnv,
+  resolveInvestigationRuntimeConfig,
+} from "@hookx/investigation";
+import {
   resolveRetryRuntimeConfig,
   resolveSyntheticWebhookSecret,
   resolveSyntheticWebhookToleranceSeconds,
@@ -80,5 +84,34 @@ describe("retry configuration", () => {
         HOOKX_RETRY_MAX_ATTEMPTS: "0",
       }),
     ).toThrow("HOOKX_RETRY_MAX_ATTEMPTS is invalid");
+  });
+});
+
+describe("investigation configuration", () => {
+  it("defaults to the stub investigator without an API key", () => {
+    expect(resolveInvestigationRuntimeConfig({})).toMatchObject({
+      provider: "stub",
+      openaiApiKey: null,
+    });
+    expect(createInvestigatorFromEnv({}).implementation).toBe("stub");
+  });
+
+  it("does not require or leak an OpenAI key for the default provider", () => {
+    const secret = "must-never-appear-in-investigation-errors";
+    const investigator = createInvestigatorFromEnv({
+      HOOKX_SYNTHETIC_WEBHOOK_SECRET: secret,
+    });
+    expect(investigator.implementation).toBe("stub");
+    expect(JSON.stringify(resolveInvestigationRuntimeConfig({}))).not.toContain(
+      secret,
+    );
+  });
+
+  it("becomes unavailable when OpenAI is requested without a key", () => {
+    expect(
+      createInvestigatorFromEnv({
+        HOOKX_INVESTIGATION_PROVIDER: "openai",
+      }).implementation,
+    ).toBe("unavailable");
   });
 });
