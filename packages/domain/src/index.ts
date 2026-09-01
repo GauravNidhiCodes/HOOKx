@@ -14,7 +14,13 @@ export {
   paymentId,
   providerId,
 } from "./ids.js";
-export { addMoney, money, moneyEquals, type Money } from "./money.js";
+export {
+  addMoney,
+  money,
+  moneyEquals,
+  subtractMoney,
+  type Money,
+} from "./money.js";
 export {
   PAYMENT_STATES,
   TERMINAL_PAYMENT_STATES,

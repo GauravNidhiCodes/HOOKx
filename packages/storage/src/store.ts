@@ -4,7 +4,11 @@ import { Pool } from "pg";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { DatabaseConfig } from "./config.js";
-import { parseDatabaseName, toMaintenanceDatabaseUrl } from "./config.js";
+import {
+  parseDatabaseName,
+  quotePgIdent,
+  toMaintenanceDatabaseUrl,
+} from "./config.js";
 import { DrizzleAuditRepository } from "./audit/drizzle-audit-repository.js";
 import { createDrizzleOutcomeWriter } from "./audit/persist-outcome.js";
 import type { AuditRepository, PersistOutcomeFn } from "./audit/repository.js";
@@ -85,11 +89,11 @@ export async function applyWebhookEventMigrations(
 }
 
 export async function recreateDatabase(config: DatabaseConfig): Promise<void> {
-  const databaseName = parseDatabaseName(config.url);
+  const ident = quotePgIdent(parseDatabaseName(config.url));
   const admin = createPool(toMaintenanceDatabaseUrl(config.url));
   try {
-    await admin.query(`DROP DATABASE IF EXISTS ${databaseName} WITH (FORCE)`);
-    await admin.query(`CREATE DATABASE ${databaseName}`);
+    await admin.query(`DROP DATABASE IF EXISTS ${ident} WITH (FORCE)`);
+    await admin.query(`CREATE DATABASE ${ident}`);
   } finally {
     await admin.end();
   }

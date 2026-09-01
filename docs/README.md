@@ -13,7 +13,7 @@ Index of technical documents that exist in this repository.
 | [operator-console.md](operator-console.md) | Operator UI contracts |
 | [razorpay.md](razorpay.md) | Razorpay adapter boundary |
 | [simulation.md](simulation.md) | Synthetic simulator CLI |
-| [security.md](security.md) | Secrets, signatures, logging, scoped reset |
+| [security.md](security.md) | Secrets, signatures, logging, scoped reset, unauthenticated local API |
 | [../apps/api/README.md](../apps/api/README.md) | HTTP ingest and read APIs |
 
 Package READMEs (`packages/*/README.md`) cover domain, state machine, storage, webhook, audit, exceptions, and investigation internals.

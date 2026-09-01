@@ -89,4 +89,38 @@ describe("GET /payments", () => {
       0,
     );
   });
+
+  it("does not leak SQL or stack traces when a handler throws", async () => {
+    class ThrowingPaymentRepository extends MemoryPaymentRepository {
+      public override async list(
+        _filter?: Parameters<MemoryPaymentRepository["list"]>[0],
+      ): Promise<never> {
+        throw new Error(
+          'insert into "payments" password=supersecret at Object.query',
+        );
+      }
+    }
+    const app = createApp({
+      repository: new MemoryWebhookEventRepository(),
+      retry: new MemoryRetryRepository(),
+      audit: new MemoryAuditRepository(),
+      payments: new ThrowingPaymentRepository(),
+      exceptions: new MemoryExceptionRepository(),
+      verifiers: createSignatureVerifierRegistry({
+        syntheticSecret: SECRET,
+        syntheticToleranceSeconds: 300,
+      }),
+      clock: fixedClock(NOW),
+    });
+    const response = await app.request("/payments");
+    expect(response.status).toBe(500);
+    const body = (await response.json()) as {
+      status: string;
+      code: string;
+      stack?: string;
+    };
+    expect(body).toEqual({ status: "error", code: "INTERNAL_ERROR" });
+    expect(body.stack).toBeUndefined();
+    expect(JSON.stringify(body)).not.toMatch(/password|insert into|at Object/);
+  });
 });

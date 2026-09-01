@@ -229,23 +229,37 @@ export async function handlePostInvestigate(
       error instanceof InvestigationError
         ? error.message
         : "AI provider unavailable";
-    record = await persistUnavailable(
-      dependencies.investigations,
-      exception.exceptionId,
-      investigationContext,
+    try {
+      record = await persistUnavailable(
+        dependencies.investigations,
+        exception.exceptionId,
+        investigationContext,
+        now,
+        correlationId,
+        reason,
+      );
+    } catch {
+      return context.json(
+        { status: "unavailable", code: "INVESTIGATION_PERSISTENCE_FAILED" },
+        503 as ContentfulStatusCode,
+      );
+    }
+  }
+  try {
+    await recordInvestigationAudit(
+      dependencies.audit,
+      exception,
+      record,
+      investigationContext.evidenceHash,
       now,
       correlationId,
-      reason,
+    );
+  } catch {
+    return context.json(
+      { status: "unavailable", code: "AUDIT_WRITE_FAILED" },
+      503 as ContentfulStatusCode,
     );
   }
-  await recordInvestigationAudit(
-    dependencies.audit,
-    exception,
-    record,
-    investigationContext.evidenceHash,
-    now,
-    correlationId,
-  );
   return context.json({
     investigation: toPublic(record, investigationContext.evidenceHash),
   });

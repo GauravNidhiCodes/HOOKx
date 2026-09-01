@@ -58,6 +58,8 @@ TypeScript (strict), Node.js 22+, pnpm workspaces, Hono, React, Vite, custom bla
 
 Requires Node.js 22+, pnpm 11, and PostgreSQL 16+ for persistence.
 
+Create the database named in `HOOKX_DATABASE_URL` if it does not exist (`createdb hookx` or equivalent). `db:migrate` applies schema; it does not create the database.
+
 ```bash
 pnpm install
 cp .env.example .env
@@ -68,7 +70,7 @@ pnpm dev
 - API: `http://127.0.0.1:8787`
 - Operator console: `http://127.0.0.1:5173`
 
-Set `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET` in `.env` (gitignored). See `.env.example`. Details: `packages/storage/README.md`.
+Set `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET` in `.env` (gitignored). See `.env.example`. Details: `packages/storage/README.md`. After pulling schema changes, run `db:migrate` again on any existing database. Tests drop and recreate their own databases.
 
 ## Testing
 
@@ -79,7 +81,9 @@ pnpm test
 pnpm build
 ```
 
-Integration and Failure Lab tests talk to PostgreSQL. They are not skipped if the database is down. See `docs/test-matrix.md`.
+Integration and Failure Lab tests talk to PostgreSQL. They create and drop dedicated databases and require `CREATEDB`. They are not skipped if the database is down. See `docs/test-matrix.md`.
+
+GitHub Actions runs `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build` against PostgreSQL 16.
 
 ## Synthetic Data
 
@@ -91,7 +95,7 @@ Simulator and Failure Lab rows are labelled **SYNTHETIC**. They are not live cus
 - Razorpay support is webhook ingest (signature + normalize), not Razorpay REST/checkout.
 - Audit is append-only from application behavior, not a cryptographic hash chain.
 - Default AI investigator is a stub; live model output is optional and advisory.
-- Operator console is a local investigation workspace, not a multi-tenant SaaS product.
+- Operator console is a local investigation workspace, not a multi-tenant SaaS product. The HTTP API is unauthenticated; do not expose it on a public network without an authenticating proxy.
 - Retry worker ticks are explicit (ingest path plus lab/API ticks), not a separate cluster scheduler.
 
 Further reading: `docs/README.md`.

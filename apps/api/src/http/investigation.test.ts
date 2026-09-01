@@ -322,6 +322,51 @@ describe("investigation HTTP", () => {
     expect(new UnavailableInvestigator().implementation).toBe("unavailable");
   });
 
+  it("returns a typed error when audit persistence fails", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const exceptions = new MemoryExceptionRepository();
+    const investigations = new MemoryInvestigationRepository();
+    const payments = new MemoryPaymentRepository();
+    const { exception } = await seedException(repository, exceptions, payments);
+    class ThrowingAuditRepository extends MemoryAuditRepository {
+      public override async append(
+        _input: Parameters<MemoryAuditRepository["append"]>[0],
+      ): Promise<never> {
+        throw new Error(
+          'insert into "audit_events" password=supersecret at Object.query',
+        );
+      }
+    }
+    const app = appOf({
+      repository,
+      exceptions,
+      investigations,
+      payments,
+      investigator: new StubInvestigator(),
+      audit: new ThrowingAuditRepository(),
+    });
+    const posted = await app.request(
+      `/exceptions/${exception.exceptionId}/investigate`,
+      { method: "POST" },
+    );
+    expect(posted.status).toBe(503);
+    const body = (await posted.json()) as {
+      status: string;
+      code: string;
+      stack?: string;
+    };
+    expect(body).toEqual({
+      status: "unavailable",
+      code: "AUDIT_WRITE_FAILED",
+    });
+    expect(body.stack).toBeUndefined();
+    expect(JSON.stringify(body)).not.toMatch(/password|insert into|at Object/);
+    expect(investigations.records).toHaveLength(1);
+    expect(await payments.get(PROVIDER, PAYMENT)).toMatchObject({
+      state: "CREATED",
+    });
+  });
+
   it("returns 404 when the exception does not exist", async () => {
     const app = appOf({
       repository: new MemoryWebhookEventRepository(),

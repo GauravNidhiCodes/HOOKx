@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { randomUUID } from "node:crypto";
 import { createAuditEvent, type AuditEvent } from "@hookx/audit";
 import type { PaymentId, ProviderId } from "@hookx/domain";
+import { StorageError } from "../errors.js";
 import { dateFromInstant } from "../mapping.js";
 import { auditEvents } from "../schema/audit-events.js";
 import { toAuditEvent } from "./mapping.js";
@@ -24,7 +25,7 @@ export class DrizzleAuditRepository implements AuditRepository {
       .returning();
     const row = inserted[0];
     if (row === undefined) {
-      throw new Error("Audit event was not inserted");
+      throw new StorageError("INVALID_ROW", "Audit event was not inserted");
     }
     return toAuditEvent(row);
   }

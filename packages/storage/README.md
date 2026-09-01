@@ -289,7 +289,7 @@ From the repository root:
 pnpm --filter @hookx/storage db:migrate
 ```
 
-Requires `HOOKX_DATABASE_URL`. Migrations live in `packages/storage/drizzle/`.
+Requires `HOOKX_DATABASE_URL`. Migrations live in `packages/storage/drizzle/`. Apply them to existing databases after pulling schema changes; tests drop and recreate dedicated databases instead.
 
 To regenerate SQL after a schema change:
 
@@ -301,7 +301,7 @@ pnpm --filter @hookx/storage db:generate
 
 Integration tests talk to a real PostgreSQL database. They are not mocked.
 
-Prerequisite: PostgreSQL 16+ accepting connections. Homebrew on this machine: `postgresql@17`.
+Prerequisite: PostgreSQL 16+ accepting connections, with permission to create and drop databases.
 
 The tests:
 

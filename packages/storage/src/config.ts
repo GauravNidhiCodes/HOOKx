@@ -43,6 +43,16 @@ export function parseDatabaseName(url: string): string {
   return name;
 }
 
+export function quotePgIdent(name: string): string {
+  if (!DATABASE_NAME.test(name)) {
+    throw new StorageError(
+      "UNSAFE_DATABASE_NAME",
+      "Database name must be lowercase letters, digits, and underscore",
+    );
+  }
+  return `"${name}"`;
+}
+
 export function toMaintenanceDatabaseUrl(url: string): string {
   const parsed = new URL(url);
   parsed.pathname = "/postgres";

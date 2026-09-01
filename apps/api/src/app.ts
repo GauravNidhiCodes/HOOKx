@@ -86,6 +86,10 @@ export function createApp(dependencies: ApiDependencies): Hono {
   };
   const labRuns = new Map<string, FailureLabRunReport>();
 
+  app.onError((_error, context) => {
+    return context.json({ status: "error", code: "INTERNAL_ERROR" }, 500);
+  });
+
   app.get("/", (c) => {
     return c.json({
       service: "hookx-api",

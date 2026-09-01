@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { instant } from "@hookx/domain";
-import { toStoredWebhookEvent } from "./mapping.js";
+import { bigintFromDatabase, toStoredWebhookEvent } from "./mapping.js";
+import { StorageError } from "./errors.js";
 
 describe("persistence mapping", () => {
   it("keeps amount_minor_units as bigint", () => {
@@ -24,5 +25,14 @@ describe("persistence mapping", () => {
     expect(stored.event.amountMinor).toBe(amountMinorUnits);
     expect(stored.event.occurredAt).toBe(instant("2026-01-15T10:00:00.000Z"));
     expect(stored.processingStatus).toBe("RECEIVED");
+  });
+
+  it("rejects non-integer amounts from the database", () => {
+    expect(bigintFromDatabase(10000n)).toBe(10000n);
+    expect(bigintFromDatabase("10000")).toBe(10000n);
+    expect(() => bigintFromDatabase(10000)).toThrow(StorageError);
+    expect(() => bigintFromDatabase(10.5)).toThrow(StorageError);
+    expect(() => bigintFromDatabase("10000.0")).toThrow(StorageError);
+    expect(() => bigintFromDatabase("-1")).toThrow(StorageError);
   });
 });

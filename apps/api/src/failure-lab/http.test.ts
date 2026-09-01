@@ -94,6 +94,23 @@ describe("Failure Lab HTTP", () => {
     });
   });
 
+  it("ignores a client-supplied failureMode and uses the catalog mode", async () => {
+    const app = createApp(labStack());
+    const response = await app.request("/failure-lab/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        scenario: "DUPLICATE_DELIVERY",
+        failureMode: "ALWAYS_FAIL",
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { run: FailureLabRunReport };
+    expect(body.run.failureMode).toBe("NONE");
+    expect(body.run.payment.state).toBe("CREATED");
+    expect(body.run.stateChange).toBe(1);
+  });
+
   it("requires reset confirmation", async () => {
     const app = createApp(labStack());
     const response = await app.request("/failure-lab/reset", {

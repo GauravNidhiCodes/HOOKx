@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DomainError } from "./domain-error.js";
-import { addMoney, money, moneyEquals } from "./money.js";
+import { addMoney, money, moneyEquals, subtractMoney } from "./money.js";
 
 describe("money representation", () => {
   it("stores minor units as bigint with an ISO currency", () => {
@@ -40,6 +40,24 @@ describe("money representation", () => {
 
   it("refuses to add mixed currencies", () => {
     expect(() => addMoney(money(1n, "INR"), money(1n, "USD"))).toThrow(
+      DomainError,
+    );
+  });
+
+  it("subtracts minor units of the same currency", () => {
+    const difference = subtractMoney(money(10000n, "INR"), money(250n, "INR"));
+    expect(difference.amountMinor).toBe(9750n);
+    expect(difference.currency).toBe("INR");
+  });
+
+  it("refuses to subtract mixed currencies", () => {
+    expect(() => subtractMoney(money(1n, "INR"), money(1n, "USD"))).toThrow(
+      DomainError,
+    );
+  });
+
+  it("refuses a negative subtraction result", () => {
+    expect(() => subtractMoney(money(1n, "INR"), money(2n, "INR"))).toThrow(
       DomainError,
     );
   });

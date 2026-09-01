@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   defaultTestDatabaseUrl,
   parseDatabaseName,
+  quotePgIdent,
   redactDatabaseUrl,
   toMaintenanceDatabaseUrl,
 } from "./config.js";
@@ -24,6 +25,14 @@ describe("database configuration", () => {
     expect(() => parseDatabaseName("postgres://localhost/template1")).toThrow(
       StorageError,
     );
+    expect(() =>
+      parseDatabaseName("postgres://localhost/hookx;drop"),
+    ).toThrow(StorageError);
+  });
+
+  it("quotes validated database names as Postgres identifiers", () => {
+    expect(quotePgIdent("hookx_test")).toBe('"hookx_test"');
+    expect(() => quotePgIdent("hookx;drop")).toThrow(StorageError);
   });
 
   it("points maintenance connections at the postgres database", () => {

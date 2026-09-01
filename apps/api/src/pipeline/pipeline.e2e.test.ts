@@ -555,29 +555,23 @@ describe("end-to-end webhook processing pipeline", () => {
     });
     const rawBody = JSON.stringify(payload);
     const signature = signRaw(rawBody);
-    const [first, second] = await Promise.all([
-      app.request("/webhooks/SYNTHETIC", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          [SYNTHETIC_SIGNATURE_HEADER]: signature,
-        },
-        body: rawBody,
-      }),
-      app.request("/webhooks/SYNTHETIC", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          [SYNTHETIC_SIGNATURE_HEADER]: signature,
-        },
-        body: rawBody,
-      }),
-    ]);
-    const statuses = [first.status, second.status].sort();
-    expect(statuses).toEqual([200, 200]);
-    const bodies = [await readJson(first), await readJson(second)];
-    const outcomes = bodies.map((row) => row.status).sort();
-    expect(outcomes).toEqual(["accepted", "duplicate"]);
+    const responses = await Promise.all(
+      Array.from({ length: 13 }, () =>
+        app.request("/webhooks/SYNTHETIC", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            [SYNTHETIC_SIGNATURE_HEADER]: signature,
+          },
+          body: rawBody,
+        }),
+      ),
+    );
+    expect(responses.map((row) => row.status)).toEqual(Array(13).fill(200));
+    const bodies = await Promise.all(responses.map((row) => readJson(row)));
+    const outcomes = bodies.map((row) => row.status);
+    expect(outcomes.filter((status) => status === "accepted")).toHaveLength(1);
+    expect(outcomes.filter((status) => status === "duplicate")).toHaveLength(12);
     expect(
       await store.repository.listByPayment(PROVIDER, paymentId(paymentRef)),
     ).toHaveLength(1);

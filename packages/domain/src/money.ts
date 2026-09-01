@@ -39,3 +39,13 @@ export function addMoney(left: Money, right: Money): Money {
   }
   return money(left.amountMinor + right.amountMinor, left.currency);
 }
+
+export function subtractMoney(left: Money, right: Money): Money {
+  if (left.currency !== right.currency) {
+    throw new DomainError(
+      "MONEY_CURRENCY_MISMATCH",
+      `cannot subtract ${right.currency} from ${left.currency}`,
+    );
+  }
+  return money(left.amountMinor - right.amountMinor, left.currency);
+}

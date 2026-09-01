@@ -79,19 +79,6 @@ export type ProcessIncomingWebhookResult = {
   readonly observation: ProcessingObservation;
 };
 
-/** @deprecated Use ProcessIncomingWebhookDependencies. */
-export type IngestDependencies = ProcessIncomingWebhookDependencies;
-/** @deprecated Use ProcessIncomingWebhookInput. */
-export type IngestWebhookInput = ProcessIncomingWebhookInput;
-/** @deprecated Use PipelineHttpBody. */
-export type IngestHttpBody = PipelineHttpBody;
-/** @deprecated Use ProcessingObservation. */
-export type IngestObservation = Omit<ProcessingObservation, "durationMs"> & {
-  readonly durationMs?: number;
-};
-/** @deprecated Use ProcessIncomingWebhookResult. */
-export type IngestWebhookResult = ProcessIncomingWebhookResult;
-
 function respond(
   httpStatus: number,
   body: PipelineHttpBody,
@@ -814,6 +801,3 @@ export async function processIncomingWebhook(
     return internalError(input.requestId, input.provider, "VERIFIED", startedAt);
   }
 }
-
-/** @deprecated Use processIncomingWebhook. */
-export const ingestWebhook = processIncomingWebhook;

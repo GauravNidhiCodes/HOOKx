@@ -17,7 +17,10 @@ import {
   syntheticOpenedPayload,
   unixSecondsFromInstant,
 } from "@hookx/webhook";
-import { ingestWebhook, type IngestDependencies } from "./ingest-webhook.js";
+import {
+  processIncomingWebhook,
+  type ProcessIncomingWebhookDependencies,
+} from "../pipeline/process-incoming-webhook.js";
 import { MemoryWebhookEventRepository } from "../test-support/memory-webhook-repository.js";
 
 const SECRET = "dev-only-synthetic-webhook-secret";
@@ -41,8 +44,8 @@ function signedHeaders(rawBody: Uint8Array, secret = SECRET): Map<string, string
 
 function createDeps(
   repository = new MemoryWebhookEventRepository(),
-  extras: Partial<IngestDependencies> = {},
-): IngestDependencies {
+  extras: Partial<ProcessIncomingWebhookDependencies> = {},
+): ProcessIncomingWebhookDependencies {
   const retry = extras.retry ?? new MemoryRetryRepository();
   const audit = extras.audit ?? new MemoryAuditRepository();
   const payments = extras.payments ?? new MemoryPaymentRepository();
@@ -65,7 +68,7 @@ function createDeps(
   };
 }
 
-describe("ingestWebhook", () => {
+describe("processIncomingWebhook", () => {
   it("persists and processes a valid signed payload", async () => {
     const repository = new MemoryWebhookEventRepository();
     const retry = new MemoryRetryRepository();
@@ -74,7 +77,7 @@ describe("ingestWebhook", () => {
       event_ref: "SYNTHETIC:evt:ingest-valid",
     });
     const rawBody = rawBodyOf(payload);
-    const result = await ingestWebhook(
+    const result = await processIncomingWebhook(
       createDeps(repository, { retry, payments }),
       {
       provider: "SYNTHETIC",
@@ -124,7 +127,7 @@ describe("ingestWebhook", () => {
       `${signature.slice(0, -1)}${signature.endsWith("a") ? "b" : "a"}`,
     );
 
-    const result = await ingestWebhook(createDeps(repository, { retry }), {
+    const result = await processIncomingWebhook(createDeps(repository, { retry }), {
       provider: "SYNTHETIC",
       rawBody,
       headers,
@@ -141,7 +144,7 @@ describe("ingestWebhook", () => {
 
   it("does not parse JSON before signature verification", async () => {
     const repository = new MemoryWebhookEventRepository();
-    const result = await ingestWebhook(createDeps(repository), {
+    const result = await processIncomingWebhook(createDeps(repository), {
       provider: "SYNTHETIC",
       rawBody: new TextEncoder().encode("{not-json"),
       headers: new Map(),
@@ -168,8 +171,8 @@ describe("ingestWebhook", () => {
       now: NOW,
     };
     const deps = createDeps(repository);
-    const first = await ingestWebhook(deps, input);
-    const second = await ingestWebhook(deps, {
+    const first = await processIncomingWebhook(deps, input);
+    const second = await processIncomingWebhook(deps, {
       ...input,
       requestId: "req-dup-2",
     });
@@ -177,6 +180,44 @@ describe("ingestWebhook", () => {
     expect(second.httpStatus).toBe(200);
     expect(second.body.status).toBe("duplicate");
     expect(repository.records).toHaveLength(1);
+  });
+
+  it("keeps one stored event and one transition after five identical deliveries", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const audit = new MemoryAuditRepository();
+    const payments = new MemoryPaymentRepository();
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:ingest-five",
+    });
+    const rawBody = rawBodyOf(payload);
+    const input = {
+      provider: "SYNTHETIC",
+      rawBody,
+      headers: signedHeaders(rawBody),
+      now: NOW,
+    };
+    const deps = createDeps(repository, { audit, payments });
+    const statuses: string[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      const result = await processIncomingWebhook(deps, {
+        ...input,
+        requestId: `req-five-${String(i)}`,
+      });
+      statuses.push(result.body.status);
+    }
+    expect(statuses[0]).toBe("accepted");
+    expect(statuses.slice(1)).toEqual([
+      "duplicate",
+      "duplicate",
+      "duplicate",
+      "duplicate",
+    ]);
+    expect(repository.records).toHaveLength(1);
+    expect(payments.records).toHaveLength(1);
+    expect(payments.records[0]?.state).toBe("CREATED");
+    expect(
+      audit.records.filter((row) => row.eventType === "PAYMENT_STATE_CHANGED"),
+    ).toHaveLength(1);
   });
 
   it("rejects a verified conflicting duplicate without overwriting", async () => {
@@ -193,14 +234,14 @@ describe("ingestWebhook", () => {
     const conflictBody = rawBodyOf(conflicting);
     const deps = createDeps(repository);
 
-    await ingestWebhook(deps, {
+    await processIncomingWebhook(deps, {
       provider: "SYNTHETIC",
       rawBody: originalBody,
       headers: signedHeaders(originalBody),
       requestId: "req-c1",
       now: NOW,
     });
-    const result = await ingestWebhook(deps, {
+    const result = await processIncomingWebhook(deps, {
       provider: "SYNTHETIC",
       rawBody: conflictBody,
       headers: signedHeaders(conflictBody),
@@ -218,7 +259,7 @@ describe("ingestWebhook", () => {
     const repository = new MemoryWebhookEventRepository();
     const payload = syntheticOpenedPayload();
     const rawBody = rawBodyOf(payload);
-    const result = await ingestWebhook(createDeps(repository), {
+    const result = await processIncomingWebhook(createDeps(repository), {
       provider: "stripe",
       rawBody,
       headers: signedHeaders(rawBody),
@@ -250,7 +291,7 @@ describe("ingestWebhook", () => {
       retry,
       processPaymentEvents: processFn,
     });
-    const result = await ingestWebhook(deps, {
+    const result = await processIncomingWebhook(deps, {
       provider: "SYNTHETIC",
       rawBody,
       headers: signedHeaders(rawBody),
@@ -292,7 +333,7 @@ describe("ingestWebhook", () => {
         });
       },
     });
-    const result = await ingestWebhook(deps, {
+    const result = await processIncomingWebhook(deps, {
       provider: "SYNTHETIC",
       rawBody,
       headers: signedHeaders(rawBody),
@@ -325,14 +366,14 @@ describe("ingestWebhook", () => {
     });
     const rawBody = rawBodyOf(payload);
     const deps = createDeps(repository, { audit });
-    await ingestWebhook(deps, {
+    await processIncomingWebhook(deps, {
       provider: "SYNTHETIC",
       rawBody,
       headers: signedHeaders(rawBody),
       requestId: "req-audit-1",
       now: NOW,
     });
-    await ingestWebhook(deps, {
+    await processIncomingWebhook(deps, {
       provider: "SYNTHETIC",
       rawBody,
       headers: signedHeaders(rawBody),
@@ -351,7 +392,7 @@ describe("ingestWebhook", () => {
       ),
     ).toHaveLength(1);
 
-    const rejected = await ingestWebhook(createDeps(repository, { audit }), {
+    const rejected = await processIncomingWebhook(createDeps(repository, { audit }), {
       provider: "SYNTHETIC",
       rawBody,
       headers: new Map(),
