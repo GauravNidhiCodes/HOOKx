@@ -11,7 +11,7 @@ import {
 import "../test-support/cleanup";
 
 describe("overview", () => {
-  it("explains HOOKX and keeps primary navigation to three sections", async () => {
+  it("explains HOOKX and keeps primary navigation to operator sections", async () => {
     const api = createMockApi();
     render(<App api={api} initialHref="/" />);
     expect(await screen.findByRole("heading", { name: "OVERVIEW" })).toBeTruthy();
@@ -22,6 +22,7 @@ describe("overview", () => {
     ).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(nav.textContent).toContain("Overview");
+    expect(nav.textContent).toContain("Demo");
     expect(nav.textContent).toContain("Failure Lab");
     expect(nav.textContent).toContain("Incidents");
     expect(nav.textContent).not.toContain("Exceptions");
@@ -36,8 +37,8 @@ describe("overview", () => {
     expect(screen.queryByText(/uptime/i)).toBeNull();
     expect(screen.queryByText(/99\.99/)).toBeNull();
     expect(
-      screen.getByRole("link", { name: "RUN ARCHITECTURE DEMO" }).getAttribute("href"),
-    ).toBe("/failure-lab#architecture-demo");
+      screen.getByRole("link", { name: "RUN GOLDEN DEMO" }).getAttribute("href"),
+    ).toBe("/demo");
   });
 
   it("shows persisted counts from the metrics API", async () => {

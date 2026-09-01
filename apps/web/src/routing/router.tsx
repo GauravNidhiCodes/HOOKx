@@ -21,6 +21,7 @@ export type ConsoleRoute =
   | { readonly name: "events"; readonly search: string }
   | { readonly name: "event"; readonly webhookEventId: string }
   | { readonly name: "failure-lab" }
+  | { readonly name: "demo" }
   | { readonly name: "unknown"; readonly path: string };
 
 export function pathOf(href: string): string {
@@ -63,6 +64,9 @@ export function parseRoute(pathname: string, search = ""): ConsoleRoute {
   }
   if (path === "/failure-lab") {
     return { name: "failure-lab" };
+  }
+  if (path === "/demo") {
+    return { name: "demo" };
   }
   return { name: "unknown", path };
 }

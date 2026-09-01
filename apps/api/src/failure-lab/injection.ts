@@ -8,8 +8,9 @@ import type { SyntheticFailureMode } from "./catalog.js";
 
 /**
  * Isolated processing wrapper for Failure Lab runs.
- * Throws only when provider is SYNTHETIC and the payment id is
- * SYNTHETIC:pay:lab-*. Non-synthetic traffic is never injected.
+ * Throws only when the payment id is SYNTHETIC:pay:lab-* and the provider is
+ * SYNTHETIC or razorpay (adapter lab / golden demo). Live-shaped Razorpay
+ * ids and simulator ids are never injected.
  */
 export function createLabProcessFn(
   mode: SyntheticFailureMode,
@@ -17,7 +18,8 @@ export function createLabProcessFn(
   let attempts = 0;
   return async (repository, provider, paymentId) => {
     const labTarget =
-      provider === "SYNTHETIC" && isFailureLabPaymentId(paymentId);
+      isFailureLabPaymentId(paymentId) &&
+      (provider === "SYNTHETIC" || provider === "razorpay");
     if (!labTarget || mode === "NONE") {
       return processPaymentEvents(repository, provider, paymentId);
     }

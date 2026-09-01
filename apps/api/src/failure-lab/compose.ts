@@ -13,6 +13,8 @@ import { failureModeForLab } from "./bind.js";
 import {
   ARCHITECTURE_DEMO_SCENARIO,
   FAILURE_LAB_NOTICE,
+  GOLDEN_DEMO_NOTICE,
+  GOLDEN_DEMO_SCENARIO,
   failureLabCatalogEntry,
   type FailureLabScenarioId,
 } from "./catalog.js";
@@ -91,6 +93,7 @@ export type ComposeFailureLabReportInput = {
   readonly eventTimeOrder: readonly string[];
   readonly labels: readonly string[];
   readonly beforeState?: string | null;
+  readonly correlationId?: string;
 };
 
 export async function composeFailureLabReport(
@@ -194,7 +197,13 @@ export async function composeFailureLabReport(
     (item) => item.eventType === "PAYMENT_STATE_CHANGED",
   ).length;
 
-  const demoRun = input.scenarioId === ARCHITECTURE_DEMO_SCENARIO;
+  const demoRun =
+    input.scenarioId === ARCHITECTURE_DEMO_SCENARIO ||
+    input.scenarioId === GOLDEN_DEMO_SCENARIO;
+  const notice =
+    input.scenarioId === GOLDEN_DEMO_SCENARIO
+      ? GOLDEN_DEMO_NOTICE
+      : FAILURE_LAB_NOTICE;
   return {
     runId: input.runId,
     scenario: input.scenarioId,
@@ -202,7 +211,7 @@ export async function composeFailureLabReport(
     synthetic: true,
     demoRun,
     labels: [...input.labels],
-    notice: FAILURE_LAB_NOTICE,
+    notice,
     startedAt: input.startedAt,
     finishedAt: dependencies.clock.now(),
     failureMode: mode,
@@ -244,6 +253,10 @@ export async function composeFailureLabReport(
             exceptionCode: primaryException.exceptionCode,
           },
     incidentId: primaryException?.exceptionId ?? null,
+    correlationId: input.correlationId ?? null,
+    storedEventCount: refreshed.length,
+    eventProcessingStatus: firstEvent?.processingStatus ?? null,
+    eventType: firstEvent?.event.eventType ?? null,
     auditCount: audit.length,
     retry: retrySnapshot,
     deadLetter: deadSnapshot,

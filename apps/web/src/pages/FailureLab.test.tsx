@@ -26,9 +26,10 @@ describe("failure lab", () => {
     expect(screen.getByText(/01 — DUPLICATE DELIVERY/)).toBeTruthy();
     expect(screen.getByText(/06 — REPLAY RECOVERY/)).toBeTruthy();
     expect(screen.getByText(/07 — RAZORPAY-SHAPED DUPLICATE/)).toBeTruthy();
-    expect(screen.getAllByText("NOT RUN").length).toBe(7);
-    expect(screen.getAllByText("WHAT WE SIMULATE").length).toBe(7);
-    expect(screen.getAllByText("WHAT HOOKX SHOULD DO").length).toBe(7);
+    expect(screen.getByText(/08 — GOLDEN DEMO/)).toBeTruthy();
+    expect(screen.getAllByText("NOT RUN").length).toBe(8);
+    expect(screen.getAllByText("WHAT WE SIMULATE").length).toBe(8);
+    expect(screen.getAllByText("WHAT HOOKX SHOULD DO").length).toBe(8);
     expect(screen.getByText("SYNTHETIC · DEMO RUN")).toBeTruthy();
     expect(screen.getByText(/DATA SOURCE is always SYNTHETIC/)).toBeTruthy();
     expect(api.getFailureLabCatalog).toHaveBeenCalled();

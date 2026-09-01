@@ -46,6 +46,10 @@ Not claimed: production readiness, guaranteed delivery, live PSP checkout APIs, 
 
 The architecture demo is **TRANSIENT FAILURE**: controlled fail-once processing, retry, recovery, incident, timeline, optional AI investigation. See `docs/failure-lab.md` and `docs/demo.md`.
 
+## Golden Demo
+
+`/demo` runs Failure Lab scenario `GOLDEN_DEMO`: a unique synthetic Razorpay-shaped `payment.authorized` webhook through `POST /webhooks/razorpay`, lab-only fail-once injection, real retry, duplicate redelivery, audit, incident timeline, and optional read-only AI investigation. The browser does not fake the lifecycle. HOOKX does not invent `payment.created`, so recovery is the stored event reaching `PROCESSED` (payment projection stays empty). **NO DUPLICATE ECONOMIC EFFECT** is shown only after the store confirms one event and zero payment state changes. See `docs/golden-demo.md`.
+
 ## AI Investigator
 
 Investigation explains persisted evidence. Labels in the console: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. Recommended actions are not executable. A missing model or malformed output does not mutate payments. Default implementation is a stub; OpenAI is optional and isolated. See `docs/ai-investigator.md`.

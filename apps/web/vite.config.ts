@@ -43,6 +43,7 @@ export default defineConfig({
       "/dead-letters": apiProxy,
       "/audit": apiProxy,
       "/failure-lab": apiProxy,
+      "/demo": apiProxy,
     },
   },
 });

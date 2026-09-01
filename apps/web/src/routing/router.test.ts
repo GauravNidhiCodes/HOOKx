@@ -43,5 +43,8 @@ describe("parseRoute", () => {
     expect(parseRoute("/failure-lab")).toEqual({
       name: "failure-lab",
     });
+    expect(parseRoute("/demo")).toEqual({
+      name: "demo",
+    });
   });
 });

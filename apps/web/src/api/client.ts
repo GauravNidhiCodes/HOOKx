@@ -17,6 +17,7 @@ import type {
   FailureLabResetResult,
   FailureLabRunReport,
   FailureLabScenarioId,
+  GoldenDemoRun,
   MetricsSummary,
 } from "./types";
 
@@ -82,6 +83,9 @@ export type HookxApi = {
   getFailureLabRun(runId: string): Promise<FailureLabRunReport>;
   resetFailureLab(confirm: string): Promise<FailureLabResetResult>;
   getMetricsSummary(): Promise<MetricsSummary>;
+  runGoldenDemo(): Promise<GoldenDemoRun>;
+  listGoldenDemoRuns(): Promise<readonly GoldenDemoRun[]>;
+  getGoldenDemoRun(id: string): Promise<GoldenDemoRun>;
 };
 
 function queryString(query: Record<string, string | undefined>): string {
@@ -500,6 +504,43 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
         fail(status, body, correlationId, "UNABLE TO LOAD OVERVIEW");
       }
       return body as MetricsSummary;
+    },
+
+    async runGoldenDemo() {
+      const { status, body, correlationId } = await request("/demo/run", {
+        method: "POST",
+      });
+      if (status !== 200) {
+        fail(status, body, correlationId, "DEMO FAILED");
+      }
+      if (typeof body !== "object" || body === null || !("demo" in body)) {
+        fail(status, body, correlationId, "DEMO FAILED");
+      }
+      return (body as { demo: GoldenDemoRun }).demo;
+    },
+
+    async listGoldenDemoRuns() {
+      const { status, body, correlationId } = await request("/demo/runs");
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD DEMO RUNS");
+      }
+      if (typeof body !== "object" || body === null || !("runs" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD DEMO RUNS");
+      }
+      return (body as { runs: GoldenDemoRun[] }).runs;
+    },
+
+    async getGoldenDemoRun(id) {
+      const { status, body, correlationId } = await request(
+        `/demo/runs/${encodeURIComponent(id)}`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD DEMO RUN");
+      }
+      if (typeof body !== "object" || body === null || !("demo" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD DEMO RUN");
+      }
+      return (body as { demo: GoldenDemoRun }).demo;
     },
   };
 }

@@ -6,6 +6,7 @@ export const FAILURE_LAB_SCENARIO = {
   RETRY_EXHAUSTION: "RETRY_EXHAUSTION",
   REPLAY_RECOVERY: "REPLAY_RECOVERY",
   RAZORPAY_SHAPED_DUPLICATE: "RAZORPAY_SHAPED_DUPLICATE",
+  GOLDEN_DEMO: "GOLDEN_DEMO",
 } as const;
 
 export type FailureLabScenarioId =
@@ -19,6 +20,7 @@ export const FAILURE_LAB_SCENARIO_IDS = Object.freeze([
   FAILURE_LAB_SCENARIO.RETRY_EXHAUSTION,
   FAILURE_LAB_SCENARIO.REPLAY_RECOVERY,
   FAILURE_LAB_SCENARIO.RAZORPAY_SHAPED_DUPLICATE,
+  FAILURE_LAB_SCENARIO.GOLDEN_DEMO,
 ] as const);
 
 export function isFailureLabScenarioId(
@@ -38,13 +40,19 @@ export type FailureLabScenarioCatalogEntry = {
   readonly expected: string;
   readonly failureMode: SyntheticFailureMode;
   readonly architectureDemo?: true;
+  readonly goldenDemo?: true;
 };
 
 export const ARCHITECTURE_DEMO_SCENARIO =
   FAILURE_LAB_SCENARIO.TRANSIENT_FAILURE;
 
+export const GOLDEN_DEMO_SCENARIO = FAILURE_LAB_SCENARIO.GOLDEN_DEMO;
+
 export const FAILURE_LAB_NOTICE =
   "The Failure Lab never sends real payment requests.";
+
+export const GOLDEN_DEMO_NOTICE =
+  "This is a synthetic demonstration. Nothing is sent to Razorpay.";
 
 export const FAILURE_LAB_CATALOG: readonly FailureLabScenarioCatalogEntry[] =
   Object.freeze([
@@ -117,6 +125,17 @@ export const FAILURE_LAB_CATALOG: readonly FailureLabScenarioCatalogEntry[] =
       expected:
         "First delivery accepted and persisted. Second classified duplicate. One stored event. HOOKX does not invent payment.created, so the Razorpay-only stream does not project a payment state.",
       failureMode: "NONE",
+    }),
+    Object.freeze({
+      id: FAILURE_LAB_SCENARIO.GOLDEN_DEMO,
+      number: "08",
+      title: "GOLDEN DEMO",
+      explanation:
+        "A synthetic Razorpay payment.authorized envelope is posted through POST /webhooks/razorpay. Lab-only FAIL_ONCE injection fails the first processing attempt. Retry recovers. A second identical delivery is classified duplicate. Polished operator view: /demo.",
+      expected:
+        "Signature verified. One stored event. First processing fails as TEMPORARY_PROCESSING_FAILURE. Retry succeeds. Redelivery is duplicate. No invented payment.created. No second economic effect.",
+      failureMode: "FAIL_ONCE",
+      goldenDemo: true,
     }),
   ]);
 

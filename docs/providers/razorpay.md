@@ -189,7 +189,9 @@ x-razorpay-event-id: <unique event id>
 
 ## Failure Lab
 
-Scenario `RAZORPAY_SHAPED_DUPLICATE` signs a synthetic `payment.authorized` envelope and posts it twice to `POST /webhooks/razorpay`. Payment ids remain `SYNTHETIC:pay:lab-{runId}` so reset still purges them. PROVIDER is `razorpay`. DATA SOURCE is SYNTHETIC. Injection (`FAIL_ONCE` / `ALWAYS_FAIL`) does not apply to this provider. Requires `RAZORPAY_WEBHOOK_SECRET`.
+Scenario `RAZORPAY_SHAPED_DUPLICATE` signs a synthetic `payment.authorized` envelope and posts it twice to `POST /webhooks/razorpay`. Payment ids remain `SYNTHETIC:pay:lab-{runId}` so reset still purges them. PROVIDER is `razorpay`. DATA SOURCE is SYNTHETIC. Requires `RAZORPAY_WEBHOOK_SECRET`.
+
+Scenario `GOLDEN_DEMO` uses the same adapter path with lab-only `FAIL_ONCE` injection (lab payment prefix only; live-shaped `pay_*` ids are not injected). Operator view: `/demo`. See `docs/golden-demo.md`.
 
 ## AI investigation
 

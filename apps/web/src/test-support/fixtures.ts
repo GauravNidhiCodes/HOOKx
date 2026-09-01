@@ -4,6 +4,7 @@ import type {
   FailureLabCatalog,
   FailureLabResetResult,
   FailureLabRunReport,
+  GoldenDemoRun,
   MetricsSummary,
   PublicAuditEvent,
   PublicException,
@@ -588,6 +589,17 @@ export const sampleFailureLabCatalog: FailureLabCatalog = {
         "First delivery accepted and persisted. Second classified duplicate. One stored event. HOOKX does not invent payment.created, so the Razorpay-only stream does not project a payment state.",
       failureMode: "NONE",
     },
+    {
+      id: "GOLDEN_DEMO",
+      number: "08",
+      title: "GOLDEN DEMO",
+      explanation:
+        "A synthetic Razorpay payment.authorized envelope is posted through POST /webhooks/razorpay. Lab-only FAIL_ONCE injection fails the first processing attempt.",
+      expected:
+        "Signature verified. One stored event. First processing fails. Retry succeeds. Redelivery is duplicate.",
+      failureMode: "FAIL_ONCE",
+      goldenDemo: true,
+    },
   ],
 };
 
@@ -692,6 +704,194 @@ export const sampleFailureLabRun: FailureLabRunReport = {
   },
 };
 
+const GOLDEN_DEMO_RUN_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const GOLDEN_PAYMENT_ID = `SYNTHETIC:pay:lab-${GOLDEN_DEMO_RUN_ID}`;
+const GOLDEN_EVENT_KEY = `SYNTHETIC:evt:lab-${GOLDEN_DEMO_RUN_ID}-1`;
+const GOLDEN_CORRELATION = `demo-${GOLDEN_DEMO_RUN_ID}`;
+
+export const sampleGoldenDemoRun: GoldenDemoRun = {
+  demoRunId: GOLDEN_DEMO_RUN_ID,
+  correlationId: GOLDEN_CORRELATION,
+  synthetic: true,
+  notice: "This is a synthetic demonstration. Nothing is sent to Razorpay.",
+  invariant: {
+    storedEventCount: 1,
+    stateChange: 0,
+    duplicateDeliveries: 1,
+    noDuplicateEconomicEffect: true,
+  },
+  run: {
+    runId: GOLDEN_DEMO_RUN_ID,
+    scenario: "GOLDEN_DEMO",
+    title: "GOLDEN DEMO",
+    synthetic: true,
+    demoRun: true,
+    labels: ["SYNTHETIC", "RAZORPAY ADAPTER", "DEMO RUN"],
+    notice: "This is a synthetic demonstration. Nothing is sent to Razorpay.",
+    startedAt: "2026-01-15T14:30:00.000Z",
+    finishedAt: "2026-01-15T14:30:01.000Z",
+    failureMode: "FAIL_ONCE",
+    retryPolicy: { maxAttempts: 2, baseDelayMs: 1000, maxDelayMs: 8000 },
+    input: {
+      deliveries: 2,
+      eventOrderSent: ["payment.authorized", "payment.authorized"],
+      eventTimeOrder: ["payment.authorized"],
+    },
+    result: {
+      processed: 0,
+      duplicate: 1,
+      conflict: 0,
+      error: 1,
+      accepted: 0,
+    },
+    stateChange: 0,
+    payment: {
+      provider: "razorpay",
+      paymentId: GOLDEN_PAYMENT_ID,
+      state: null,
+      amountMinor: null,
+    },
+    originalAmountMinor: "10000",
+    originalPayloadHash: "hash-not-a-signature",
+    exception: {
+      exceptionId: EXCEPTION_ID,
+      exceptionCode: "PROCESSING_FAILURE",
+    },
+    incidentId: EXCEPTION_ID,
+    correlationId: GOLDEN_CORRELATION,
+    storedEventCount: 1,
+    eventProcessingStatus: "PROCESSED",
+    eventType: "payment.authorized",
+    auditCount: 8,
+    retry: {
+      attemptCount: 2,
+      status: "SUCCEEDED",
+      nextAttemptAt: null,
+      lastErrorCode: "TEMPORARY_PROCESSING_FAILURE",
+      lastFailedAt: "2026-01-15T14:30:00.200Z",
+      failureClass: "RETRYABLE",
+    },
+    deadLetter: null,
+    replay: null,
+    log: [
+      {
+        clock: "2026-01-15T14:30:00.000Z",
+        lifecycle: "WEBHOOK_RECEIVED",
+        decision: "ACCEPTED",
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.050Z",
+        lifecycle: "SIGNATURE_VERIFIED",
+        decision: null,
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.080Z",
+        lifecycle: "WEBHOOK_NORMALIZED",
+        decision: null,
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.100Z",
+        lifecycle: "EVENT_PERSISTED",
+        decision: null,
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.120Z",
+        lifecycle: "PROCESSING_STARTED",
+        decision: null,
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.200Z",
+        lifecycle: "RETRY_SCHEDULED",
+        decision: null,
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.400Z",
+        lifecycle: "RETRY_ATTEMPTED",
+        decision: null,
+        inferred: false,
+      },
+      {
+        clock: "2026-01-15T14:30:00.500Z",
+        lifecycle: "RETRY_SUCCEEDED",
+        decision: null,
+        inferred: false,
+      },
+    ],
+    deliveries: [
+      {
+        stepIndex: 0,
+        eventType: "payment.authorized",
+        eventKey: GOLDEN_EVENT_KEY,
+        httpStatus: 500,
+        bodyStatus: "error",
+        code: "TEMPORARY_PROCESSING_FAILURE",
+        kind: "original",
+      },
+      {
+        stepIndex: 1,
+        eventType: "payment.authorized",
+        eventKey: GOLDEN_EVENT_KEY,
+        httpStatus: 200,
+        bodyStatus: "duplicate",
+        code: null,
+        kind: "redelivery",
+      },
+    ],
+    links: {
+      incident: `/incidents/${EXCEPTION_ID}`,
+      payment: `/payments/${encodeURIComponent(GOLDEN_PAYMENT_ID)}`,
+      event: `/events/${WEBHOOK_ID}`,
+    },
+  },
+};
+
+export const sampleGoldenDemoExhausted: GoldenDemoRun = {
+  ...sampleGoldenDemoRun,
+  invariant: {
+    storedEventCount: 1,
+    stateChange: 0,
+    duplicateDeliveries: 0,
+    noDuplicateEconomicEffect: true,
+  },
+  run: {
+    ...sampleGoldenDemoRun.run,
+    result: {
+      processed: 0,
+      duplicate: 0,
+      conflict: 0,
+      error: 1,
+      accepted: 0,
+    },
+    eventProcessingStatus: "RECEIVED",
+    retry: {
+      attemptCount: 2,
+      status: "DEAD_LETTERED",
+      nextAttemptAt: null,
+      lastErrorCode: "TEMPORARY_PROCESSING_FAILURE",
+      lastFailedAt: "2026-01-15T14:30:00.800Z",
+      failureClass: "RETRYABLE",
+    },
+    deadLetter: {
+      failureCode: "RETRY_EXHAUSTED",
+      attemptCount: 2,
+      deadLetteredAt: "2026-01-15T14:30:00.900Z",
+    },
+    exception: {
+      exceptionId: EXCEPTION_ID,
+      exceptionCode: "RETRY_EXHAUSTED",
+    },
+    log: sampleGoldenDemoRun.run.log.filter(
+      (entry) => entry.lifecycle !== "RETRY_SUCCEEDED",
+    ),
+  },
+};
+
 export const sampleFailureLabReset: FailureLabResetResult = {
   notice: "The Failure Lab never sends real payment requests.",
   deleted: {
@@ -761,6 +961,9 @@ export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
     getFailureLabRun: vi.fn(async () => sampleFailureLabRun),
     resetFailureLab: vi.fn(async () => sampleFailureLabReset),
     getMetricsSummary: vi.fn(async () => sampleMetricsEmpty),
+    runGoldenDemo: vi.fn(async () => sampleGoldenDemoRun),
+    listGoldenDemoRuns: vi.fn(async () => []),
+    getGoldenDemoRun: vi.fn(async () => sampleGoldenDemoRun),
     ...overrides,
   };
 }

@@ -24,8 +24,12 @@ function originLine(report: FailureLabRunReport): string {
   return "SYNTHETIC";
 }
 
-function isDemoScenario(scenario: FailureLabCatalogEntry): boolean {
+function isArchitectureDemo(scenario: FailureLabCatalogEntry): boolean {
   return scenario.architectureDemo === true || scenario.id === "TRANSIENT_FAILURE";
+}
+
+function isGoldenDemo(scenario: FailureLabCatalogEntry): boolean {
+  return scenario.goldenDemo === true || scenario.id === "GOLDEN_DEMO";
 }
 
 function ScenarioStatus({
@@ -202,11 +206,19 @@ function ScenarioBlock({
   readonly disabled: boolean;
   readonly onRun: (id: FailureLabScenarioId) => void;
 }) {
-  const demo = isDemoScenario(scenario);
+  const architectureDemo = isArchitectureDemo(scenario);
+  const goldenDemo = isGoldenDemo(scenario);
+  const demo = architectureDemo || goldenDemo;
   return (
     <article
       className={demo ? "lab-scenario lab-scenario--demo" : "lab-scenario"}
-      id={demo ? "architecture-demo" : undefined}
+      id={
+        architectureDemo
+          ? "architecture-demo"
+          : goldenDemo
+            ? "golden-demo"
+            : undefined
+      }
     >
       <header className="lab-scenario__head">
         <h2>
@@ -221,9 +233,14 @@ function ScenarioBlock({
           RUN
         </button>
       </header>
-      {demo ? (
+      {architectureDemo ? (
         <p className="synthetic-flag" role="note">
           SYNTHETIC · DEMO RUN
+        </p>
+      ) : null}
+      {goldenDemo ? (
+        <p className="synthetic-flag" role="note">
+          SYNTHETIC · GOLDEN DEMO · polished view at /demo
         </p>
       ) : null}
       <p>

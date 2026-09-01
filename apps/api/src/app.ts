@@ -56,6 +56,12 @@ import {
   handleFailureLabReset,
   handleFailureLabRun,
 } from "./failure-lab/http.js";
+import {
+  handleDemoDescribe,
+  handleDemoGet,
+  handleDemoList,
+  handleDemoRun,
+} from "./demo/http.js";
 import type { FailureLabRunReport } from "./failure-lab/report.js";
 import type { ProcessIncomingWebhookDependencies } from "./pipeline/process-incoming-webhook.js";
 
@@ -117,6 +123,9 @@ export function createApp(dependencies: ApiDependencies): Hono {
       incidentTimeline: "/incidents/:id/timeline",
       failureLab: "/failure-lab",
       failureLabRun: "/failure-lab/run",
+      demo: "/demo",
+      demoRun: "/demo/run",
+      demoRuns: "/demo/runs",
       investigate: "/exceptions/:id/investigate",
       investigation: "/exceptions/:id/investigation",
       incidentInvestigate: "/incidents/:id/investigate",
@@ -188,6 +197,18 @@ export function createApp(dependencies: ApiDependencies): Hono {
   app.post("/failure-lab/reset", (c) =>
     handleFailureLabReset(c, wired, labRuns),
   );
+  app.get("/demo", (c) => handleDemoDescribe(c));
+  app.post("/demo/run", (c) =>
+    handleDemoRun(c, wired, labRuns, (processFn) =>
+      createApp({
+        ...wired,
+        processPaymentEvents: processFn,
+        retryPolicy: wired.retryPolicy,
+      }),
+    ),
+  );
+  app.get("/demo/runs", (c) => handleDemoList(c, labRuns));
+  app.get("/demo/runs/:id", (c) => handleDemoGet(c, labRuns));
   app.get("/audit", (c) => handleCorrelationAudit(c, wired));
 
   return app;

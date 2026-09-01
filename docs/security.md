@@ -31,7 +31,7 @@ This document describes controls that exist in the code. It is not a penetration
 
 ## Input
 
-- Failure Lab scenario ids are enumerated. Unknown names return `400 UNKNOWN_FAILURE_LAB_SCENARIO`. Extra JSON fields such as `failureMode` are ignored; injection mode comes from the server catalog.
+- Failure Lab scenario ids are enumerated. Unknown names return `400 UNKNOWN_FAILURE_LAB_SCENARIO`. Extra JSON fields such as `failureMode` are ignored; injection mode comes from the server catalog. `POST /demo/run` always runs `GOLDEN_DEMO`; it cannot select an arbitrary payment to mutate.
 - Webhook providers are enumerated (`SYNTHETIC`, `razorpay`). Unknown providers are not ingested as valid events.
 - `POST /webhooks/:provider` requires `application/json` (415 otherwise) and rejects bodies over 256 KiB (413).
 

@@ -67,8 +67,7 @@ function OverviewMetrics({ summary }: { readonly summary: MetricsSummary }) {
         <h2 className="kicker">NO DATA</h2>
         <p>
           No persisted webhook events, exceptions, retries, or dead letters are
-          stored yet. Run the architecture demo in Failure Lab to create
-          synthetic records.
+          stored yet. Run the Golden Demo to create labelled synthetic records.
         </p>
       </section>
     );
@@ -184,15 +183,14 @@ export function Overview() {
         )}
       </section>
       <section className="section">
-        <h2 className="kicker">ARCHITECTURE DEMO</h2>
+        <h2 className="kicker">GOLDEN DEMO</h2>
         <p>
-          Failure Lab scenario TRANSIENT FAILURE posts a labelled synthetic
-          webhook through the real ingest pipeline: verify, normalize,
-          persist, fail once, retry, recover, incident, timeline, optional AI
-          investigation.
+          A synthetic Razorpay-shaped webhook is posted through the real ingest
+          pipeline: verify, normalize, persist, fail once, retry, recover,
+          incident, timeline, optional AI investigation.
         </p>
         <p>
-          <Link href="/failure-lab#architecture-demo">RUN ARCHITECTURE DEMO</Link>
+          <Link href="/demo">RUN GOLDEN DEMO</Link>
         </p>
       </section>
     </>

@@ -15,7 +15,7 @@ import {
   type FailureLabScenarioId,
 } from "./catalog.js";
 import { composeFailureLabReport } from "./compose.js";
-import { runRazorpayShapedDuplicate } from "./razorpay-path.js";
+import { runGoldenDemo, runRazorpayShapedDuplicate } from "./razorpay-path.js";
 import type {
   FailureLabDeliveryResult,
   FailureLabRunReport,
@@ -72,6 +72,13 @@ export async function runFailureLabScenario(
       processFn,
       razorpaySecret,
     );
+  }
+  if (scenarioId === FAILURE_LAB_SCENARIO.GOLDEN_DEMO) {
+    const razorpaySecret = dependencies.razorpayWebhookSecret;
+    if (razorpaySecret === undefined || razorpaySecret.length === 0) {
+      throw new Error("RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE");
+    }
+    return runGoldenDemo(dependencies, app, processFn, razorpaySecret);
   }
 
   const runId = randomUUID();

@@ -78,6 +78,10 @@ export type FailureLabRunReport = {
     readonly exceptionCode: string;
   } | null;
   readonly incidentId: string | null;
+  readonly correlationId: string | null;
+  readonly storedEventCount: number;
+  readonly eventProcessingStatus: string | null;
+  readonly eventType: string | null;
   readonly auditCount: number;
   readonly retry: FailureLabRetrySnapshot | null;
   readonly deadLetter: FailureLabDeadLetterSnapshot | null;

@@ -44,4 +44,4 @@ A persisted event that fails temporarily is claimed (`SELECT … FOR UPDATE SKIP
 
 ## Operator surface
 
-Primary navigation: Overview, Failure Lab, Incidents. Exception, payment, and event pages remain as linked investigation routes. Overview metrics, when shown, come from `GET /metrics/summary` persisted counts. Missing data is **NO DATA**, not a fabricated reliability percentage.
+Primary navigation: Overview, Demo, Failure Lab, Incidents. Exception, payment, and event pages remain as linked investigation routes. Overview metrics, when shown, come from `GET /metrics/summary` persisted counts. Missing data is **NO DATA**, not a fabricated reliability percentage.

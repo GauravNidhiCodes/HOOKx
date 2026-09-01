@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ApiProvider } from "./api/context";
 import { createBrowserApi, type HookxApi } from "./api/client";
+import { Demo } from "./pages/Demo";
 import { EventDetail } from "./pages/EventDetail";
 import { EventsPage } from "./pages/EventsPage";
 import { ExceptionDetail } from "./pages/ExceptionDetail";
@@ -45,6 +46,9 @@ function Routes() {
   }
   if (route.name === "failure-lab") {
     return <FailureLab />;
+  }
+  if (route.name === "demo") {
+    return <Demo />;
   }
   return (
     <section className="empty">

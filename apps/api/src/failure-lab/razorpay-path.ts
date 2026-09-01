@@ -1,7 +1,10 @@
 import type { Hono } from "hono";
 import { randomUUID } from "node:crypto";
-import { providerId } from "@hookx/domain";
-import type { ProcessPaymentEventsFn } from "@hookx/storage";
+import { paymentId, providerId } from "@hookx/domain";
+import {
+  DEFAULT_RETRY_POLICY,
+  type ProcessPaymentEventsFn,
+} from "@hookx/storage";
 import {
   RAZORPAY_EVENT_ID_HEADER,
   RAZORPAY_PROVIDER_NAME,
@@ -10,8 +13,11 @@ import {
   signRazorpayWebhook,
 } from "@hookx/webhook";
 import type { ApiDependencies } from "../app.js";
-import { FAILURE_LAB_SCENARIO } from "./catalog.js";
-import { composeFailureLabReport } from "./compose.js";
+import {
+  FAILURE_LAB_SCENARIO,
+  type FailureLabScenarioId,
+} from "./catalog.js";
+import { composeFailureLabReport, drainLabRetries } from "./compose.js";
 import type {
   FailureLabDeliveryResult,
   FailureLabRunReport,
@@ -31,6 +37,8 @@ async function postRazorpayLab(
     readonly eventId: string;
     readonly signature: string;
     readonly requestId: string;
+    readonly stepIndex: number;
+    readonly kind: string;
   },
 ): Promise<FailureLabDeliveryResult> {
   const response = await app.request("/webhooks/razorpay", {
@@ -45,61 +53,124 @@ async function postRazorpayLab(
   });
   const body = readJson(await response.json());
   return {
-    stepIndex: 0,
+    stepIndex: input.stepIndex,
     eventType: "payment.authorized",
     eventKey: input.eventId,
     httpStatus: response.status,
     bodyStatus: String(body["status"] ?? ""),
     code: typeof body["code"] === "string" ? body["code"] : null,
-    kind: "duplicate",
+    kind: input.kind,
   };
 }
 
+export type RazorpayLabPathOptions = {
+  readonly scenarioId: FailureLabScenarioId;
+  readonly labels: readonly string[];
+  readonly correlationId: string;
+  readonly redeliverImmediately: boolean;
+  readonly redeliverAfterDrain: boolean;
+};
+
 /**
- * Failure Lab scenario that posts a SYNTHETIC Razorpay-shaped envelope through
- * POST /webhooks/razorpay (adapter + ingest). Payment ids stay lab-prefixed
- * so reset still purges them. Nothing is sent to Razorpay.
+ * Posts a SYNTHETIC Razorpay-shaped envelope through POST /webhooks/razorpay
+ * (adapter + ingest). Payment ids stay lab-prefixed so reset still purges them.
+ * Nothing is sent to Razorpay.
  */
+export async function runRazorpayShapedLab(
+  dependencies: ApiDependencies,
+  app: Hono,
+  processFn: ProcessPaymentEventsFn,
+  secret: string,
+  options: RazorpayLabPathOptions,
+): Promise<FailureLabRunReport> {
+  const runId = randomUUID();
+  const startedAt = dependencies.clock.now();
+  const paymentIdValue = `SYNTHETIC:pay:lab-${runId}`;
+  const eventId = `SYNTHETIC:evt:lab-${runId}-1`;
+  const correlationId = options.correlationId.replaceAll("{runId}", runId);
+  const provider = providerId(RAZORPAY_PROVIDER_NAME);
+  const payload = razorpayPaymentAuthorizedPayload({ id: paymentIdValue });
+  const rawBody = JSON.stringify(payload);
+  const signature = signRazorpayWebhook({ secret, rawBody });
+  const posted: FailureLabDeliveryResult[] = [];
+
+  posted.push(
+    await postRazorpayLab(app, {
+      rawBody,
+      eventId,
+      signature,
+      requestId: correlationId,
+      stepIndex: 0,
+      kind: "original",
+    }),
+  );
+
+  if (options.redeliverAfterDrain) {
+    const stored = await dependencies.repository.listByPayment(
+      provider,
+      paymentId(paymentIdValue),
+    );
+    const policy = dependencies.retryPolicy ?? DEFAULT_RETRY_POLICY;
+    await drainLabRetries(
+      dependencies,
+      processFn,
+      policy,
+      stored.map((row) => row.id),
+    );
+  }
+
+  if (options.redeliverImmediately || options.redeliverAfterDrain) {
+    posted.push(
+      await postRazorpayLab(app, {
+        rawBody,
+        eventId,
+        signature,
+        requestId: `${correlationId}-redelivery`,
+        stepIndex: 1,
+        kind: "redelivery",
+      }),
+    );
+  }
+
+  return composeFailureLabReport(dependencies, processFn, {
+    scenarioId: options.scenarioId,
+    runId,
+    startedAt,
+    posted,
+    provider,
+    paymentIdValue,
+    eventTimeOrder: ["payment.authorized"],
+    labels: [...options.labels],
+    correlationId,
+  });
+}
+
 export async function runRazorpayShapedDuplicate(
   dependencies: ApiDependencies,
   app: Hono,
   processFn: ProcessPaymentEventsFn,
   secret: string,
 ): Promise<FailureLabRunReport> {
-  const runId = randomUUID();
-  const startedAt = dependencies.clock.now();
-  const paymentIdValue = `SYNTHETIC:pay:lab-${runId}`;
-  const eventId = `evt_lab-${runId}-1`;
-  const payload = razorpayPaymentAuthorizedPayload({ id: paymentIdValue });
-  const rawBody = JSON.stringify(payload);
-  const signature = signRazorpayWebhook({ secret, rawBody });
-  const posted: FailureLabDeliveryResult[] = [];
-  posted.push(
-    await postRazorpayLab(app, {
-      rawBody,
-      eventId,
-      signature,
-      requestId: `lab-${runId}-0`,
-    }),
-  );
-  posted.push({
-    ...(await postRazorpayLab(app, {
-      rawBody,
-      eventId,
-      signature,
-      requestId: `lab-${runId}-1`,
-    })),
-    stepIndex: 1,
-  });
-
-  return composeFailureLabReport(dependencies, processFn, {
+  return runRazorpayShapedLab(dependencies, app, processFn, secret, {
     scenarioId: FAILURE_LAB_SCENARIO.RAZORPAY_SHAPED_DUPLICATE,
-    runId,
-    startedAt,
-    posted,
-    provider: providerId(RAZORPAY_PROVIDER_NAME),
-    paymentIdValue,
-    eventTimeOrder: ["payment.authorized"],
     labels: ["SYNTHETIC", "RAZORPAY ADAPTER"],
+    correlationId: "lab-{runId}",
+    redeliverImmediately: true,
+    redeliverAfterDrain: false,
+  });
+}
+
+export async function runGoldenDemo(
+  dependencies: ApiDependencies,
+  app: Hono,
+  processFn: ProcessPaymentEventsFn,
+  secret: string,
+): Promise<FailureLabRunReport> {
+  return runRazorpayShapedLab(dependencies, app, processFn, secret, {
+    scenarioId: FAILURE_LAB_SCENARIO.GOLDEN_DEMO,
+    labels: ["SYNTHETIC", "RAZORPAY ADAPTER", "DEMO RUN"],
+    correlationId: "demo-{runId}",
+    redeliverImmediately: false,
+    redeliverAfterDrain: true,
   });
 }

@@ -8,7 +8,8 @@ Index of technical documents that exist in this repository.
 | [observability.md](observability.md) | Logs, correlation ids, incident timelines, metrics policy |
 | [failure-lab.md](failure-lab.md) | Synthetic Failure Lab scenarios and injection rules |
 | [ai-investigator.md](ai-investigator.md) | Read-only AI investigation |
-| [demo.md](demo.md) | End-to-end architecture demonstration |
+| [demo.md](demo.md) | End-to-end architecture demonstration (Failure Lab TRANSIENT FAILURE) |
+| [golden-demo.md](golden-demo.md) | Golden Demo (`/demo`) — Razorpay-shaped fail-once through the real pipeline |
 | [test-matrix.md](test-matrix.md) | Scenario → expected behavior → automated test |
 | [operator-console.md](operator-console.md) | Operator UI contracts |
 | [razorpay.md](razorpay.md) | Pointer to the Razorpay adapter document |

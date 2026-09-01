@@ -261,6 +261,8 @@ describe("GET /", () => {
     expect(body.ingest).toBe("/webhooks/:provider");
     expect(body.retries).toBe("/retries");
     expect(body.deadLetters).toBe("/dead-letters");
+    expect(body.demo).toBe("/demo");
+    expect(body.demoRun).toBe("/demo/run");
     expect(body.payment).toBe("/payments/:paymentId");
     expect(body.payments).toBe("/payments");
     expect(body.webhooks).toBe("/webhooks");

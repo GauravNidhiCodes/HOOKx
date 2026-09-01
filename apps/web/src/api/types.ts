@@ -178,7 +178,8 @@ export type FailureLabScenarioId =
   | "TRANSIENT_FAILURE"
   | "RETRY_EXHAUSTION"
   | "REPLAY_RECOVERY"
-  | "RAZORPAY_SHAPED_DUPLICATE";
+  | "RAZORPAY_SHAPED_DUPLICATE"
+  | "GOLDEN_DEMO";
 
 export type FailureLabCatalogEntry = {
   readonly id: FailureLabScenarioId;
@@ -188,6 +189,7 @@ export type FailureLabCatalogEntry = {
   readonly expected: string;
   readonly failureMode: string;
   readonly architectureDemo?: true;
+  readonly goldenDemo?: true;
 };
 
 export type FailureLabCatalog = {
@@ -245,6 +247,10 @@ export type FailureLabRunReport = {
     readonly exceptionCode: string;
   } | null;
   readonly incidentId: string | null;
+  readonly correlationId?: string | null;
+  readonly storedEventCount?: number;
+  readonly eventProcessingStatus?: string | null;
+  readonly eventType?: string | null;
   readonly auditCount: number;
   readonly retry: {
     readonly attemptCount: number;
@@ -279,6 +285,22 @@ export type FailureLabRunReport = {
     readonly payment: string | null;
     readonly event: string | null;
   };
+};
+
+export type GoldenDemoInvariant = {
+  readonly storedEventCount: number;
+  readonly stateChange: number;
+  readonly duplicateDeliveries: number;
+  readonly noDuplicateEconomicEffect: boolean;
+};
+
+export type GoldenDemoRun = {
+  readonly demoRunId: string;
+  readonly correlationId: string;
+  readonly synthetic: true;
+  readonly notice: string;
+  readonly invariant: GoldenDemoInvariant;
+  readonly run: FailureLabRunReport;
 };
 
 export type FailureLabResetResult = {

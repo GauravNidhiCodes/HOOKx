@@ -50,6 +50,26 @@ describe("Failure Lab injection isolation", () => {
     ).rejects.toBeInstanceOf(RetryableProcessingError);
   });
 
+  it("injects FAIL_ONCE for a Razorpay-provider lab payment", async () => {
+    const fn = createLabProcessFn("FAIL_ONCE");
+    const lab = paymentId("SYNTHETIC:pay:lab-dddddddd-dddd-4ddd-8ddd-dddddddddddd");
+    await expect(
+      fn(emptyRepo, providerId("razorpay"), lab),
+    ).rejects.toBeInstanceOf(RetryableProcessingError);
+    const second = await fn(emptyRepo, providerId("razorpay"), lab);
+    expect(second.decisions).toEqual([]);
+  });
+
+  it("does not inject FAIL_ONCE for a live-shaped Razorpay payment id", async () => {
+    const fn = createLabProcessFn("FAIL_ONCE");
+    const result = await fn(
+      emptyRepo,
+      providerId("razorpay"),
+      paymentId("pay_live_not_lab"),
+    );
+    expect(result.decisions).toEqual([]);
+  });
+
   it("NONE delegates to processPaymentEvents", async () => {
     const fn = createLabProcessFn("NONE");
     expect(fn).not.toBe(processPaymentEvents);

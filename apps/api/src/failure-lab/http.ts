@@ -74,7 +74,7 @@ export async function handleFailureLabRun(
     return badRequest(context, "UNKNOWN_FAILURE_LAB_SCENARIO");
   }
   if (
-    scenario === "RAZORPAY_SHAPED_DUPLICATE" &&
+    (scenario === "RAZORPAY_SHAPED_DUPLICATE" || scenario === "GOLDEN_DEMO") &&
     (dependencies.razorpayWebhookSecret === undefined ||
       dependencies.razorpayWebhookSecret.length === 0)
   ) {
