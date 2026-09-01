@@ -35,6 +35,12 @@ This document describes controls that exist in the code. It is not a penetration
 - Webhook providers are enumerated (`SYNTHETIC`, `razorpay`). Unknown providers are not ingested as valid events.
 - `POST /webhooks/:provider` requires `application/json` (415 otherwise) and rejects bodies over 256 KiB (413).
 
+## HTTP
+
+- Responses set `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, and `Cache-Control: no-store`.
+- There is no CORS middleware. The operator console reaches the API through the Vite same-origin proxy in development.
+- GitHub Actions uses `permissions: contents: read` and a disposable PostgreSQL 16 service. No production secrets are configured.
+
 ## Authentication
 
 The HTTP API and operator console are unauthenticated. They are a local operator workspace, not a multi-tenant control plane. Do not expose them on a public network without an authenticating proxy.

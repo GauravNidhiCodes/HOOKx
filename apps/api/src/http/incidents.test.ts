@@ -134,6 +134,10 @@ describe("health and metrics", () => {
     const app = appWith(new MemoryExceptionRepository());
     const health = await app.request("/health");
     expect(health.status).toBe(200);
+    expect(health.headers.get("X-Content-Type-Options")).toBe("nosniff");
+    expect(health.headers.get("X-Frame-Options")).toBe("DENY");
+    expect(health.headers.get("Referrer-Policy")).toBe("no-referrer");
+    expect(health.headers.get("Cache-Control")).toBe("no-store");
     expect(await health.json()).toEqual({ status: "ok" });
     const ready = await app.request("/ready");
     expect(ready.status).toBe(503);

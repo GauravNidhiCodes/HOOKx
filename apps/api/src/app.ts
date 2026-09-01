@@ -93,6 +93,14 @@ export function createApp(dependencies: ApiDependencies): Hono {
   };
   const labRuns = new Map<string, FailureLabRunReport>();
 
+  app.use("*", async (context, next) => {
+    await next();
+    context.header("X-Content-Type-Options", "nosniff");
+    context.header("X-Frame-Options", "DENY");
+    context.header("Referrer-Policy", "no-referrer");
+    context.header("Cache-Control", "no-store");
+  });
+
   app.onError((_error, context) => {
     return context.json({ status: "error", code: "INTERNAL_ERROR" }, 500);
   });

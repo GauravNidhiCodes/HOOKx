@@ -4,14 +4,23 @@
 
 node_modules
 dist
+build
 coverage
+logs
+
 .DS_Store
+Thumbs.db
 
 .idea
 .vscode
 *.code-workspace
 *.swp
 *.swo
+
+*.pem
+*.key
+*.p12
+*.pfx
 
 *.log
 *.tsbuildinfo
