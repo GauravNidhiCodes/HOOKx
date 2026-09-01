@@ -503,18 +503,12 @@ describe("retry worker", () => {
     const first = await events.store(
       syntheticPaymentCreated({
         paymentId: payment,
-        externalEventId: `SYNTHETIC:evt:${randomUUID()}`,
-        payloadHash: `SYNTHETIC:hash:${randomUUID()}`,
+        externalEventId: "SYNTHETIC:evt:created-first",
+        payloadHash: "SYNTHETIC:hash:created-first",
+        occurredAt: instant("2026-01-15T10:00:00.000Z"),
       }),
     );
-    const second = await events.store(
-      syntheticPaymentCreated({
-        paymentId: payment,
-        externalEventId: `SYNTHETIC:evt:${randomUUID()}`,
-        payloadHash: `SYNTHETIC:hash:${randomUUID()}`,
-      }),
-    );
-    if (first.outcome !== "STORED" || second.outcome !== "STORED") {
+    if (first.outcome !== "STORED") {
       throw new Error("expected store");
     }
     await processFreshEvent(
@@ -526,6 +520,17 @@ describe("retry worker", () => {
       first.record.id,
       NOW,
     );
+    const second = await events.store(
+      syntheticPaymentCreated({
+        paymentId: payment,
+        externalEventId: "SYNTHETIC:evt:created-second",
+        payloadHash: "SYNTHETIC:hash:created-second",
+        occurredAt: instant("2026-01-15T10:00:01.000Z"),
+      }),
+    );
+    if (second.outcome !== "STORED") {
+      throw new Error("expected store");
+    }
     await processFreshEvent(
       {
         ...workerDeps(events, retry),

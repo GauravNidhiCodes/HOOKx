@@ -1,0 +1,26 @@
+{
+  "name": "@hookx/simulator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "HOOKX synthetic webhook scenario catalog and generator",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hookx/domain": "workspace:*",
+    "@hookx/webhook": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
+  }
+}

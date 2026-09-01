@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { instant } from "@hookx/domain";
 import {
   MemoryAuditRepository,
+  MemoryPaymentRepository,
   MemoryRetryRepository,
   RetryableProcessingError,
   addMilliseconds,
+  createSequentialOutcomeWriter,
   processPaymentEvents,
   runRetryTick,
 } from "@hookx/storage";
@@ -41,10 +43,13 @@ function createDeps(
   repository = new MemoryWebhookEventRepository(),
   extras: Partial<IngestDependencies> = {},
 ): IngestDependencies {
+  const retry = extras.retry ?? new MemoryRetryRepository();
+  const audit = extras.audit ?? new MemoryAuditRepository();
+  const payments = extras.payments ?? new MemoryPaymentRepository();
+  const persistOutcome =
+    extras.persistOutcome ??
+    createSequentialOutcomeWriter(repository, audit, payments);
   return {
-    repository,
-    retry: new MemoryRetryRepository(),
-    audit: new MemoryAuditRepository(),
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: SECRET,
       syntheticToleranceSeconds: 300,
@@ -52,6 +57,11 @@ function createDeps(
     retryPolicy: POLICY,
     leaseMs: LEASE_MS,
     ...extras,
+    repository,
+    retry,
+    audit,
+    payments,
+    persistOutcome,
   };
 }
 
@@ -59,11 +69,14 @@ describe("ingestWebhook", () => {
   it("persists and processes a valid signed payload", async () => {
     const repository = new MemoryWebhookEventRepository();
     const retry = new MemoryRetryRepository();
+    const payments = new MemoryPaymentRepository();
     const payload = syntheticOpenedPayload({
       event_ref: "SYNTHETIC:evt:ingest-valid",
     });
     const rawBody = rawBodyOf(payload);
-    const result = await ingestWebhook(createDeps(repository, { retry }), {
+    const result = await ingestWebhook(
+      createDeps(repository, { retry, payments }),
+      {
       provider: "SYNTHETIC",
       rawBody,
       headers: signedHeaders(rawBody),
@@ -76,6 +89,9 @@ describe("ingestWebhook", () => {
     expect(result.observation.verification).toBe("VERIFIED");
     expect(result.observation.externalEventId).toBe(payload.event_ref);
     expect(result.observation.retryStatus).toBe("SUCCEEDED");
+    expect(result.observation.decision).toBe("ACCEPTED");
+    expect(result.observation.paymentId).toBe(payload.entity.payment_ref);
+    expect(result.observation.durationMs).toBeGreaterThanOrEqual(0);
     expect(JSON.stringify(result)).not.toContain(SECRET);
     expect(repository.records).toHaveLength(1);
     expect(repository.records[0]?.processingStatus).toBe("PROCESSED");
@@ -86,6 +102,12 @@ describe("ingestWebhook", () => {
       repository.records[0]!.event.paymentId,
     );
     expect(replay.payment?.state).toBe("CREATED");
+    expect(
+      await payments.get(
+        repository.records[0]!.event.provider,
+        repository.records[0]!.event.paymentId,
+      ),
+    ).toMatchObject({ state: "CREATED", amountMinor: 10000n });
   });
 
   it("rejects an invalid signature before storage", async () => {
@@ -235,8 +257,9 @@ describe("ingestWebhook", () => {
       requestId: "req-retry",
       now: NOW,
     });
-    expect(result.httpStatus).toBe(200);
-    expect(result.body.status).toBe("accepted");
+    expect(result.httpStatus).toBe(500);
+    expect(result.body.status).toBe("error");
+    expect(result.body.code).toBe("TEMPORARY_PROCESSING_FAILURE");
     expect(result.observation.retryStatus).toBe("RETRY_SCHEDULED");
     expect(repository.records).toHaveLength(1);
 

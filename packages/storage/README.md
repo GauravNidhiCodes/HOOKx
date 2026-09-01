@@ -43,6 +43,20 @@ Table `webhook_events`:
 
 Raw provider payloads are not stored. Signatures and secrets do not belong in this table.
 
+Table `payments` (durable replay projection):
+
+| Column | PostgreSQL type | Purpose |
+| --- | --- | --- |
+| `provider` | `text` | Provider id (composite PK) |
+| `payment_id` | `text` | Payment id (composite PK) |
+| `state` | `text` | `CREATED` / `AUTHORIZED` / `CAPTURED` / `FAILED` / `REFUNDED` |
+| `amount_minor_units` | `bigint` | Integer minor units |
+| `currency` | `char(3)` | ISO 4217 alphabetic code |
+| `last_occurred_at` | `timestamptz` | Last applied event occurrence |
+| `updated_at` | `timestamptz` | Projection write time |
+
+`PaymentRepository` can `get` and `upsert`. There is no delete or generic update API. Replay still computes state; this table stores the result.
+
 ## Uniqueness constraint
 
 ```sql
@@ -85,6 +99,14 @@ A duplicate delivery never creates a second event row. A conflicting payload nev
 3. Compare `payload_hash` → `DUPLICATE` or `CONFLICT`
 
 Status updates (`markProcessing`, `markProcessed`, `markRejected`, `markConflict`) each run in their own transaction with a status predicate so a lost race cannot apply an illegal transition.
+
+When a newly accepted event is processed, `persistOutcome` writes in **one** transaction:
+
+1. Terminal webhook status (`PROCESSED` / `REJECTED` / `CONFLICT`)
+2. Payment upsert (only on an `ACCEPTED` replay)
+3. Outcome audit rows
+
+If that transaction fails, payment state and the matching audit row are not committed together with a partial financial update. External network calls are not inside this transaction.
 
 ## Repository abstraction
 
@@ -251,7 +273,7 @@ The tests:
 4. Apply Drizzle migrations
 5. Run uniqueness, conflict, round-trip, status, concurrent insert, payment listing, out-of-order replay, retry claim, and dead-letter tests
 
-Retry integration tests use a separate database pathname (`hookx_retry_test`) so they do not race `hookx_test`. API ingest e2e uses `hookx_api_test`.
+Retry integration tests use a separate database pathname (`hookx_retry_test`) so they do not race `hookx_test`. API ingest e2e uses `hookx_api_test`. Pipeline e2e uses `hookx_pipeline_test`. Payment upsert tests use `hookx_payment_test`. Audit integration uses `hookx_audit_test`. Simulator e2e uses `hookx_simulator_test`. The `pnpm simulate` CLI uses `hookx_simulate`.
 
 If PostgreSQL is not running, those tests fail with a pointer to this README. They do not skip.
 

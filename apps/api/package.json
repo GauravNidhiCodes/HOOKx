@@ -9,11 +9,13 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "retry:tick": "tsx src/retry-worker.ts",
+    "simulate": "tsx src/simulate/cli.ts",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@hookx/audit": "workspace:*",
     "@hookx/domain": "workspace:*",
+    "@hookx/simulator": "workspace:*",
     "@hookx/storage": "workspace:*",
     "@hookx/webhook": "workspace:*",
     "@hono/node-server": "^1.19.4",

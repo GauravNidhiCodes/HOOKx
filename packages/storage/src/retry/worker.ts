@@ -2,6 +2,8 @@ import type { AuditActor } from "@hookx/audit";
 import { AUDIT_REASON } from "@hookx/audit";
 import type { Instant } from "@hookx/domain";
 import { processPaymentEvents } from "../process-payment-events.js";
+import type { StoredPayment } from "../payment/types.js";
+import { storedPaymentFromReplay } from "../payment/from-replay.js";
 import type { WebhookEventRepository } from "../repository.js";
 import { appendAuditDrafts } from "../audit/persist-outcome.js";
 import {
@@ -168,11 +170,21 @@ async function finishAttempt(
       );
     }
     if (result.outcome === "SUCCEEDED") {
+      const payment =
+        context === null
+          ? null
+          : storedPaymentFromReplay(
+              result.replay,
+              result.decision,
+              context.stored.event.provider,
+              now,
+            );
       await writeTerminal(
         dependencies,
         record.webhookEventId,
         "PROCESSED",
         drafts,
+        payment,
       );
     } else {
       await appendIfAuditing(dependencies.audit, drafts);
@@ -220,6 +232,7 @@ async function finishAttempt(
         record.webhookEventId,
         terminal,
         drafts,
+        null,
       );
     } else {
       await appendIfAuditing(dependencies.audit, drafts);
@@ -373,9 +386,10 @@ async function writeTerminal(
   webhookEventId: string,
   status: WebhookTerminalStatus,
   drafts: readonly Parameters<AuditRepository["append"]>[0][],
+  payment?: StoredPayment | null,
 ): Promise<void> {
   if (dependencies.persistOutcome !== undefined) {
-    await dependencies.persistOutcome(webhookEventId, status, drafts);
+    await dependencies.persistOutcome(webhookEventId, status, drafts, payment);
     return;
   }
   await appendIfAuditing(dependencies.audit, drafts);

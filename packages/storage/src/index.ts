@@ -83,3 +83,7 @@ export {
   retryLifecycleDraft,
   webhookReceiptDraft,
 } from "./audit/live.js";
+export type { StoredPayment } from "./payment/types.js";
+export type { PaymentRepository } from "./payment/repository.js";
+export { MemoryPaymentRepository } from "./payment/memory-payment-repository.js";
+export { storedPaymentFromReplay } from "./payment/from-replay.js";

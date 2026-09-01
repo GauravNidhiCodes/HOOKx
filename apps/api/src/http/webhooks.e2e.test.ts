@@ -58,6 +58,7 @@ describe("webhook ingest end-to-end", () => {
         retry: store.retry,
         audit: store.audit,
         persistOutcome: store.persistOutcome,
+        payments: store.payments,
         retryPolicy: POLICY,
         leaseMs: LEASE_MS,
         verifiers: verifierRegistry(),
@@ -193,6 +194,7 @@ describe("webhook ingest end-to-end", () => {
       retry: store.retry,
       audit: store.audit,
       persistOutcome: store.persistOutcome,
+      payments: store.payments,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: processFn,
@@ -207,7 +209,7 @@ describe("webhook ingest end-to-end", () => {
       },
       body: rawBody,
     });
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
     const stored = await store.repository.findByIdentity(
       createWebhookIdentity("SYNTHETIC", eventRef),
     );
@@ -252,6 +254,7 @@ describe("webhook ingest end-to-end", () => {
       retry: store.retry,
       audit: store.audit,
       persistOutcome: store.persistOutcome,
+      payments: store.payments,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: async () => {
@@ -383,6 +386,7 @@ describe("webhook ingest end-to-end", () => {
       retry: store.retry,
       audit: store.audit,
       persistOutcome: store.persistOutcome,
+      payments: store.payments,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: processFn,

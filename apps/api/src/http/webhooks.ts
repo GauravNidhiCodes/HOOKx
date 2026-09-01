@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { Clock } from "../clock.js";
-import { ingestWebhook, type IngestDependencies } from "../ingest/ingest-webhook.js";
+import {
+  processIncomingWebhook,
+  type ProcessIncomingWebhookDependencies,
+} from "../pipeline/process-incoming-webhook.js";
 
-export type WebhookRouteDependencies = IngestDependencies & {
+export type WebhookRouteDependencies = ProcessIncomingWebhookDependencies & {
   readonly clock: Clock;
 };
 
@@ -29,7 +32,7 @@ export async function handleWebhookPost(
       ? incomingRequestId
       : randomUUID();
 
-  const result = await ingestWebhook(dependencies, {
+  const result = await processIncomingWebhook(dependencies, {
     provider,
     rawBody,
     headers,

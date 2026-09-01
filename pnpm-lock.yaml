@@ -44,6 +44,9 @@ importers:
       '@hookx/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@hookx/simulator':
+        specifier: workspace:*
+        version: link:../../packages/simulator
       '@hookx/storage':
         specifier: workspace:*
         version: link:../../packages/storage
@@ -99,6 +102,19 @@ importers:
         version: link:../domain
 
   packages/domain: {}
+
+  packages/simulator:
+    dependencies:
+      '@hookx/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@hookx/webhook':
+        specifier: workspace:*
+        version: link:../webhook
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
 
   packages/state-machine:
     dependencies:

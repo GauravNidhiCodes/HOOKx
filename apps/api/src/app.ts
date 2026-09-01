@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import type { AuditRepository, RetryRepository } from "@hookx/storage";
+import type {
+  AuditRepository,
+  PaymentRepository,
+  RetryRepository,
+} from "@hookx/storage";
 import type { Clock } from "./clock.js";
 import {
   handleCorrelationAudit,
@@ -12,13 +16,15 @@ import {
   handleListDeadLetters,
   handleListRetries,
 } from "./http/retries.js";
+import { handleGetPayment } from "./http/payments.js";
 import { handleWebhookPost } from "./http/webhooks.js";
-import type { IngestDependencies } from "./ingest/ingest-webhook.js";
+import type { ProcessIncomingWebhookDependencies } from "./pipeline/process-incoming-webhook.js";
 
-export type ApiDependencies = IngestDependencies & {
+export type ApiDependencies = ProcessIncomingWebhookDependencies & {
   readonly clock: Clock;
   readonly retry: RetryRepository;
   readonly audit: AuditRepository;
+  readonly payments?: PaymentRepository;
 };
 
 export function createApp(dependencies: ApiDependencies): Hono {
@@ -33,6 +39,7 @@ export function createApp(dependencies: ApiDependencies): Hono {
       ingest: "/webhooks/:provider",
       retries: "/retries",
       deadLetters: "/dead-letters",
+      payment: "/payments/:paymentId",
       paymentAudit: "/payments/:paymentId/audit",
       webhookAudit: "/webhooks/:webhookEventId/audit",
     });
@@ -51,6 +58,7 @@ export function createApp(dependencies: ApiDependencies): Hono {
   app.get("/payments/:paymentId/audit", (c) =>
     handlePaymentAudit(c, dependencies),
   );
+  app.get("/payments/:paymentId", (c) => handleGetPayment(c, dependencies));
   app.get("/audit", (c) => handleCorrelationAudit(c, dependencies));
 
   return app;

@@ -75,18 +75,19 @@ What this revision does not implement or claim:
 
 ```
 apps/
-  api/                 Hono HTTP + webhook ingest + retry/audit inspection
+  api/                 Hono HTTP + webhook pipeline + retry/audit inspection
   web/                 React/Vite operator shell (no live data)
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event, identity, signature verifiers
   state-machine/       Transition table + processEvent + replayEvents
   testkit/             SYNTHETIC fixtures
-  storage/             PostgreSQL webhook events + retry/dead-letter + audit
+  simulator/           Synthetic webhook scenarios + generator
+  storage/             PostgreSQL webhook events + payments + retry/dead-letter + audit
   audit/               Append-only audit event model
 ```
 
-`providers`, `audit`, and `observability` packages are omitted until those layers exist.
+`providers` and `observability` packages are omitted until those layers exist.
 
 ## Technology stack
 
@@ -137,6 +138,7 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm build
+pnpm simulate list
 ```
 
 ## Current implementation status
@@ -147,13 +149,14 @@ pnpm build
 | Normalized webhook event | Implemented |
 | Deterministic state machine | Implemented |
 | Synthetic fixtures | Implemented |
-| HTTP webhook ingest | Implemented (`POST /webhooks/:provider`) |
+| HTTP webhook ingest | Implemented (end-to-end `POST /webhooks/:provider` pipeline) |
 | Signature verification | Implemented (synthetic HMAC-SHA256) |
 | Provider adapters (Razorpay, etc.) | Not implemented |
-| PostgreSQL / Drizzle persistence | Implemented (events, retries, dead letters) |
+| PostgreSQL / Drizzle persistence | Implemented (events, payments, retries, dead letters) |
 | Out-of-order event replay | Implemented |
 | Retry, recovery | Implemented (PostgreSQL worker + backoff) |
 | Audit trail | Implemented (append-only `audit_events`) |
+| Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
 | Operator dashboard / live payments | Not implemented |
 | Production deployment | Not implemented |
 

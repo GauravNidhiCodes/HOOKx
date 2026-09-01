@@ -7,7 +7,12 @@ import {
   syntheticOpenedPayload,
   unixSecondsFromInstant,
 } from "@hookx/webhook";
-import { MemoryAuditRepository, MemoryRetryRepository } from "@hookx/storage";
+import {
+  createSequentialOutcomeWriter,
+  MemoryAuditRepository,
+  MemoryPaymentRepository,
+  MemoryRetryRepository,
+} from "@hookx/storage";
 import { createApp } from "../app.js";
 import { fixedClock } from "../clock.js";
 import { MemoryWebhookEventRepository } from "../test-support/memory-webhook-repository.js";
@@ -19,17 +24,20 @@ const NOW_UNIX = unixSecondsFromInstant(NOW);
 function createTestApp(repository = new MemoryWebhookEventRepository()) {
   const retry = new MemoryRetryRepository();
   const audit = new MemoryAuditRepository();
+  const payments = new MemoryPaymentRepository();
   const app = createApp({
     repository,
     retry,
     audit,
+    payments,
+    persistOutcome: createSequentialOutcomeWriter(repository, audit, payments),
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: SECRET,
       syntheticToleranceSeconds: 300,
     }),
     clock: fixedClock(NOW),
   });
-  return { app, repository, retry, audit };
+  return { app, repository, retry, audit, payments };
 }
 
 async function postSigned(
@@ -168,6 +176,7 @@ describe("GET /", () => {
     expect(body.ingest).toBe("/webhooks/:provider");
     expect(body.retries).toBe("/retries");
     expect(body.deadLetters).toBe("/dead-letters");
+    expect(body.payment).toBe("/payments/:paymentId");
     expect(body.paymentAudit).toBe("/payments/:paymentId/audit");
   });
 });

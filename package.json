@@ -13,7 +13,8 @@
     "build": "pnpm -r --if-present build",
     "test": "vitest run",
     "lint": "eslint .",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "simulate": "pnpm --filter @hookx/api exec tsx src/simulate/cli.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

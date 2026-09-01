@@ -32,6 +32,7 @@ async function start(): Promise<void> {
     repository: store.repository,
     retry: store.retry,
     audit: store.audit,
+    payments: store.payments,
     persistOutcome: store.persistOutcome,
     retryPolicy: retryConfig.policy,
     leaseMs: retryConfig.leaseMs,

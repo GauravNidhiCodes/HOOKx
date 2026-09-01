@@ -1,4 +1,4 @@
-import type { ReplayDecision } from "@hookx/state-machine";
+import type { ReplayDecision, ReplayResult } from "@hookx/state-machine";
 import { StorageError } from "../errors.js";
 import { processPaymentEvents } from "../process-payment-events.js";
 import type { WebhookEventRepository } from "../repository.js";
@@ -18,6 +18,7 @@ export type ProcessingAttemptResult =
   | {
       readonly outcome: "SUCCEEDED";
       readonly decision?: ReplayDecision;
+      readonly replay?: ReplayResult;
     }
   | { readonly outcome: "ALREADY_PROCESSED" }
   | { readonly outcome: "RETRYABLE"; readonly code: string }
@@ -136,13 +137,13 @@ export async function processWebhookAttempt(
     } catch (error) {
       const latest = await repository.findById(stored.id);
       if (latest?.processingStatus === "PROCESSED") {
-        return { outcome: "SUCCEEDED", decision };
+        return { outcome: "SUCCEEDED", decision, replay };
       }
       return classifyThrown(error);
     }
   }
 
-  return { outcome: "SUCCEEDED", decision };
+  return { outcome: "SUCCEEDED", decision, replay };
 }
 
 function classifyThrown(error: unknown): ProcessingAttemptResult {

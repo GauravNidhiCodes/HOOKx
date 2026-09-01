@@ -13,6 +13,7 @@ export default defineConfig({
       "@hookx/state-machine": path.join(root, "packages/state-machine/src/index.ts"),
       "@hookx/testkit": path.join(root, "packages/testkit/src/index.ts"),
       "@hookx/storage": path.join(root, "packages/storage/src/index.ts"),
+      "@hookx/simulator": path.join(root, "packages/simulator/src/index.ts"),
     },
   },
   test: {
