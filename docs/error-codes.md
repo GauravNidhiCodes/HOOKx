@@ -107,7 +107,7 @@ Retry `status`: `PENDING`, `PROCESSING`, `SUCCEEDED`, `RETRY_SCHEDULED`, `DEAD_L
 | `DEMO_RUN_NOT_FOUND` | 404 | In-memory demo report missing |
 | `RESET_CONFIRMATION_REQUIRED` | 400 | Reset confirm string mismatch |
 | `FAILURE_LAB_SECRET_UNAVAILABLE` | 503 | `HOOKX_SYNTHETIC_WEBHOOK_SECRET` unset |
-| `RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE` | 503 | Razorpay-shaped lab/demo without secret |
+| `RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE` | 503 | Razorpay-shaped lab without secret |
 | `FAILURE_LAB_RESET_UNAVAILABLE` | 503 | Purge function not wired |
 | `DEMO_FAILED` | 500 | Golden Demo runner threw |
 

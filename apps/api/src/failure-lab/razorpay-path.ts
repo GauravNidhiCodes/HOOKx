@@ -159,18 +159,3 @@ export async function runRazorpayShapedDuplicate(
     redeliverAfterDrain: false,
   });
 }
-
-export async function runGoldenDemo(
-  dependencies: ApiDependencies,
-  app: Hono,
-  processFn: ProcessPaymentEventsFn,
-  secret: string,
-): Promise<FailureLabRunReport> {
-  return runRazorpayShapedLab(dependencies, app, processFn, secret, {
-    scenarioId: FAILURE_LAB_SCENARIO.GOLDEN_DEMO,
-    labels: ["SYNTHETIC", "RAZORPAY ADAPTER", "DEMO RUN"],
-    correlationId: "demo-{runId}",
-    redeliverImmediately: false,
-    redeliverAfterDrain: true,
-  });
-}

@@ -10,7 +10,7 @@ The entire operator surface is labelled **SYNTHETIC FAILURE LAB**. The page stat
 
 The architecture demonstration is scenario `TRANSIENT_FAILURE` (**SYNTHETIC · DEMO RUN**): webhook through real ingest, controlled fail-once, retry, recovery, incident, timeline, optional AI investigation. See `docs/demo.md`.
 
-The Golden Demo is scenario `GOLDEN_DEMO` (polished operator view `/demo`): Razorpay adapter path, same fail-once injection, retry, duplicate redelivery. See `docs/golden-demo.md`.
+The Golden Demo is scenario `GOLDEN_DEMO` (polished operator view `/demo`): synthetic `POST /webhooks/SYNTHETIC` path, fail-once injection, retry, duplicate redelivery. See `docs/golden-demo.md`.
 
 ## Purpose
 
@@ -29,13 +29,13 @@ Supported scenarios:
 | `RETRY_EXHAUSTION` | Retry exhaustion | Lab-only `ALWAYS_FAIL` injection until the **configured** retry policy is exhausted, then dead-letter. |
 | `REPLAY_RECOVERY` | Replay recovery | Capture arrives before authorization. Stored events are replayed when the missing event arrives. Created is not applied twice. |
 | `RAZORPAY_SHAPED_DUPLICATE` | Razorpay-shaped duplicate | Synthetic Razorpay `payment.authorized` posted twice through `POST /webhooks/razorpay`. Real adapter. Data source SYNTHETIC. One stored event. No invented `payment.created`. |
-| `GOLDEN_DEMO` | Golden Demo | Same adapter path with lab-only `FAIL_ONCE`, retry recovery, then identical redelivery classified duplicate. Operator UI: `/demo`. |
+| `GOLDEN_DEMO` | Golden Demo | Synthetic `payment.created` through `POST /webhooks/SYNTHETIC` with lab-only `FAIL_ONCE`, retry recovery, then identical redelivery classified duplicate. Operator UI: `/demo`. |
 
 ## Synthetic-data policy
 
 - Payment ids: `SYNTHETIC:pay:lab-{runId}`
-- Event ids: `SYNTHETIC:evt:lab-{runId}-…` for simulator scenarios; `SYNTHETIC:evt:lab-{runId}-1` for Razorpay-shaped / Golden Demo scenarios
-- Provider: `SYNTHETIC` for simulator scenarios; `razorpay` for `RAZORPAY_SHAPED_DUPLICATE` and `GOLDEN_DEMO` (DATA SOURCE remains SYNTHETIC)
+- Event ids: `SYNTHETIC:evt:lab-{runId}-…` for simulator and Golden Demo scenarios; `SYNTHETIC:evt:lab-{runId}-1` for Razorpay-shaped scenarios
+- Provider: `SYNTHETIC` for simulator scenarios and `GOLDEN_DEMO`; `razorpay` for `RAZORPAY_SHAPED_DUPLICATE` (DATA SOURCE remains SYNTHETIC)
 - JSON bodies include `"synthetic": true`
 - Simulator ids (`SYNTHETIC:pay:sim-*`) are **not** Failure Lab data and are not deleted by reset
 
@@ -49,7 +49,7 @@ The lab does not write payment, exception, retry, or audit rows directly.
 Failure Lab UI
     → POST /failure-lab/run
     → signed deliveries
-    → POST /webhooks/SYNTHETIC  (or POST /webhooks/razorpay for RAZORPAY_SHAPED_DUPLICATE and GOLDEN_DEMO)
+    → POST /webhooks/SYNTHETIC  (or POST /webhooks/razorpay for RAZORPAY_SHAPED_DUPLICATE)
     → signature verification
     → adapter normalize
     → persistence
@@ -125,7 +125,7 @@ Reports held in API memory are cleared. The operator UI requires the same confir
 4. Run a scenario. The report, log, and incident link are loaded from that execution.
 5. Optional: `VIEW INCIDENT` opens the existing `/incidents/:id` timeline. There is no second timeline implementation.
 
-The lab reuses the synthetic webhook secret already required for `POST /webhooks/SYNTHETIC`. Scenarios `RAZORPAY_SHAPED_DUPLICATE` and `GOLDEN_DEMO` also require `RAZORPAY_WEBHOOK_SECRET` (otherwise `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE`). They do not add a Razorpay dashboard connection.
+The lab reuses the synthetic webhook secret already required for `POST /webhooks/SYNTHETIC`. The Golden Demo uses that same secret. Scenario `RAZORPAY_SHAPED_DUPLICATE` also requires `RAZORPAY_WEBHOOK_SECRET` (otherwise `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE`). It does not add a Razorpay dashboard connection.
 
 ## Security restrictions
 

@@ -594,9 +594,9 @@ export const sampleFailureLabCatalog: FailureLabCatalog = {
       number: "08",
       title: "GOLDEN DEMO",
       explanation:
-        "A synthetic Razorpay payment.authorized envelope is posted through POST /webhooks/razorpay. Lab-only FAIL_ONCE injection fails the first processing attempt.",
+        "A synthetic payment.created webhook is signed with HOOKX_SYNTHETIC_WEBHOOK_SECRET and posted through POST /webhooks/SYNTHETIC. Lab-only FAIL_ONCE injection fails the first processing attempt.",
       expected:
-        "Signature verified. One stored event. First processing fails. Retry succeeds. Redelivery is duplicate.",
+        "Signature verified. One stored event. First processing fails as TEMPORARY_PROCESSING_FAILURE. Retry succeeds. Payment is CREATED once. Redelivery is duplicate. No second economic effect.",
       failureMode: "FAIL_ONCE",
       goldenDemo: true,
     },
@@ -716,7 +716,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
   notice: "This is a synthetic demonstration. Not live payment processing. Nothing is sent to Razorpay.",
   invariant: {
     storedEventCount: 1,
-    stateChange: 0,
+    stateChange: 1,
     duplicateDeliveries: 1,
     noDuplicateEconomicEffect: true,
   },
@@ -726,7 +726,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
     title: "GOLDEN DEMO",
     synthetic: true,
     demoRun: true,
-    labels: ["SYNTHETIC", "RAZORPAY ADAPTER", "DEMO RUN"],
+    labels: ["SYNTHETIC", "DEMO RUN"],
     notice: "This is a synthetic demonstration. Not live payment processing. Nothing is sent to Razorpay.",
     startedAt: "2026-01-15T14:30:00.000Z",
     finishedAt: "2026-01-15T14:30:01.000Z",
@@ -734,8 +734,8 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
     retryPolicy: { maxAttempts: 2, baseDelayMs: 1000, maxDelayMs: 8000 },
     input: {
       deliveries: 2,
-      eventOrderSent: ["payment.authorized", "payment.authorized"],
-      eventTimeOrder: ["payment.authorized"],
+      eventOrderSent: ["payment.created", "payment.created"],
+      eventTimeOrder: ["payment.created"],
     },
     result: {
       processed: 0,
@@ -744,12 +744,12 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
       error: 1,
       accepted: 0,
     },
-    stateChange: 0,
+    stateChange: 1,
     payment: {
-      provider: "razorpay",
+      provider: "SYNTHETIC",
       paymentId: GOLDEN_PAYMENT_ID,
-      state: null,
-      amountMinor: null,
+      state: "CREATED",
+      amountMinor: "10000",
     },
     originalAmountMinor: "10000",
     originalPayloadHash: "hash-not-a-signature",
@@ -761,7 +761,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
     correlationId: GOLDEN_CORRELATION,
     storedEventCount: 1,
     eventProcessingStatus: "PROCESSED",
-    eventType: "payment.authorized",
+    eventType: "payment.created",
     auditCount: 8,
     retry: {
       attemptCount: 2,
@@ -826,7 +826,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
     deliveries: [
       {
         stepIndex: 0,
-        eventType: "payment.authorized",
+        eventType: "payment.created",
         eventKey: GOLDEN_EVENT_KEY,
         httpStatus: 500,
         bodyStatus: "error",
@@ -835,7 +835,7 @@ export const sampleGoldenDemoRun: GoldenDemoRun = {
       },
       {
         stepIndex: 1,
-        eventType: "payment.authorized",
+        eventType: "payment.created",
         eventKey: GOLDEN_EVENT_KEY,
         httpStatus: 200,
         bodyStatus: "duplicate",
@@ -861,6 +861,11 @@ export const sampleGoldenDemoExhausted: GoldenDemoRun = {
   },
   run: {
     ...sampleGoldenDemoRun.run,
+    payment: {
+      ...sampleGoldenDemoRun.run.payment,
+      state: null,
+      amountMinor: null,
+    },
     result: {
       processed: 0,
       duplicate: 0,

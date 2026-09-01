@@ -25,7 +25,7 @@ function goldenDemoDatabaseUrl(env: NodeJS.ProcessEnv): string {
 const TEST_URL = goldenDemoDatabaseUrl(process.env);
 const NOW = instant("2026-01-15T10:00:01.000Z");
 const RAZORPAY_LAB_SECRET = "dev-only-razorpay-webhook-secret";
-const PROVIDER = providerId("razorpay");
+const PROVIDER = providerId("SYNTHETIC");
 
 const REQUIRED_LIFECYCLE = [
   "WEBHOOK_RECEIVED",
@@ -68,12 +68,10 @@ describe("golden demo end-to-end", () => {
         verifiers: createSignatureVerifierRegistry({
           syntheticSecret: SIMULATOR_SECRET,
           syntheticToleranceSeconds: 300,
-          razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
         }),
         clock: fixedClock(NOW),
         ping: () => store.ping(),
         syntheticWebhookSecret: SIMULATOR_SECRET,
-        razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
         purgeFailureLab: () => store.purgeFailureLab(),
       });
     } catch (error) {
@@ -105,32 +103,35 @@ describe("golden demo end-to-end", () => {
     expect(body.scenario).toBe(GOLDEN_DEMO_SCENARIO);
   });
 
-  it("runs a unique Razorpay-shaped synthetic demo through ingest, retry, audit, and investigation", async () => {
+  it("runs a unique synthetic demo through ingest, retry, audit, and investigation", async () => {
     const runResponse = await app.request("/demo/run", { method: "POST" });
     expect(runResponse.status).toBe(200);
     const demo = asDemo(await runResponse.json());
     const serialized = JSON.stringify(demo);
+    expect(serialized).not.toContain(SIMULATOR_SECRET);
     expect(serialized).not.toContain(RAZORPAY_LAB_SECRET);
     expect(serialized).not.toMatch(/x-razorpay-signature/i);
+    expect(serialized).not.toMatch(/x-hookx-signature/i);
     expect(demo.synthetic).toBe(true);
     expect(demo.run.scenario).toBe(GOLDEN_DEMO_SCENARIO);
     expect(demo.run.demoRun).toBe(true);
+    expect(demo.run.labels).toEqual(["SYNTHETIC", "DEMO RUN"]);
     expect(demo.demoRunId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
     expect(demo.correlationId).toBe(`demo-${demo.demoRunId}`);
     expect(isFailureLabPaymentId(demo.run.payment.paymentId)).toBe(true);
     expect(demo.run.payment.paymentId).toBe(`SYNTHETIC:pay:lab-${demo.demoRunId}`);
-    expect(demo.run.payment.provider).toBe("razorpay");
+    expect(demo.run.payment.provider).toBe("SYNTHETIC");
     expect(demo.run.result.error).toBe(1);
     expect(demo.run.result.duplicate).toBe(1);
     expect(demo.run.retry?.status).toBe("SUCCEEDED");
     expect(demo.run.retry?.attemptCount).toBeGreaterThanOrEqual(2);
-    expect(demo.run.eventType).toBe("payment.authorized");
+    expect(demo.run.eventType).toBe("payment.created");
     expect(demo.run.eventProcessingStatus).toBe("PROCESSED");
-    expect(demo.run.payment.state).toBeNull();
+    expect(demo.run.payment.state).toBe("CREATED");
     expect(demo.run.storedEventCount).toBe(1);
-    expect(demo.run.stateChange).toBe(0);
+    expect(demo.run.stateChange).toBe(1);
     expect(demo.invariant.noDuplicateEconomicEffect).toBe(true);
     expect(demo.run.exception?.exceptionCode).toBe("PROCESSING_FAILURE");
     expect(demo.run.incidentId).not.toBeNull();
@@ -142,10 +143,8 @@ describe("golden demo end-to-end", () => {
       paymentId(demo.run.payment.paymentId),
     );
     expect(events).toHaveLength(1);
-    expect(events[0]?.event.eventType).toBe("payment.authorized");
-    expect(events.map((row) => row.event.eventType)).not.toContain(
-      "payment.created",
-    );
+    expect(events[0]?.event.eventType).toBe("payment.created");
+    expect(events[0]?.event.provider).toBe("SYNTHETIC");
 
     const lifecycle = new Set(demo.run.log.map((entry) => entry.lifecycle));
     for (const name of REQUIRED_LIFECYCLE) {
@@ -190,6 +189,7 @@ describe("golden demo end-to-end", () => {
       };
     };
     const investigationJson = JSON.stringify(investigationBody);
+    expect(investigationJson).not.toContain(SIMULATOR_SECRET);
     expect(investigationJson).not.toContain(RAZORPAY_LAB_SECRET);
     expect(investigationJson).not.toMatch(/x-razorpay-signature/i);
     expect(investigationBody.investigation.investigator).toBe("stub");

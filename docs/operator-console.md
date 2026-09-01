@@ -11,7 +11,7 @@ Primary destinations (header order: Overview, Demo, Incidents, Failure Lab):
 | Path | Purpose |
 | --- | --- |
 | `/` | Overview: HOOKX heading, what it solves, **RUN GOLDEN DEMO**, architecture, persisted counts or **NO DATA** |
-| `/demo` | Golden Demo: synthetic Razorpay-shaped fail-once through real ingest |
+| `/demo` | Golden Demo: synthetic fail-once through `POST /webhooks/SYNTHETIC` |
 | `/incidents` | Exception-backed incident list (no fabricated KPIs) |
 | `/incidents/:id` | Incident chronology, deterministic result, optional AI investigation |
 | `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
@@ -88,7 +88,7 @@ See `docs/observability.md` and `docs/ai-investigator.md`.
 
 `/failure-lab` runs synthetic failure scenarios through `POST /webhooks/SYNTHETIC` (and `POST /webhooks/razorpay` for Razorpay-shaped scenarios). Results, logs, and incident links are taken from that execution. Reset deletes only `SYNTHETIC:pay:lab-*` rows.
 
-`/demo` is the Golden Demo: the same pipeline, one polished fail-once Razorpay-shaped run. See `docs/golden-demo.md`.
+`/demo` is the Golden Demo: the same pipeline, one polished fail-once synthetic run. See `docs/golden-demo.md`.
 
 The Failure Lab never sends real payment requests. See `docs/failure-lab.md`.
 

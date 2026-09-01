@@ -333,20 +333,21 @@ describe("Failure Lab HTTP", () => {
     });
   });
 
-  it("does not run the golden demo without a Razorpay webhook secret", async () => {
+  it("runs the golden demo with only the synthetic webhook secret", async () => {
     const app = createApp(labStack());
     const lab = await app.request("/failure-lab/run", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ scenario: "GOLDEN_DEMO" }),
     });
-    expect(lab.status).toBe(503);
+    expect(lab.status).toBe(200);
     const demo = await app.request("/demo/run", { method: "POST" });
-    expect(demo.status).toBe(503);
-    expect(await demo.json()).toEqual({
-      status: "unavailable",
-      code: "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE",
-    });
+    expect(demo.status).toBe(200);
+    const body = (await demo.json()) as {
+      demo: { run: { payment: { provider: string }; labels: string[] } };
+    };
+    expect(body.demo.run.payment.provider).toBe("SYNTHETIC");
+    expect(body.demo.run.labels).not.toContain("RAZORPAY ADAPTER");
   });
 
   it("posts a synthetic Razorpay envelope twice through the Razorpay adapter", async () => {
@@ -374,8 +375,8 @@ describe("Failure Lab HTTP", () => {
     expect(stored?.event.eventType).toBe("payment.authorized");
   });
 
-  it("runs the golden demo through the Razorpay adapter with fail-once injection", async () => {
-    const stack = labStack(RAZORPAY_LAB_SECRET);
+  it("runs the golden demo through synthetic ingest with fail-once injection", async () => {
+    const stack = labStack();
     const app = createApp(stack);
     const described = await app.request("/demo");
     expect(described.status).toBe(200);
@@ -390,21 +391,19 @@ describe("Failure Lab HTTP", () => {
         run: FailureLabRunReport;
       };
     };
+    expect(JSON.stringify(body)).not.toContain(SIMULATOR_SECRET);
     expect(JSON.stringify(body)).not.toContain(RAZORPAY_LAB_SECRET);
     expect(body.demo.synthetic).toBe(true);
     expect(body.demo.run.scenario).toBe("GOLDEN_DEMO");
-    expect(body.demo.run.labels).toEqual([
-      "SYNTHETIC",
-      "RAZORPAY ADAPTER",
-      "DEMO RUN",
-    ]);
-    expect(body.demo.run.payment.provider).toBe("razorpay");
+    expect(body.demo.run.labels).toEqual(["SYNTHETIC", "DEMO RUN"]);
+    expect(body.demo.run.payment.provider).toBe("SYNTHETIC");
     expect(isFailureLabPaymentId(body.demo.run.payment.paymentId)).toBe(true);
     expect(body.demo.run.result.error).toBe(1);
     expect(body.demo.run.result.duplicate).toBe(1);
     expect(body.demo.run.retry?.status).toBe("SUCCEEDED");
     expect(body.demo.run.eventProcessingStatus).toBe("PROCESSED");
-    expect(body.demo.run.payment.state).toBeNull();
+    expect(body.demo.run.payment.state).toBe("CREATED");
+    expect(body.demo.run.stateChange).toBe(1);
     expect(body.demo.invariant.storedEventCount).toBe(1);
     expect(body.demo.invariant.noDuplicateEconomicEffect).toBe(true);
     expect(body.demo.correlationId).toBe(`demo-${body.demo.demoRunId}`);
@@ -412,6 +411,7 @@ describe("Failure Lab HTTP", () => {
       isFailureLabPaymentId(row.event.paymentId),
     );
     expect(stored).toHaveLength(1);
-    expect(stored[0]?.event.provider).toBe("razorpay");
+    expect(stored[0]?.event.provider).toBe("SYNTHETIC");
+    expect(stored[0]?.event.eventType).toBe("payment.created");
   });
 });

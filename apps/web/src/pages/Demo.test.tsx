@@ -67,9 +67,9 @@ describe("golden demo", () => {
     expect(
       screen.getByRole("link", { name: "VIEW TIMELINE" }).getAttribute("href"),
     ).toBe(`/incidents/${EXCEPTION_ID}#timeline`);
-    expect(screen.getByText("EVENT payment.authorized PROCESSED")).toBeTruthy();
-    expect(screen.getByText("PAYMENT none")).toBeTruthy();
-    expect(screen.getByText(/does not invent payment.created/)).toBeTruthy();
+    expect(screen.getByText("EVENT payment.created PROCESSED")).toBeTruthy();
+    expect(screen.getByText("PAYMENT CREATED")).toBeTruthy();
+    expect(screen.queryByText(/does not invent payment.created/)).toBeNull();
     expect(screen.getAllByText("DONE").length).toBe(7);
     expect(screen.queryByText("signature")).toBeNull();
     expect(screen.queryByText(/x-razorpay/i)).toBeNull();
@@ -111,7 +111,7 @@ describe("golden demo", () => {
     const api = createMockApi({
       runGoldenDemo: vi.fn(async () => {
         throw new ApiError(
-          "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE",
+          "FAILURE_LAB_SECRET_UNAVAILABLE",
           "corr-demo-fail",
           503,
           "DEMO FAILED",
@@ -121,7 +121,7 @@ describe("golden demo", () => {
     render(<App api={api} initialHref="/demo" />);
     await user.click(await screen.findByRole("button", { name: "RUN DEMO" }));
     expect(await screen.findByText("DEMO FAILED")).toBeTruthy();
-    expect(screen.getByText("RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE")).toBeTruthy();
+    expect(screen.getByText("FAILURE_LAB_SECRET_UNAVAILABLE")).toBeTruthy();
     expect(screen.getByText("corr-demo-fail")).toBeTruthy();
     expect(screen.queryByText("DEMO RUN COMPLETE")).toBeNull();
     expect(screen.queryAllByText("DONE").length).toBe(0);

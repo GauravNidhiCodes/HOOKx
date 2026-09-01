@@ -12,7 +12,7 @@ Index of technical documents that exist in this repository.
 | [failure-lab.md](failure-lab.md) | Synthetic Failure Lab scenarios and injection rules |
 | [ai-investigator.md](ai-investigator.md) | Read-only AI investigation |
 | [demo.md](demo.md) | End-to-end architecture demonstration (Failure Lab TRANSIENT FAILURE) |
-| [golden-demo.md](golden-demo.md) | Golden Demo (`/demo`) — Razorpay-shaped fail-once through the real pipeline |
+| [golden-demo.md](golden-demo.md) | Golden Demo (`/demo`) — synthetic fail-once through `POST /webhooks/SYNTHETIC` |
 | [test-matrix.md](test-matrix.md) | Scenario → expected behavior → automated test |
 | [local-synthetic-benchmark.md](local-synthetic-benchmark.md) | LOCAL SYNTHETIC BENCHMARK (not an SLA) |
 | [operator-console.md](operator-console.md) | Operator UI contracts |

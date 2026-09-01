@@ -247,11 +247,11 @@ JSON description (`kind: "SYNTHETIC DEMONSTRATION"`). Browser HTML to `/demo` is
 
 ### `POST /demo/run`
 
-No body. Always scenario `GOLDEN_DEMO`. Requires both synthetic and Razorpay webhook secrets in env (placeholders are enough).
+No body. Always scenario `GOLDEN_DEMO`. Requires `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. Does not require `RAZORPAY_WEBHOOK_SECRET`.
 
 Response `200`: `{ "demo": { demoRunId, correlationId, synthetic, notice, invariant, run } }`.
 
-Error `503`: `FAILURE_LAB_SECRET_UNAVAILABLE`, `RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE`. `500`: `DEMO_FAILED`.
+Error `503`: `FAILURE_LAB_SECRET_UNAVAILABLE`. `500`: `DEMO_FAILED`.
 
 ### `GET /demo/runs`
 

@@ -2,7 +2,7 @@
 
 This sequence uses the **real** ingest pipeline. It does not fake UI results.
 
-The polished Golden Demo (Razorpay adapter + fail-once) lives at `/demo`. See `docs/golden-demo.md`.
+The polished Golden Demo (synthetic ingest + fail-once) lives at `/demo`. See `docs/golden-demo.md`.
 
 Every Failure Lab run is labelled **SYNTHETIC**. The architecture demo is also labelled **DEMO RUN**. Payment ids are `SYNTHETIC:pay:lab-{runId}`.
 

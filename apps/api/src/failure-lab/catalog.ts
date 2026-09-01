@@ -131,9 +131,9 @@ export const FAILURE_LAB_CATALOG: readonly FailureLabScenarioCatalogEntry[] =
       number: "08",
       title: "GOLDEN DEMO",
       explanation:
-        "A synthetic Razorpay payment.authorized envelope is posted through POST /webhooks/razorpay. Lab-only FAIL_ONCE injection fails the first processing attempt. Retry recovers. A second identical delivery is classified duplicate. Polished operator view: /demo.",
+        "A synthetic payment.created webhook is signed with HOOKX_SYNTHETIC_WEBHOOK_SECRET and posted through POST /webhooks/SYNTHETIC. Lab-only FAIL_ONCE injection fails the first processing attempt. Retry recovers. A second identical delivery is classified duplicate. Polished operator view: /demo.",
       expected:
-        "Signature verified. One stored event. First processing fails as TEMPORARY_PROCESSING_FAILURE. Retry succeeds. Redelivery is duplicate. No invented payment.created. No second economic effect.",
+        "Signature verified. One stored event. First processing fails as TEMPORARY_PROCESSING_FAILURE. Retry succeeds. Payment is CREATED once. Redelivery is duplicate. No second economic effect.",
       failureMode: "FAIL_ONCE",
       goldenDemo: true,
     }),

@@ -135,7 +135,7 @@ A 500 after persist means the webhook row is durable and a retry is scheduled. A
 | GET | `/failure-lab` | Synthetic Failure Lab catalog |
 | POST | `/failure-lab/run` | Run one enumerated lab scenario through ingest |
 | GET | `/demo` | Golden Demo description (synthetic) |
-| POST | `/demo/run` | Golden Demo: Razorpay-shaped fail-once through the real pipeline |
+| POST | `/demo/run` | Golden Demo: synthetic fail-once through `POST /webhooks/SYNTHETIC` |
 | GET | `/demo/runs` | Recent in-memory Golden Demo reports for this process |
 | GET | `/demo/runs/:id` | One Golden Demo report |
 
@@ -151,6 +151,6 @@ All simulator events are synthetic and do not represent real payment transaction
 
 ## Run
 
-Requires `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. `RAZORPAY_WEBHOOK_SECRET` is required for `POST /webhooks/razorpay`, Failure Lab Razorpay-shaped scenarios, and `POST /demo/run`. See the repository `.env.example`.
+Requires `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. `RAZORPAY_WEBHOOK_SECRET` is required for `POST /webhooks/razorpay` and Failure Lab Razorpay-shaped scenarios. The Golden Demo (`POST /demo/run`) uses `HOOKX_SYNTHETIC_WEBHOOK_SECRET` only. See the repository `.env.example`.
 
 Investigation defaults to the local stub. An LLM key is optional and is never required for webhook ingest.

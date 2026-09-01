@@ -24,8 +24,8 @@ HOOKX does **not** call Razorpay APIs, create charges, capture or refund through
 
 | Label | This repository |
 | --- | --- |
-| **IMPLEMENTED** | HMAC verify, normalize, `POST /webhooks/razorpay`, Failure Lab / Golden Demo path |
-| **TESTED WITH SYNTHETIC FIXTURES** | Yes (`packages/webhook/src/razorpay/`, `apps/api/src/http/razorpay.e2e.test.ts`, Failure Lab `RAZORPAY_SHAPED_DUPLICATE`, Golden Demo) |
+| **IMPLEMENTED** | HMAC verify, normalize, `POST /webhooks/razorpay`, Failure Lab `RAZORPAY_SHAPED_DUPLICATE` |
+| **TESTED WITH SYNTHETIC FIXTURES** | Yes (`packages/webhook/src/razorpay/`, `apps/api/src/http/razorpay.e2e.test.ts`, Failure Lab `RAZORPAY_SHAPED_DUPLICATE`) |
 | **LIVE-TESTED** | **No.** No Razorpay dashboard account, webhook endpoint, or live/test payment was used. |
 
 Setting `RAZORPAY_WEBHOOK_SECRET` to a local placeholder does not constitute live testing.
@@ -199,7 +199,7 @@ x-razorpay-event-id: <unique event id>
 
 Scenario `RAZORPAY_SHAPED_DUPLICATE` signs a synthetic `payment.authorized` envelope and posts it twice to `POST /webhooks/razorpay`. Payment ids remain `SYNTHETIC:pay:lab-{runId}` so reset still purges them. PROVIDER is `razorpay`. DATA SOURCE is SYNTHETIC. Requires `RAZORPAY_WEBHOOK_SECRET`.
 
-Scenario `GOLDEN_DEMO` uses the same adapter path with lab-only `FAIL_ONCE` injection (lab payment prefix only; live-shaped `pay_*` ids are not injected). Operator view: `/demo`. See `docs/golden-demo.md`.
+Scenario `GOLDEN_DEMO` does **not** use this adapter. It posts through `POST /webhooks/SYNTHETIC` with `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. Operator view: `/demo`. See `docs/golden-demo.md`.
 
 ## AI investigation
 

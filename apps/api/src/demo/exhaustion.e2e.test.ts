@@ -13,7 +13,7 @@ import { createApp } from "../app.js";
 import { fixedClock } from "../clock.js";
 import { FAILURE_LAB_SCENARIO } from "../failure-lab/catalog.js";
 import { createLabProcessFn } from "../failure-lab/injection.js";
-import { runRazorpayShapedLab } from "../failure-lab/razorpay-path.js";
+import { runFailureLabScenario } from "../failure-lab/run.js";
 
 function exhaustionDatabaseUrl(env: NodeJS.ProcessEnv): string {
   const parsed = new URL(defaultTestDatabaseUrl(env));
@@ -23,9 +23,8 @@ function exhaustionDatabaseUrl(env: NodeJS.ProcessEnv): string {
 
 const TEST_URL = exhaustionDatabaseUrl(process.env);
 const NOW = instant("2026-01-15T10:00:01.000Z");
-const RAZORPAY_LAB_SECRET = "dev-only-razorpay-webhook-secret";
 
-describe("golden demo retry exhaustion (Razorpay-shaped)", () => {
+describe("golden demo retry exhaustion (synthetic)", () => {
   let store: WebhookEventStore;
 
   beforeAll(async () => {
@@ -64,38 +63,31 @@ describe("golden demo retry exhaustion (Razorpay-shaped)", () => {
       verifiers: createSignatureVerifierRegistry({
         syntheticSecret: SIMULATOR_SECRET,
         syntheticToleranceSeconds: 300,
-        razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
       }),
       clock: fixedClock(NOW),
       ping: () => store.ping(),
       syntheticWebhookSecret: SIMULATOR_SECRET,
-      razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
       processPaymentEvents: processFn,
     };
     const app = createApp(dependencies);
-    const report = await runRazorpayShapedLab(
+    const report = await runFailureLabScenario(
       dependencies,
       app,
       processFn,
-      RAZORPAY_LAB_SECRET,
-      {
-        scenarioId: FAILURE_LAB_SCENARIO.GOLDEN_DEMO,
-        labels: ["SYNTHETIC", "RAZORPAY ADAPTER"],
-        correlationId: "exhaust-{runId}",
-        redeliverImmediately: false,
-        redeliverAfterDrain: false,
-      },
+      FAILURE_LAB_SCENARIO.GOLDEN_DEMO,
+      SIMULATOR_SECRET,
     );
     expect(report.retry?.status).toBe("DEAD_LETTERED");
     expect(report.deadLetter).not.toBeNull();
     expect(report.exception?.exceptionCode).toBe("RETRY_EXHAUSTED");
     expect(report.eventProcessingStatus).not.toBe("PROCESSED");
+    expect(report.payment.provider).toBe("SYNTHETIC");
     expect(report.payment.state).toBeNull();
     expect(report.log.some((entry) => entry.lifecycle === "RETRY_SUCCEEDED")).toBe(
       false,
     );
     const stored = await store.payments.get(
-      providerId("razorpay"),
+      providerId("SYNTHETIC"),
       paymentId(report.payment.paymentId),
     );
     expect(stored).toBeNull();

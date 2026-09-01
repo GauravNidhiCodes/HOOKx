@@ -55,7 +55,7 @@ function wrap(report: FailureLabRunReport): GoldenDemoRun {
   const storedEventCount = report.storedEventCount;
   const duplicateDeliveries = report.result.duplicate;
   const noDuplicateEconomicEffect =
-    storedEventCount === 1 && report.stateChange === 0;
+    storedEventCount === 1 && report.stateChange <= 1;
   return {
     demoRunId: report.runId,
     correlationId: report.correlationId ?? `demo-${report.runId}`,
@@ -101,12 +101,6 @@ export async function handleDemoRun(
   ) {
     return unavailable(context, "FAILURE_LAB_SECRET_UNAVAILABLE");
   }
-  if (
-    dependencies.razorpayWebhookSecret === undefined ||
-    dependencies.razorpayWebhookSecret.length === 0
-  ) {
-    return unavailable(context, "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE");
-  }
   const processFn = createLabProcessFn(failureModeForLab(GOLDEN_DEMO_SCENARIO));
   const labApp = createLabApp(processFn);
   let report: FailureLabRunReport;
@@ -118,18 +112,11 @@ export async function handleDemoRun(
       GOLDEN_DEMO_SCENARIO,
       dependencies.syntheticWebhookSecret,
     );
-  } catch (error) {
-    const code =
-      error instanceof Error && error.message === "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE"
-        ? "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE"
-        : "DEMO_FAILED";
-    if (code === "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE") {
-      return unavailable(context, code);
-    }
+  } catch {
     return context.json(
       {
         status: "error",
-        code,
+        code: "DEMO_FAILED",
         synthetic: true,
       },
       500 as ContentfulStatusCode,

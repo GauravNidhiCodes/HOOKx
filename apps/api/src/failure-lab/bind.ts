@@ -20,13 +20,13 @@ export function simulatorScenarioForLab(
   if (id === FAILURE_LAB_SCENARIO.CONFLICTING_EVENT) {
     return getScenario(SCENARIO_ID.CONFLICT);
   }
-  if (id === FAILURE_LAB_SCENARIO.TRANSIENT_FAILURE) {
-    return getScenario(SCENARIO_ID.RETRY_FAILURE);
-  }
   if (
-    id === FAILURE_LAB_SCENARIO.RAZORPAY_SHAPED_DUPLICATE ||
+    id === FAILURE_LAB_SCENARIO.TRANSIENT_FAILURE ||
     id === FAILURE_LAB_SCENARIO.GOLDEN_DEMO
   ) {
+    return getScenario(SCENARIO_ID.RETRY_FAILURE);
+  }
+  if (id === FAILURE_LAB_SCENARIO.RAZORPAY_SHAPED_DUPLICATE) {
     throw new Error(`${id} does not use the synthetic simulator`);
   }
   return getScenario(SCENARIO_ID.PERMANENT_FAILURE);

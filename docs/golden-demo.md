@@ -1,6 +1,6 @@
 # Golden Demo
 
-The Golden Demo is a single operator path that runs a **synthetic** Razorpay-shaped webhook through the **existing** HOOKX pipeline. It is a **SYNTHETIC DEMONSTRATION**, not live payment processing. It is not a second processing engine and it does not invent results in the browser.
+The Golden Demo is a single operator path that runs a **synthetic** webhook through the **existing** HOOKX pipeline. It is a **SYNTHETIC DEMONSTRATION**, not live payment processing. It is not a second processing engine and it does not invent results in the browser.
 
 Purpose: show a reviewer, in a few minutes, how HOOKX verifies, stores, fails, retries, recovers, audits, and explains a webhook without applying a second economic effect.
 
@@ -8,12 +8,12 @@ Purpose: show a reviewer, in a few minutes, how HOOKX verifies, stores, fails, r
 
 Operator console `/demo` → **RUN DEMO** → `POST /demo/run` → Failure Lab scenario `GOLDEN_DEMO`:
 
-1. Unique `demoRunId` (UUID). Payment id `SYNTHETIC:pay:lab-{demoRunId}`. Event id `SYNTHETIC:evt:lab-{demoRunId}-1`. Correlation id `demo-{demoRunId}` (`X-Request-Id` on the first ingest).
-2. A Razorpay `payment.authorized` JSON envelope is signed with `RAZORPAY_WEBHOOK_SECRET`.
-3. `POST /webhooks/razorpay` — raw body, HMAC verify, adapter normalize, persist.
+1. Unique `demoRunId` (UUID). Payment id `SYNTHETIC:pay:lab-{demoRunId}`. Event id `SYNTHETIC:evt:lab-{demoRunId}-…`. Correlation id `demo-{demoRunId}` (`X-Request-Id` on the first ingest).
+2. A synthetic `payment.created` JSON envelope is signed with `HOOKX_SYNTHETIC_WEBHOOK_SECRET` (`X-Hookx-Signature`).
+3. `POST /webhooks/SYNTHETIC` — raw body, HMAC verify, synthetic adapter normalize, persist.
 4. Lab-only `FAIL_ONCE` injection throws `RetryableProcessingError` on the first process of that lab payment. Ingest returns a processing error. The event row remains. A retry is scheduled.
-5. The lab retry worker drains due retries (clock advanced to `nextAttemptAt`; no cosmetic sleep). The second process succeeds. Event processing status is `PROCESSED`.
-6. The same signed identity is posted again. Ingest classifies **duplicate**. One stored event.
+5. The lab retry worker drains due retries (clock advanced to `nextAttemptAt`; no cosmetic sleep). The second process succeeds. Event processing status is `PROCESSED`. Payment state is `CREATED`.
+6. The same signed identity is posted again. Ingest classifies **duplicate**. One stored event. One `PAYMENT_STATE_CHANGED`.
 7. The execution report is assembled from stored webhooks, retries, exceptions, audit, and the incident timeline.
 8. The operator may open **VIEW INCIDENT** / **VIEW TIMELINE** and **INVESTIGATE** (`POST /incidents/:id/investigate`). Investigation is read-only.
 
@@ -24,9 +24,9 @@ The UI marks lifecycle steps **only** from that report (and from a successful in
 ```
 POST /demo/run
   → createLabProcessFn(FAIL_ONCE)
-  → POST /webhooks/razorpay   (signed synthetic envelope)
+  → POST /webhooks/SYNTHETIC   (signed with HOOKX_SYNTHETIC_WEBHOOK_SECRET)
   → signature verification
-  → Razorpay adapter normalize
+  → synthetic adapter normalize
   → idempotent persist
   → processPaymentEvents (injected fail-once, lab ids only)
   → retry ticks
@@ -36,9 +36,11 @@ POST /demo/run
 
 `GET /demo` describes the demonstration. `GET /demo/runs` and `GET /demo/runs/:id` return in-memory reports for this API process (same map as Failure Lab). Failure Lab scenario 08 `GOLDEN_DEMO` is the same runner.
 
+Razorpay-shaped traffic is a separate Failure Lab scenario (`RAZORPAY_SHAPED_DUPLICATE`) and uses `RAZORPAY_WEBHOOK_SECRET`. The Golden Demo does not.
+
 ## Synthetic nature
 
-Nothing is sent to Razorpay. Data source is SYNTHETIC. Provider on the stored event is `razorpay` because the adapter path was used. Payment ids stay on the Failure Lab prefix so scoped reset cannot touch simulator or live-shaped ids.
+Nothing is sent to Razorpay. Provider on the stored event is `SYNTHETIC`. Payment ids stay on the Failure Lab prefix so scoped reset cannot touch simulator or live-shaped ids.
 
 ## Failure injection
 
@@ -52,11 +54,11 @@ If retries never succeed (`ALWAYS_FAIL` / dead-letter), the report status is `DE
 
 ## Recovery
 
-Recovery is the stored event reaching `PROCESSED` after retry `SUCCEEDED`. Razorpay does not send `payment.created`. HOOKX does not invent that event, so a Razorpay-only authorized stream does **not** project a payment row. The demo shows `PAYMENT none` when that is the stored state. It does not print a generic SUCCESS banner in place of those fields.
+Recovery is the stored event reaching `PROCESSED` after retry `SUCCEEDED`. The synthetic demo posts `payment.created`, so the projected payment state is `CREATED`. Retry and duplicate redelivery must not create a second `PAYMENT_STATE_CHANGED`.
 
 ## Safety invariant
 
-**NO DUPLICATE ECONOMIC EFFECT** is shown only when the report has exactly one stored event and zero `PAYMENT_STATE_CHANGED` audit rows for that payment. Those counts are read from the store after the run.
+**NO DUPLICATE ECONOMIC EFFECT** is shown only when the report has exactly one stored event and at most one `PAYMENT_STATE_CHANGED` audit row for that payment. Those counts are read from the store after the run.
 
 ## Audit
 
@@ -72,7 +74,7 @@ If processing created an exception, the report includes `incidentId` and links t
 
 ## Limitations
 
-- Requires `HOOKX_SYNTHETIC_WEBHOOK_SECRET` and `RAZORPAY_WEBHOOK_SECRET` (placeholder is fine). Missing Razorpay secret → `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE` / **DEMO FAILED**.
+- Requires `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. Missing it → `503 FAILURE_LAB_SECRET_UNAVAILABLE` / **DEMO FAILED**. `RAZORPAY_WEBHOOK_SECRET` is not used by the Golden Demo.
 - In-memory run history is per API process. Database rows remain until Failure Lab scoped reset.
 - **NEW DEMO RUN** starts a new id. It does not delete previous synthetic rows.
 - Not a live Razorpay connection, not live payment processing, not a second queue or database.
@@ -99,10 +101,9 @@ Set at least:
 ```
 HOOKX_DATABASE_URL=postgres://USER@127.0.0.1:5432/hookx
 HOOKX_SYNTHETIC_WEBHOOK_SECRET=dev-only-synthetic-webhook-secret
-RAZORPAY_WEBHOOK_SECRET=dev-only-razorpay-webhook-secret
 ```
 
-`RAZORPAY_WEBHOOK_SECRET` may be any local placeholder. It is not a Razorpay dashboard credential. Missing it → `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE` / **DEMO FAILED**.
+`HOOKX_SYNTHETIC_WEBHOOK_SECRET` may be any local placeholder. It is the HMAC key for both the demo producer and `POST /webhooks/SYNTHETIC`. Missing it → `503 FAILURE_LAB_SECRET_UNAVAILABLE` / **DEMO FAILED**. `RAZORPAY_WEBHOOK_SECRET` is optional and unused by this path.
 
 3. **Database setup**
 

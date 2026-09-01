@@ -6,7 +6,10 @@ import {
   SIMULATOR_PROVIDER,
   type SignedDelivery,
 } from "@hookx/simulator";
-import type { ProcessPaymentEventsFn } from "@hookx/storage";
+import {
+  DEFAULT_RETRY_POLICY,
+  type ProcessPaymentEventsFn,
+} from "@hookx/storage";
 import { SYNTHETIC_SIGNATURE_HEADER } from "@hookx/webhook";
 import type { ApiDependencies } from "../app.js";
 import { bindScenarioToLabRun, simulatorScenarioForLab } from "./bind.js";
@@ -14,8 +17,8 @@ import {
   FAILURE_LAB_SCENARIO,
   type FailureLabScenarioId,
 } from "./catalog.js";
-import { composeFailureLabReport } from "./compose.js";
-import { runGoldenDemo, runRazorpayShapedDuplicate } from "./razorpay-path.js";
+import { composeFailureLabReport, drainLabRetries } from "./compose.js";
+import { runRazorpayShapedDuplicate } from "./razorpay-path.js";
 import type {
   FailureLabDeliveryResult,
   FailureLabRunReport,
@@ -73,13 +76,6 @@ export async function runFailureLabScenario(
       razorpaySecret,
     );
   }
-  if (scenarioId === FAILURE_LAB_SCENARIO.GOLDEN_DEMO) {
-    const razorpaySecret = dependencies.razorpayWebhookSecret;
-    if (razorpaySecret === undefined || razorpaySecret.length === 0) {
-      throw new Error("RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE");
-    }
-    return runGoldenDemo(dependencies, app, processFn, razorpaySecret);
-  }
 
   const runId = randomUUID();
   const startedAt = dependencies.clock.now();
@@ -117,6 +113,26 @@ export async function runFailureLabScenario(
     );
   }
 
+  if (scenarioId === FAILURE_LAB_SCENARIO.GOLDEN_DEMO) {
+    const original = deliveries[0];
+    if (original === undefined) {
+      throw new Error("Golden Demo has no signed delivery");
+    }
+    const storedForRetry = await dependencies.repository.listByPayment(
+      provider,
+      paymentId(primaryPayment),
+    );
+    await drainLabRetries(
+      dependencies,
+      processFn,
+      dependencies.retryPolicy ?? DEFAULT_RETRY_POLICY,
+      storedForRetry.map((row) => row.id),
+    );
+    posted.push(
+      await postDelivery(app, original, `demo-${runId}-redelivery`),
+    );
+  }
+
   const eventTimeOrder = [...bound.events]
     .sort((left, right) =>
       left.bookedAt < right.bookedAt
@@ -127,7 +143,9 @@ export async function runFailureLabScenario(
     )
     .map((item) => item.eventType);
 
-  const demoRun = scenarioId === "TRANSIENT_FAILURE";
+  const demoRun =
+    scenarioId === "TRANSIENT_FAILURE" ||
+    scenarioId === FAILURE_LAB_SCENARIO.GOLDEN_DEMO;
   return composeFailureLabReport(dependencies, processFn, {
     scenarioId,
     runId,
@@ -138,5 +156,9 @@ export async function runFailureLabScenario(
     eventTimeOrder,
     labels: demoRun ? ["SYNTHETIC", "DEMO RUN"] : ["SYNTHETIC"],
     beforeState,
+    correlationId:
+      scenarioId === FAILURE_LAB_SCENARIO.GOLDEN_DEMO
+        ? `demo-${runId}`
+        : undefined,
   });
 }

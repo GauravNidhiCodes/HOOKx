@@ -8,6 +8,8 @@ HOOKX verifies payment webhooks, stores each event once, and applies determinist
 
 Webhook delivery is not reliable ledger processing. Providers retry, delay, reorder, and send conflicting payloads. HOOKX treats that as an ingest problem: HMAC on the raw body, idempotent persist, a state machine, retries, and an append-only audit. **AI does not decide whether an event matches or succeeds.** Deterministic application logic is the source of truth. AI only explains stored exceptions, off the ingest path.
 
+**STATUS: Working prototype / technical demonstration.** Not a production payment processor. HOOKX is not an official Razorpay product and is not endorsed by Razorpay.
+
 Run the Golden Demo: `pnpm install` → create PostgreSQL → `pnpm migrate` → `pnpm dev` → [http://127.0.0.1:5173/demo](http://127.0.0.1:5173/demo) → **RUN DEMO**.
 
 ## The problem
@@ -60,6 +62,10 @@ Normalize is the provider adapter (`packages/webhook/`). Razorpay-specific code 
 
 See [docs/architecture.md](docs/architecture.md).
 
+## How it works
+
+HMAC on the raw body, then a provider adapter, then one insert on `provider + external_event_id`. The state machine is the only writer of financial transitions. Transient processing failures schedule retries with backoff; permanent failures dead-letter. Duplicate delivery of the same payload is a no-op. A conflicting payload keeps the original row. AI is requested later, reads stored evidence, and cannot capture, refund, or update payment rows.
+
 ## Key guarantees
 
 Covered by `pnpm test`. These are not SLAs.
@@ -78,7 +84,7 @@ Not claimed: production readiness, guaranteed delivery, live PSP checkout, crypt
 
 ## Golden Demo
 
-Synthetic Razorpay-shaped `payment.authorized` through the **real** pipeline: verify, persist, fail-once, retry, duplicate redelivery, audit, optional investigate. Nothing is sent to Razorpay.
+Synthetic `payment.created` through the **real** `POST /webhooks/SYNTHETIC` pipeline: HMAC with `HOOKX_SYNTHETIC_WEBHOOK_SECRET`, persist, fail-once, retry, duplicate redelivery, audit, optional investigate. Nothing is sent to Razorpay.
 
 Requires Node.js 22+, pnpm 11, PostgreSQL 16+.
 
@@ -87,7 +93,7 @@ pnpm install
 cp .env.example .env
 ```
 
-Set `HOOKX_DATABASE_URL`, `HOOKX_SYNTHETIC_WEBHOOK_SECRET`, and `RAZORPAY_WEBHOOK_SECRET` (local placeholders are fine).
+Set `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET` (local placeholders are fine). `RAZORPAY_WEBHOOK_SECRET` is only required for Razorpay-shaped ingest (`POST /webhooks/razorpay` and Failure Lab `RAZORPAY_SHAPED_DUPLICATE`), not for the Golden Demo.
 
 ```bash
 createdb hookx   # database name must match HOOKX_DATABASE_URL
@@ -97,7 +103,7 @@ pnpm dev
 
 Then open [http://127.0.0.1:5173/demo](http://127.0.0.1:5173/demo) and click **RUN DEMO**. Use **VIEW INCIDENT** / **VIEW TIMELINE** and **INVESTIGATE** on the same run.
 
-`pnpm migrate` applies schema; it does not create the database. `pnpm dev` starts the API (`http://127.0.0.1:8787`) and the operator console (`http://127.0.0.1:5173`). Missing `RAZORPAY_WEBHOOK_SECRET` → demo `503`. Details: [docs/golden-demo.md](docs/golden-demo.md).
+`pnpm migrate` applies schema; it does not create the database. `pnpm dev` starts the API (`http://127.0.0.1:8787`) and the operator console (`http://127.0.0.1:5173`). Missing `HOOKX_SYNTHETIC_WEBHOOK_SECRET` → demo `503`. Details: [docs/golden-demo.md](docs/golden-demo.md).
 
 ## Tech stack
 
@@ -111,7 +117,7 @@ Same commands as Golden Demo. Names only in [`.env.example`](.env.example); `.en
 | --- | --- |
 | `HOOKX_DATABASE_URL` | `pnpm migrate`, `pnpm dev` |
 | `HOOKX_SYNTHETIC_WEBHOOK_SECRET` | API process |
-| `RAZORPAY_WEBHOOK_SECRET` | Golden Demo / Razorpay-shaped ingest |
+| `RAZORPAY_WEBHOOK_SECRET` | Razorpay-shaped ingest only (`POST /webhooks/razorpay`, Failure Lab `RAZORPAY_SHAPED_DUPLICATE`). Not required for the Golden Demo. |
 | `HOOKX_TEST_DATABASE_URL` | Optional. Tests otherwise use `postgres://$USER@127.0.0.1:5432/hookx_test` |
 
 Storage notes: [packages/storage/README.md](packages/storage/README.md).
@@ -136,7 +142,7 @@ Scenario map: [docs/test-matrix.md](docs/test-matrix.md). GitHub Actions runs th
 | `SYNTHETIC` | Local signed fixtures and simulator |
 | `razorpay` | Webhook HMAC + adapter for `payment.authorized`, `payment.captured`, `payment.failed`, `refund.created` |
 
-Razorpay has no `payment.created` webhook. HOOKX does not invent one. The adapter is **not live-tested** against a Razorpay account. There is no Razorpay Payments API client.
+Razorpay has no `payment.created` webhook. HOOKX does not invent one. The adapter is **not live-tested** against a Razorpay account. There is no Razorpay Payments API client. HOOKX is not an official Razorpay product and is not endorsed by Razorpay.
 
 Adapter contract: [docs/providers/razorpay.md](docs/providers/razorpay.md).
 
@@ -175,4 +181,6 @@ Index: [docs/README.md](docs/README.md). Also: [docs/api.md](docs/api.md), [docs
 
 ## Project status
 
-Local reliability engine and operator workspace. Not a production payment processor. No license file is in the repository. There is no external contribution guide.
+STATUS: Working prototype / technical demonstration.
+
+Local reliability engine and operator workspace. Not a production payment processor. HOOKX is not an official Razorpay product and is not endorsed by Razorpay. No license file is in the repository. There is no external contribution guide.

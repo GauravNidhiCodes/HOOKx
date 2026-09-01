@@ -9,7 +9,7 @@ import type { SyntheticFailureMode } from "./catalog.js";
 /**
  * Isolated processing wrapper for Failure Lab runs.
  * Throws only when the payment id is SYNTHETIC:pay:lab-* and the provider is
- * SYNTHETIC or razorpay (adapter lab / golden demo). Live-shaped Razorpay
+ * SYNTHETIC or razorpay (Razorpay-shaped lab). Live-shaped Razorpay
  * ids and simulator ids are never injected.
  */
 export function createLabProcessFn(

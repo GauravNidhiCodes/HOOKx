@@ -2,7 +2,7 @@
 
 Answers a Razorpay engineer can check against this repository. Claims here map to code, not to a product pitch.
 
-HOOKX is a local **Payment Webhook Reliability Engine**. It is not a Razorpay product, not a live checkout, and not a production payment processor.
+HOOKX is a local **Payment Webhook Reliability Engine**. STATUS: Working prototype / technical demonstration. It is not a Razorpay product, not live-tested against a Razorpay account, not a live checkout, and not a production payment processor. HOOKX is not an official Razorpay product and is not endorsed by Razorpay.
 
 ## Terminology
 
@@ -114,4 +114,4 @@ Do not treat `HOOKX_LIVE_PROVIDERS` as a go-live switch. It only changes origin 
 
 ## How to run
 
-Root README **LOCAL SETUP** and [golden-demo.md](golden-demo.md) steps 1–10. One-command app start: `pnpm dev` (after `pnpm install`, env, `createdb`, `pnpm migrate`). Tests: `pnpm test`.
+Root README **Quick start** and [golden-demo.md](golden-demo.md) steps 1–10. One-command app start: `pnpm dev` (after `pnpm install`, env, `createdb`, `pnpm migrate`). Tests: `pnpm test`.
