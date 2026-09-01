@@ -36,7 +36,7 @@ Immutable Audit Trail
 Read-only Investigation   (on demand; never on the ingest path)
 ```
 
-Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, PostgreSQL-backed retry/recovery, an append-only audit trail, and deterministic exception classification are implemented. Operator UI and live PSP adapters are not.
+Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, PostgreSQL-backed retry/recovery, an append-only audit trail, deterministic exception classification, read-only investigation, and an operator console are implemented. Live PSP adapters are not.
 
 ## Architecture
 
@@ -80,7 +80,7 @@ What this revision does not implement or claim:
 ```
 apps/
   api/                 Hono HTTP + webhook pipeline + retry/audit inspection
-  web/                 React/Vite operator shell (no live data)
+  web/                 React/Vite operator console (exception queue + payment/event lookup)
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event, identity, signature verifiers
@@ -165,7 +165,7 @@ pnpm simulate list
 | Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
 | Deterministic exception detection | Implemented (rules + PostgreSQL + read APIs) |
 | Read-only AI investigation | Implemented (stub default; optional isolated LLM adapter) |
-| Operator dashboard / live payments | Not implemented |
+| Operator console | Implemented (exception queue, payment/event lookup; no fake KPIs) |
 | Production deployment | Not implemented |
 
-The web shell is a black-and-white design system surface only. It does not display payment records or metrics.
+The web shell is a black-and-white operator console. It reads exceptions, payments, webhook events, audit history, retries, and investigations from the API. It does not display fabricated volume or success metrics.

@@ -118,7 +118,9 @@ A 500 after persist means the webhook row is durable and a retry is scheduled. A
 | GET | `/audit?correlationId=` | Audit by correlation id |
 | GET | `/retries` / `/retries/:webhookEventId` | Active retry inspection |
 | GET | `/dead-letters` / `/dead-letters/:webhookEventId` | Dead-letter inspection |
-| GET | `/exceptions` | Read-only exceptions (`status`, `severity`, `exceptionCode`, `provider` filters) |
+| GET | `/payments/:paymentId/webhooks` | Stored webhooks for a payment |
+| GET | `/webhooks/:webhookEventId` | One stored webhook (no payload hash) |
+| GET | `/exceptions` | Read-only exceptions (`status`, `severity`, `exceptionCode`, `provider`, `paymentId`, `webhookEventId`, `q`) |
 | GET | `/exceptions/:id` | One exception |
 | GET | `/payments/:paymentId/exceptions` | Exceptions for a payment |
 | POST | `/exceptions/:id/investigate` | Read-only AI investigation (advisory). Does not mutate payment or exception state. |

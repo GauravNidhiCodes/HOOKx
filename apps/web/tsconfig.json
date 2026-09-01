@@ -16,7 +16,11 @@
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "moduleDetection": "force",
-    "useDefineForClassFields": true
+    "useDefineForClassFields": true,
+    "baseUrl": ".",
+    "paths": {
+      "@hookx/exceptions/catalog": ["../../packages/exceptions/src/catalog.ts"]
+    }
   },
   "include": ["src"]
 }

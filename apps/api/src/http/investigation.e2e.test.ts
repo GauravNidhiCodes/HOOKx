@@ -185,7 +185,7 @@ describe("investigation end-to-end", () => {
       "INVESTIGATE_CONFLICTING_PAYLOAD",
     );
     const retryBefore =
-      stored === undefined
+      stored === null
         ? null
         : await store.retry.getByWebhookEventId(stored.id);
     const allowedEvidenceIds = new Set(

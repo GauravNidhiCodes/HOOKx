@@ -38,6 +38,38 @@ describe("ExceptionRepository", () => {
     expect(await repo.findById(first.record.exceptionId)).toEqual(first.record);
   });
 
+  it("filters by payment id, webhook id, and free-text search", async () => {
+    const repo = new MemoryExceptionRepository();
+    const created = await repo.create(
+      createExceptionDraft({
+        exceptionCode: "CONFLICTING_EVENT",
+        paymentId: PAYMENT,
+        webhookEventId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        provider: providerId("SYNTHETIC"),
+        reason: "CONFLICTING_EVENT",
+        detectedAt: NOW,
+        correlationId: "corr-search",
+      }),
+    );
+    await repo.create(
+      createExceptionDraft({
+        exceptionCode: "DUPLICATE_EVENT",
+        paymentId: paymentId("SYNTHETIC:pay:other"),
+        webhookEventId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        provider: providerId("SYNTHETIC"),
+        reason: "DUPLICATE_EVENT",
+        detectedAt: NOW,
+        correlationId: "corr-search-2",
+      }),
+    );
+    expect(await repo.list({ paymentId: PAYMENT })).toHaveLength(1);
+    expect(
+      await repo.list({ webhookEventId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }),
+    ).toHaveLength(1);
+    expect(await repo.list({ q: created.record.exceptionId })).toHaveLength(1);
+    expect(await repo.list({ q: "SYNTHETIC:pay:ex-mem" })).toHaveLength(1);
+  });
+
   it("keeps independent codes as separate rows", async () => {
     const repo = new MemoryExceptionRepository();
     const webhookEventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";

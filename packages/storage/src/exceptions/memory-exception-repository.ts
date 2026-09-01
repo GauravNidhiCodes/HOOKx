@@ -14,6 +14,19 @@ import type {
   ExceptionRepository,
 } from "./repository.js";
 
+function matchesSearch(row: ExceptionRecord, q: string): boolean {
+  if (row.exceptionId === q || row.exceptionId.includes(q)) {
+    return true;
+  }
+  if (row.webhookEventId !== null && (row.webhookEventId === q || row.webhookEventId.includes(q))) {
+    return true;
+  }
+  if (row.paymentId !== null && (row.paymentId === q || row.paymentId.includes(q))) {
+    return true;
+  }
+  return false;
+}
+
 function matchesFilter(
   row: ExceptionRecord,
   filter: ExceptionListFilter | undefined,
@@ -36,14 +49,26 @@ function matchesFilter(
   if (filter.provider !== undefined && row.provider !== filter.provider) {
     return false;
   }
+  if (filter.paymentId !== undefined && row.paymentId !== filter.paymentId) {
+    return false;
+  }
+  if (
+    filter.webhookEventId !== undefined &&
+    row.webhookEventId !== filter.webhookEventId
+  ) {
+    return false;
+  }
+  if (filter.q !== undefined && !matchesSearch(row, filter.q)) {
+    return false;
+  }
   return true;
 }
 
 function compareDetected(left: ExceptionRecord, right: ExceptionRecord): number {
-  if (left.detectedAt < right.detectedAt) {
+  if (left.detectedAt > right.detectedAt) {
     return -1;
   }
-  if (left.detectedAt > right.detectedAt) {
+  if (left.detectedAt < right.detectedAt) {
     return 1;
   }
   return left.exceptionId < right.exceptionId

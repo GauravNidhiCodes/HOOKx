@@ -21,6 +21,10 @@ import {
 } from "./http/retries.js";
 import { handleGetPayment } from "./http/payments.js";
 import {
+  handleGetWebhookEvent,
+  handlePaymentWebhooks,
+} from "./http/events.js";
+import {
   handleGetException,
   handleListExceptions,
   handlePaymentExceptions,
@@ -55,6 +59,8 @@ export function createApp(dependencies: ApiDependencies): Hono {
       retries: "/retries",
       deadLetters: "/dead-letters",
       payment: "/payments/:paymentId",
+      paymentWebhooks: "/payments/:paymentId/webhooks",
+      webhook: "/webhooks/:webhookEventId",
       paymentAudit: "/payments/:paymentId/audit",
       webhookAudit: "/webhooks/:webhookEventId/audit",
       exceptions: "/exceptions",
@@ -68,11 +74,17 @@ export function createApp(dependencies: ApiDependencies): Hono {
   app.get("/webhooks/:webhookEventId/audit", (c) =>
     handleWebhookAudit(c, dependencies),
   );
+  app.get("/webhooks/:webhookEventId", (c) =>
+    handleGetWebhookEvent(c, dependencies),
+  );
   app.get("/retries", (c) => handleListRetries(c, dependencies));
   app.get("/retries/:webhookEventId", (c) => handleGetRetry(c, dependencies));
   app.get("/dead-letters", (c) => handleListDeadLetters(c, dependencies));
   app.get("/dead-letters/:webhookEventId", (c) =>
     handleGetDeadLetter(c, dependencies),
+  );
+  app.get("/payments/:paymentId/webhooks", (c) =>
+    handlePaymentWebhooks(c, dependencies),
   );
   app.get("/payments/:paymentId/audit", (c) =>
     handlePaymentAudit(c, dependencies),

@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, desc, eq, like, or, type SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { randomUUID } from "node:crypto";
 import {
@@ -85,7 +85,7 @@ export class DrizzleExceptionRepository implements ExceptionRepository {
   public async list(
     filter?: ExceptionListFilter,
   ): Promise<readonly ExceptionRecord[]> {
-    const clauses = [];
+    const clauses: SQL[] = [];
     if (filter?.status !== undefined) {
       clauses.push(eq(exceptions.status, filter.status));
     }
@@ -98,17 +98,46 @@ export class DrizzleExceptionRepository implements ExceptionRepository {
     if (filter?.provider !== undefined) {
       clauses.push(eq(exceptions.provider, filter.provider));
     }
+    if (filter?.paymentId !== undefined) {
+      clauses.push(eq(exceptions.paymentId, filter.paymentId));
+    }
+    if (filter?.webhookEventId !== undefined) {
+      clauses.push(eq(exceptions.webhookEventId, filter.webhookEventId));
+    }
+    if (filter?.q !== undefined) {
+      const q = filter.q;
+      const escaped = q
+        .replace(/\\/g, "\\\\")
+        .replace(/%/g, "\\%")
+        .replace(/_/g, "\\_");
+      const pattern = `%${escaped}%`;
+      const uuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          q,
+        );
+      const search = uuid
+        ? or(
+            eq(exceptions.id, q),
+            eq(exceptions.webhookEventId, q),
+            eq(exceptions.paymentId, q),
+            like(exceptions.paymentId, pattern),
+          )
+        : or(eq(exceptions.paymentId, q), like(exceptions.paymentId, pattern));
+      if (search !== undefined) {
+        clauses.push(search);
+      }
+    }
     const rows =
       clauses.length === 0
         ? await this.db
             .select()
             .from(exceptions)
-            .orderBy(asc(exceptions.detectedAt), asc(exceptions.id))
+            .orderBy(desc(exceptions.detectedAt), desc(exceptions.id))
         : await this.db
             .select()
             .from(exceptions)
             .where(and(...clauses))
-            .orderBy(asc(exceptions.detectedAt), asc(exceptions.id));
+            .orderBy(desc(exceptions.detectedAt), desc(exceptions.id));
     return rows.map((row) => toExceptionRecord(row));
   }
 
@@ -119,7 +148,7 @@ export class DrizzleExceptionRepository implements ExceptionRepository {
       .select()
       .from(exceptions)
       .where(eq(exceptions.paymentId, paymentId))
-      .orderBy(asc(exceptions.detectedAt), asc(exceptions.id));
+      .orderBy(desc(exceptions.detectedAt), desc(exceptions.id));
     return rows.map((row) => toExceptionRecord(row));
   }
 

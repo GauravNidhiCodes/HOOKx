@@ -17,6 +17,9 @@ export type ExceptionListFilter = {
   readonly severity?: ExceptionSeverity;
   readonly exceptionCode?: ExceptionCode;
   readonly provider?: ProviderId;
+  readonly paymentId?: PaymentId;
+  readonly webhookEventId?: string;
+  readonly q?: string;
 };
 
 export interface ExceptionRepository {

@@ -1,12 +1,11 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { sanitizeAuditMetadata } from "@hookx/audit";
 import { paymentId, providerId } from "@hookx/domain";
 import {
   isExceptionCode,
   isExceptionSeverity,
   isExceptionStatus,
-  type ExceptionRecord,
+  toPublicException,
 } from "@hookx/exceptions";
 import type { ExceptionListFilter, ExceptionRepository } from "@hookx/storage";
 
@@ -14,35 +13,8 @@ export type ExceptionRouteDependencies = {
   readonly exceptions?: ExceptionRepository;
 };
 
-type PublicException = {
-  readonly exceptionId: string;
-  readonly exceptionCode: string;
-  readonly severity: string;
-  readonly paymentId: string | null;
-  readonly webhookEventId: string | null;
-  readonly provider: string | null;
-  readonly status: string;
-  readonly reason: string;
-  readonly detectedAt: string;
-  readonly correlationId: string;
-  readonly metadata: Readonly<Record<string, string | number | boolean | null>>;
-};
-
-function toPublic(record: ExceptionRecord): PublicException {
-  return {
-    exceptionId: record.exceptionId,
-    exceptionCode: record.exceptionCode,
-    severity: record.severity,
-    paymentId: record.paymentId,
-    webhookEventId: record.webhookEventId,
-    provider: record.provider,
-    status: record.status,
-    reason: record.reason,
-    detectedAt: record.detectedAt,
-    correlationId: record.correlationId,
-    metadata: sanitizeAuditMetadata(record.metadata),
-  };
-}
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function unavailable(context: Context): Response {
   return context.json(
@@ -63,6 +35,9 @@ function parseFilters(context: Context): ExceptionListFilter | Response {
   const severity = context.req.query("severity")?.trim();
   const exceptionCode = context.req.query("exceptionCode")?.trim();
   const provider = context.req.query("provider")?.trim();
+  const payment = context.req.query("paymentId")?.trim();
+  const webhookEventId = context.req.query("webhookEventId")?.trim();
+  const q = context.req.query("q")?.trim();
   let filter: ExceptionListFilter = {};
   if (status !== undefined && status.length > 0) {
     if (!isExceptionStatus(status)) {
@@ -89,6 +64,22 @@ function parseFilters(context: Context): ExceptionListFilter | Response {
       return badRequest(context, "INVALID_PROVIDER");
     }
   }
+  if (payment !== undefined && payment.length > 0) {
+    try {
+      filter = { ...filter, paymentId: paymentId(payment) };
+    } catch {
+      return badRequest(context, "INVALID_PAYMENT_ID");
+    }
+  }
+  if (webhookEventId !== undefined && webhookEventId.length > 0) {
+    if (!UUID.test(webhookEventId)) {
+      return badRequest(context, "INVALID_WEBHOOK_EVENT_ID");
+    }
+    filter = { ...filter, webhookEventId };
+  }
+  if (q !== undefined && q.length > 0) {
+    filter = { ...filter, q };
+  }
   return filter;
 }
 
@@ -104,7 +95,7 @@ export async function handleListExceptions(
     return parsed;
   }
   const records = await dependencies.exceptions.list(parsed);
-  return context.json({ exceptions: records.map(toPublic) });
+  return context.json({ exceptions: records.map(toPublicException) });
 }
 
 export async function handleGetException(
@@ -122,7 +113,7 @@ export async function handleGetException(
       404 as ContentfulStatusCode,
     );
   }
-  return context.json({ exception: toPublic(record) });
+  return context.json({ exception: toPublicException(record) });
 }
 
 export async function handlePaymentExceptions(
@@ -136,7 +127,7 @@ export async function handlePaymentExceptions(
   try {
     const id = paymentId(raw);
     const records = await dependencies.exceptions.listByPayment(id);
-    return context.json({ exceptions: records.map(toPublic) });
+    return context.json({ exceptions: records.map(toPublicException) });
   } catch {
     return badRequest(context, "INVALID_PAYMENT_ID");
   }

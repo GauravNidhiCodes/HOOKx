@@ -73,5 +73,20 @@ describe("GET exception routes", () => {
       "/exceptions/ffffffff-ffff-4fff-8fff-ffffffffffff",
     );
     expect(missing.status).toBe(404);
+
+    const byQ = await app.request(
+      `/exceptions?q=${created.record.exceptionId}`,
+    );
+    expect(byQ.status).toBe(200);
+    const qBody = (await byQ.json()) as { exceptions: unknown[] };
+    expect(qBody.exceptions).toHaveLength(1);
+
+    const byPaymentQuery = await app.request(
+      "/exceptions?paymentId=SYNTHETIC:pay:http-ex",
+    );
+    expect(byPaymentQuery.status).toBe(200);
+    expect(
+      ((await byPaymentQuery.json()) as { exceptions: unknown[] }).exceptions,
+    ).toHaveLength(1);
   });
 });

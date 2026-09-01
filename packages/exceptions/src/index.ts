@@ -47,3 +47,4 @@ export {
   type DetectionContext,
   type ExceptionDetectionResult,
 } from "./detect.js";
+export { toPublicException, type PublicException } from "./public.js";
