@@ -34,6 +34,9 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       "/exceptions": apiProxy,
+      "/incidents": apiProxy,
+      "/health": apiProxy,
+      "/metrics": apiProxy,
       "/payments": apiProxy,
       "/webhooks": apiProxy,
       "/retries": apiProxy,

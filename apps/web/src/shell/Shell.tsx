@@ -20,6 +20,9 @@ export function Shell({ children }: { readonly children: React.ReactNode }) {
         <Link href="/exceptions" className="nav__item">
           Exceptions
         </Link>
+        <Link href="/incidents" className="nav__item">
+          Incidents
+        </Link>
         <Link href="/payments" className="nav__item">
           Payments
         </Link>

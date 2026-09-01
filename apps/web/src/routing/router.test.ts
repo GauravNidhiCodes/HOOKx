@@ -11,6 +11,14 @@ describe("parseRoute", () => {
       name: "exception",
       id: "abc",
     });
+    expect(parseRoute("/incidents")).toEqual({
+      name: "incidents",
+      search: "",
+    });
+    expect(parseRoute("/incidents/abc")).toEqual({
+      name: "incident",
+      id: "abc",
+    });
     expect(parseRoute("/payments")).toEqual({
       name: "payments",
       search: "",

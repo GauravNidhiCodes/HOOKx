@@ -30,6 +30,17 @@ export function resolveSyntheticWebhookToleranceSeconds(
   return parsed;
 }
 
+export function resolveLiveProviders(env: NodeJS.ProcessEnv): readonly string[] {
+  const raw = env["HOOKX_LIVE_PROVIDERS"];
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return [];
+  }
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
 export function resolveRazorpayWebhookSecret(
   env: NodeJS.ProcessEnv,
 ): string | undefined {

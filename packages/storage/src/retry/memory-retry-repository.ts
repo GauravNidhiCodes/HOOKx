@@ -60,6 +60,14 @@ export class MemoryRetryRepository implements RetryRepository {
     );
   }
 
+  public async count(): Promise<number> {
+    return this.records.length;
+  }
+
+  public async countDeadLetters(): Promise<number> {
+    return this.deadLetters.length;
+  }
+
   public async listDeadLetters(): Promise<readonly DeadLetterRecord[]> {
     return [...this.deadLetters];
   }

@@ -67,4 +67,16 @@ export class MemoryAuditRepository implements AuditRepository {
         compareAudit(left, right, (event) => this.records.indexOf(event)),
       );
   }
+
+  public async count(): Promise<number> {
+    return this.records.length;
+  }
+
+  public async countByEventType(): Promise<Readonly<Record<string, number>>> {
+    const tallies: Record<string, number> = {};
+    for (const row of this.records) {
+      tallies[row.eventType] = (tallies[row.eventType] ?? 0) + 1;
+    }
+    return tallies;
+  }
 }

@@ -12,6 +12,8 @@ export interface AuditRepository {
   ): Promise<readonly AuditEvent[]>;
   listByWebhook(webhookEventId: string): Promise<readonly AuditEvent[]>;
   listByCorrelationId(correlationId: string): Promise<readonly AuditEvent[]>;
+  count(): Promise<number>;
+  countByEventType(): Promise<Readonly<Record<string, number>>>;
 }
 
 export type WebhookTerminalStatus = "PROCESSED" | "REJECTED" | "CONFLICT";

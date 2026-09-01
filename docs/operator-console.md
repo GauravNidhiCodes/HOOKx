@@ -12,6 +12,8 @@ Primary destinations:
 | --- | --- |
 | `/exceptions` | Deterministic exception queue |
 | `/exceptions/:id` | Exception investigation |
+| `/incidents` | Exception-backed incident list (no fabricated KPIs) |
+| `/incidents/:id` | Incident chronology composed by the API |
 | `/payments` | Persisted payment index |
 | `/payments/:paymentId` | Payment workspace |
 | `/events` | Persisted webhook event index |
@@ -65,6 +67,12 @@ From a payment, each exception links to `/exceptions/:id` (code, severity, statu
 From an exception, the payment id links to `/payments/:paymentId` and the webhook id links to `/events/:eventId`.
 
 That is the investigation loop: payment → events → exceptions → back to payment.
+
+## Incidents
+
+`/incidents` lists persisted exceptions as incidents. Successful webhooks do not appear. `/incidents/:id` loads one backend timeline (`GET /incidents/:id/timeline`) instead of reconstructing chronology from many client calls. Clock order is delivery/recording time; event time and received time are both shown when stored.
+
+See `docs/observability.md`.
 
 ## AI investigation boundary
 

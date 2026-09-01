@@ -62,6 +62,10 @@ export class MemoryWebhookEventRepository implements WebhookEventRepository {
     return selectWebhookList(this.records, filter);
   }
 
+  public async count(): Promise<number> {
+    return this.records.length;
+  }
+
   public async listByPayment(
     provider: ProviderId,
     paymentId: PaymentId,

@@ -80,7 +80,7 @@ What this revision does not implement or claim:
 ```
 apps/
   api/                 Hono HTTP + webhook pipeline + retry/audit inspection
-  web/                 React/Vite operator console (exceptions, payments, events)
+  web/                 React/Vite operator console (exceptions, incidents, payments, events)
 packages/
   domain/              Money, identifiers, payment states
   webhook/             Normalized event, identity, signature verifiers
@@ -91,9 +91,10 @@ packages/
   audit/               Append-only audit event model
   exceptions/          Deterministic exception classification
   investigation/       Read-only AI investigation of exceptions
+  observability/       Structured logs + incident timeline composition
 ```
 
-`providers` and `observability` packages are omitted until those layers exist.
+Live PSP checkout APIs are not implemented. Razorpay webhook ingest is; see `docs/razorpay.md`.
 
 ## Technology stack
 
@@ -165,7 +166,8 @@ pnpm simulate list
 | Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
 | Deterministic exception detection | Implemented (rules + PostgreSQL + read APIs) |
 | Read-only AI investigation | Implemented (stub default; optional isolated LLM adapter) |
-| Operator console | Implemented (exception queue, payment workspace, event inspector; no fake KPIs) |
+| Operator console | Implemented (exception queue, incidents/timeline, payment workspace, event inspector; no fake KPIs) |
+| Observability / incident timeline | Implemented (structured logs, correlation ids, composed timelines; no fabricated metrics) |
 | Production deployment | Not implemented |
 
-The web shell is a black-and-white operator console. It reads exceptions, payments, webhook events, audit history, retries, and investigations from the API. See `docs/operator-console.md`. It does not display fabricated volume or success metrics.
+The web shell is a black-and-white operator console. It reads exceptions, incidents, payments, webhook events, audit history, retries, and investigations from the API. See `docs/operator-console.md` and `docs/observability.md`. It does not display fabricated volume or success metrics.

@@ -40,6 +40,10 @@ export const exceptions = pgTable(
       table.detectedAt,
     ),
     index("exceptions_status_detected_idx").on(table.status, table.detectedAt),
+    index("exceptions_code_detected_idx").on(
+      table.exceptionCode,
+      table.detectedAt,
+    ),
     index("exceptions_provider_detected_idx").on(
       table.provider,
       table.detectedAt,

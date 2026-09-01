@@ -68,6 +68,19 @@ describe("ExceptionRepository", () => {
     ).toHaveLength(1);
     expect(await repo.list({ q: created.record.exceptionId })).toHaveLength(1);
     expect(await repo.list({ q: "SYNTHETIC:pay:ex-mem" })).toHaveLength(1);
+    expect(
+      await repo.list({
+        detectedFrom: NOW,
+        detectedTo: NOW,
+      }),
+    ).toHaveLength(2);
+    expect(
+      await repo.list({
+        detectedFrom: instant("2026-01-16T00:00:00.000Z"),
+      }),
+    ).toHaveLength(0);
+    expect(await repo.count({ paymentId: PAYMENT })).toBe(1);
+    expect(await repo.count()).toBe(2);
   });
 
   it("keeps independent codes as separate rows", async () => {

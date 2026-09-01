@@ -56,6 +56,9 @@ importers:
       '@hookx/investigation':
         specifier: workspace:*
         version: link:../../packages/investigation
+      '@hookx/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
       '@hookx/simulator':
         specifier: workspace:*
         version: link:../../packages/simulator
@@ -173,6 +176,8 @@ importers:
       '@types/node':
         specifier: ^24.3.0
         version: 24.13.3
+
+  packages/observability: {}
 
   packages/simulator:
     dependencies:

@@ -421,6 +421,43 @@ button:disabled:hover {
   letter-spacing: 0.06em;
 }
 
+.incident-timeline {
+  list-style: none;
+  padding: 0;
+}
+
+.incident-timeline__item {
+  padding: 0.85rem 0 0.85rem 0.15rem;
+  border-bottom: var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.incident-timeline__item:first-child {
+  border-top: var(--rule-heavy);
+}
+
+.incident-timeline__item--replay {
+  margin-left: 1rem;
+  padding-left: 0.85rem;
+  border-left: var(--rule-heavy);
+}
+
+.incident-timeline__label {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.incident-timeline__times,
+.incident-timeline__retry,
+.incident-timeline__replay,
+.incident-timeline__decision {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+}
+
 .state-shift {
   font-family: var(--font-mono);
   font-size: 0.8rem;

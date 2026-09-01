@@ -1,0 +1,26 @@
+export const LIFECYCLE_EVENTS = [
+  "WEBHOOK_RECEIVED",
+  "SIGNATURE_VERIFIED",
+  "SIGNATURE_REJECTED",
+  "WEBHOOK_NORMALIZED",
+  "EVENT_PERSISTED",
+  "DUPLICATE_DETECTED",
+  "CONFLICT_DETECTED",
+  "PROCESSING_STARTED",
+  "STATE_TRANSITION",
+  "PROCESSING_FAILED",
+  "RETRY_SCHEDULED",
+  "RETRY_ATTEMPTED",
+  "RETRY_SUCCEEDED",
+  "RETRY_EXHAUSTED",
+  "REPLAY_STARTED",
+  "REPLAY_COMPLETED",
+  "EXCEPTION_CREATED",
+  "INVESTIGATION_AVAILABLE",
+] as const;
+
+export type LifecycleEvent = (typeof LIFECYCLE_EVENTS)[number];
+
+export function isLifecycleEvent(value: string): value is LifecycleEvent {
+  return (LIFECYCLE_EVENTS as readonly string[]).includes(value);
+}

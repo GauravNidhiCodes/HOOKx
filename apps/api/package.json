@@ -17,6 +17,7 @@
     "@hookx/domain": "workspace:*",
     "@hookx/exceptions": "workspace:*",
     "@hookx/investigation": "workspace:*",
+    "@hookx/observability": "workspace:*",
     "@hookx/simulator": "workspace:*",
     "@hookx/storage": "workspace:*",
     "@hookx/webhook": "workspace:*",

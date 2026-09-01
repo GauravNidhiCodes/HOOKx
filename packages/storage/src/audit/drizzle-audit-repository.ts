@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { randomUUID } from "node:crypto";
 import { createAuditEvent, type AuditEvent } from "@hookx/audit";
@@ -73,6 +73,26 @@ export class DrizzleAuditRepository implements AuditRepository {
       .where(eq(auditEvents.correlationId, correlationId))
       .orderBy(asc(auditEvents.recordedAt), asc(auditEvents.seq));
     return rows.map((row) => toAuditEvent(row));
+  }
+
+  public async count(): Promise<number> {
+    const rows = await this.db.select({ value: count() }).from(auditEvents);
+    return Number(rows[0]?.value ?? 0);
+  }
+
+  public async countByEventType(): Promise<Readonly<Record<string, number>>> {
+    const rows = await this.db
+      .select({
+        eventType: auditEvents.eventType,
+        value: count(),
+      })
+      .from(auditEvents)
+      .groupBy(auditEvents.eventType);
+    const tallies: Record<string, number> = {};
+    for (const row of rows) {
+      tallies[row.eventType] = Number(row.value);
+    }
+    return tallies;
   }
 }
 

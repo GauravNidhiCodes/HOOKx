@@ -61,6 +61,15 @@ function matchesFilter(
   if (filter.q !== undefined && !matchesSearch(row, filter.q)) {
     return false;
   }
+  if (
+    filter.detectedFrom !== undefined &&
+    row.detectedAt < filter.detectedFrom
+  ) {
+    return false;
+  }
+  if (filter.detectedTo !== undefined && row.detectedAt > filter.detectedTo) {
+    return false;
+  }
   return true;
 }
 
@@ -105,10 +114,21 @@ export class MemoryExceptionRepository implements ExceptionRepository {
   public async list(
     filter?: ExceptionListFilter,
   ): Promise<readonly ExceptionRecord[]> {
-    return this.records
+    const rows = this.records
       .filter((row) => matchesFilter(row, filter))
       .slice()
       .sort(compareDetected);
+    if (filter?.limit !== undefined) {
+      return rows.slice(0, filter.limit);
+    }
+    return rows;
+  }
+
+  public async count(filter?: ExceptionListFilter): Promise<number> {
+    const { limit: _limit, ...rest } = filter ?? {};
+    return this.records.filter((row) =>
+      matchesFilter(row, filter === undefined ? undefined : rest),
+    ).length;
   }
 
   public async listByPayment(

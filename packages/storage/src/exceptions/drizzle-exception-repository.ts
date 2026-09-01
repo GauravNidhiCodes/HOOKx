@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, like, lte, or, type SQL } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { randomUUID } from "node:crypto";
 import {
@@ -85,60 +85,33 @@ export class DrizzleExceptionRepository implements ExceptionRepository {
   public async list(
     filter?: ExceptionListFilter,
   ): Promise<readonly ExceptionRecord[]> {
-    const clauses: SQL[] = [];
-    if (filter?.status !== undefined) {
-      clauses.push(eq(exceptions.status, filter.status));
-    }
-    if (filter?.severity !== undefined) {
-      clauses.push(eq(exceptions.severity, filter.severity));
-    }
-    if (filter?.exceptionCode !== undefined) {
-      clauses.push(eq(exceptions.exceptionCode, filter.exceptionCode));
-    }
-    if (filter?.provider !== undefined) {
-      clauses.push(eq(exceptions.provider, filter.provider));
-    }
-    if (filter?.paymentId !== undefined) {
-      clauses.push(eq(exceptions.paymentId, filter.paymentId));
-    }
-    if (filter?.webhookEventId !== undefined) {
-      clauses.push(eq(exceptions.webhookEventId, filter.webhookEventId));
-    }
-    if (filter?.q !== undefined) {
-      const q = filter.q;
-      const escaped = q
-        .replace(/\\/g, "\\\\")
-        .replace(/%/g, "\\%")
-        .replace(/_/g, "\\_");
-      const pattern = `%${escaped}%`;
-      const uuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          q,
-        );
-      const search = uuid
-        ? or(
-            eq(exceptions.id, q),
-            eq(exceptions.webhookEventId, q),
-            eq(exceptions.paymentId, q),
-            like(exceptions.paymentId, pattern),
-          )
-        : or(eq(exceptions.paymentId, q), like(exceptions.paymentId, pattern));
-      if (search !== undefined) {
-        clauses.push(search);
-      }
-    }
-    const rows =
+    const clauses = exceptionFilterClauses(filter);
+    const ordered =
       clauses.length === 0
-        ? await this.db
+        ? this.db
             .select()
             .from(exceptions)
             .orderBy(desc(exceptions.detectedAt), desc(exceptions.id))
-        : await this.db
+        : this.db
             .select()
             .from(exceptions)
             .where(and(...clauses))
             .orderBy(desc(exceptions.detectedAt), desc(exceptions.id));
+    const rows =
+      filter?.limit !== undefined ? await ordered.limit(filter.limit) : await ordered;
     return rows.map((row) => toExceptionRecord(row));
+  }
+
+  public async count(filter?: ExceptionListFilter): Promise<number> {
+    const clauses = exceptionFilterClauses(filter);
+    const rows =
+      clauses.length === 0
+        ? await this.db.select({ value: count() }).from(exceptions)
+        : await this.db
+            .select({ value: count() })
+            .from(exceptions)
+            .where(and(...clauses));
+    return Number(rows[0]?.value ?? 0);
   }
 
   public async listByPayment(
@@ -184,4 +157,57 @@ export class DrizzleExceptionRepository implements ExceptionRepository {
     }
     return toExceptionRecord(row);
   }
+}
+
+function exceptionFilterClauses(filter?: ExceptionListFilter): SQL[] {
+  const clauses: SQL[] = [];
+  if (filter === undefined) {
+    return clauses;
+  }
+  if (filter.status !== undefined) {
+    clauses.push(eq(exceptions.status, filter.status));
+  }
+  if (filter.severity !== undefined) {
+    clauses.push(eq(exceptions.severity, filter.severity));
+  }
+  if (filter.exceptionCode !== undefined) {
+    clauses.push(eq(exceptions.exceptionCode, filter.exceptionCode));
+  }
+  if (filter.provider !== undefined) {
+    clauses.push(eq(exceptions.provider, filter.provider));
+  }
+  if (filter.paymentId !== undefined) {
+    clauses.push(eq(exceptions.paymentId, filter.paymentId));
+  }
+  if (filter.webhookEventId !== undefined) {
+    clauses.push(eq(exceptions.webhookEventId, filter.webhookEventId));
+  }
+  if (filter.detectedFrom !== undefined) {
+    clauses.push(gte(exceptions.detectedAt, dateFromInstant(filter.detectedFrom)));
+  }
+  if (filter.detectedTo !== undefined) {
+    clauses.push(lte(exceptions.detectedAt, dateFromInstant(filter.detectedTo)));
+  }
+  if (filter.q !== undefined) {
+    const q = filter.q;
+    const escaped = q
+      .replace(/\\/g, "\\\\")
+      .replace(/%/g, "\\%")
+      .replace(/_/g, "\\_");
+    const pattern = `%${escaped}%`;
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q);
+    const search = uuid
+      ? or(
+          eq(exceptions.id, q),
+          eq(exceptions.webhookEventId, q),
+          eq(exceptions.paymentId, q),
+          like(exceptions.paymentId, pattern),
+        )
+      : or(eq(exceptions.paymentId, q), like(exceptions.paymentId, pattern));
+    if (search !== undefined) {
+      clauses.push(search);
+    }
+  }
+  return clauses;
 }

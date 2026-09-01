@@ -27,6 +27,7 @@ export type WebhookEventStore = {
   readonly exceptions: ExceptionRepository;
   readonly investigations: InvestigationRepository;
   readonly persistOutcome: PersistOutcomeFn;
+  ping(): Promise<void>;
   close(): Promise<void>;
 };
 
@@ -54,6 +55,9 @@ export async function openWebhookEventStore(
     exceptions: new DrizzleExceptionRepository(db),
     investigations: new DrizzleInvestigationRepository(db),
     persistOutcome: createDrizzleOutcomeWriter(db),
+    async ping() {
+      await pool.query("SELECT 1");
+    },
     async close() {
       await pool.end();
     },

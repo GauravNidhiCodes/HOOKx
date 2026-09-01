@@ -26,12 +26,14 @@ export async function persistDetectedExceptions(
   const saved: ExceptionRecord[] = [];
   for (const draft of result.exceptions) {
     const outcome = await dependencies.exceptions.create(draft);
-    if (outcome.inserted && dependencies.audit !== undefined) {
-      await dependencies.audit.append(
-        exceptionDetectedDraft(outcome.record, actor),
-      );
+    if (outcome.inserted) {
+      if (dependencies.audit !== undefined) {
+        await dependencies.audit.append(
+          exceptionDetectedDraft(outcome.record, actor),
+        );
+      }
+      saved.push(outcome.record);
     }
-    saved.push(outcome.record);
   }
   return saved;
 }
@@ -43,16 +45,16 @@ export async function recordExceptionsSafely(
   },
   context: DetectionContext,
   actor: AuditActor,
-): Promise<void> {
+): Promise<readonly ExceptionRecord[]> {
   if (dependencies.exceptions === undefined) {
-    return;
+    return [];
   }
   try {
     const result = detectException(context);
     if (result.exceptions.length === 0) {
-      return;
+      return [];
     }
-    await persistDetectedExceptions(
+    return await persistDetectedExceptions(
       {
         exceptions: dependencies.exceptions,
         audit: dependencies.audit,
@@ -62,6 +64,7 @@ export async function recordExceptionsSafely(
     );
   } catch {
     // Exception persistence must not change ingest or retry HTTP/worker outcomes.
+    return [];
   }
 }
 

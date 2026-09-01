@@ -1,4 +1,4 @@
-import type { PaymentId, ProviderId } from "@hookx/domain";
+import type { Instant, PaymentId, ProviderId } from "@hookx/domain";
 import type {
   ExceptionCode,
   ExceptionDraft,
@@ -20,6 +20,9 @@ export type ExceptionListFilter = {
   readonly paymentId?: PaymentId;
   readonly webhookEventId?: string;
   readonly q?: string;
+  readonly detectedFrom?: Instant;
+  readonly detectedTo?: Instant;
+  readonly limit?: number;
 };
 
 export interface ExceptionRepository {
@@ -27,6 +30,7 @@ export interface ExceptionRepository {
   findById(exceptionId: string): Promise<ExceptionRecord | null>;
   findByIdentity(identity: string): Promise<ExceptionRecord | null>;
   list(filter?: ExceptionListFilter): Promise<readonly ExceptionRecord[]>;
+  count(filter?: ExceptionListFilter): Promise<number>;
   listByPayment(paymentId: PaymentId): Promise<readonly ExceptionRecord[]>;
   listOpen(): Promise<readonly ExceptionRecord[]>;
   updateStatus(

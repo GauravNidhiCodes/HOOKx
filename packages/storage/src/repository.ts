@@ -11,6 +11,7 @@ export interface WebhookEventRepository {
   findByIdentity(identity: WebhookIdentity): Promise<StoredWebhookEvent | null>;
   findById(id: string): Promise<StoredWebhookEvent | null>;
   list(filter?: WebhookListFilter): Promise<readonly StoredWebhookEvent[]>;
+  count(): Promise<number>;
   listByPayment(
     provider: ProviderId,
     paymentId: PaymentId,

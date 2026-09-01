@@ -29,6 +29,10 @@ export default defineConfig({
         find: "@hookx/investigation",
         replacement: path.join(root, "packages/investigation/src/index.ts"),
       },
+      {
+        find: "@hookx/observability",
+        replacement: path.join(root, "packages/observability/src/index.ts"),
+      },
     ],
   },
   esbuild: {

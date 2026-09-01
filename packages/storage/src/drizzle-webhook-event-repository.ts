@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { and, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, or, type SQL } from "drizzle-orm";
 import type { PaymentId, ProviderId } from "@hookx/domain";
 import type { NormalizedWebhookEvent, WebhookIdentity } from "@hookx/webhook";
 import { StorageError } from "./errors.js";
@@ -106,6 +106,11 @@ export class DrizzleWebhookEventRepository implements WebhookEventRepository {
       .limit(1);
     const row = rows[0];
     return row === undefined ? null : toStoredWebhookEvent(row);
+  }
+
+  public async count(): Promise<number> {
+    const rows = await this.db.select({ value: count() }).from(webhookEvents);
+    return Number(rows[0]?.value ?? 0);
   }
 
   public async list(

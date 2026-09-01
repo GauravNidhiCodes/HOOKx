@@ -5,6 +5,8 @@ import { EventDetail } from "./pages/EventDetail";
 import { EventsPage } from "./pages/EventsPage";
 import { ExceptionDetail } from "./pages/ExceptionDetail";
 import { ExceptionQueue } from "./pages/ExceptionQueue";
+import { IncidentDetail } from "./pages/IncidentDetail";
+import { IncidentQueue } from "./pages/IncidentQueue";
 import { PaymentDetail } from "./pages/PaymentDetail";
 import { PaymentsPage } from "./pages/PaymentsPage";
 import { Router, useRouter } from "./routing/router";
@@ -17,6 +19,12 @@ function Routes() {
   }
   if (route.name === "exception") {
     return <ExceptionDetail key={route.id} exceptionId={route.id} />;
+  }
+  if (route.name === "incidents") {
+    return <IncidentQueue />;
+  }
+  if (route.name === "incident") {
+    return <IncidentDetail key={route.id} incidentId={route.id} />;
   }
   if (route.name === "payments") {
     return <PaymentsPage key={route.search || "all"} />;

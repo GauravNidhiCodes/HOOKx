@@ -4,6 +4,7 @@ import {
   resolveInvestigationRuntimeConfig,
 } from "@hookx/investigation";
 import {
+  resolveLiveProviders,
   resolveRetryRuntimeConfig,
   resolveRazorpayWebhookSecret,
   resolveSyntheticWebhookSecret,
@@ -48,6 +49,13 @@ describe("webhook secret configuration", () => {
 
   it("does not require a Razorpay webhook secret at process start", () => {
     expect(resolveRazorpayWebhookSecret({})).toBeUndefined();
+  });
+
+  it("treats providers as synthetic unless opted into live ingest", () => {
+    expect(resolveLiveProviders({})).toEqual([]);
+    expect(resolveLiveProviders({ HOOKX_LIVE_PROVIDERS: "razorpay" })).toEqual([
+      "razorpay",
+    ]);
   });
 
   it("reads the Razorpay webhook secret only from the environment", () => {

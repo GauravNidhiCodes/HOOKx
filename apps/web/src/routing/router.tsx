@@ -13,6 +13,8 @@ import {
 export type ConsoleRoute =
   | { readonly name: "exceptions"; readonly search: string }
   | { readonly name: "exception"; readonly id: string }
+  | { readonly name: "incidents"; readonly search: string }
+  | { readonly name: "incident"; readonly id: string }
   | { readonly name: "payments"; readonly search: string }
   | { readonly name: "payment"; readonly paymentId: string }
   | { readonly name: "events"; readonly search: string }
@@ -27,6 +29,13 @@ export function parseRoute(pathname: string, search = ""): ConsoleRoute {
   const exception = /^\/exceptions\/([^/]+)$/.exec(path);
   if (exception?.[1] !== undefined) {
     return { name: "exception", id: decodeURIComponent(exception[1]) };
+  }
+  if (path === "/incidents") {
+    return { name: "incidents", search };
+  }
+  const incident = /^\/incidents\/([^/]+)$/.exec(path);
+  if (incident?.[1] !== undefined) {
+    return { name: "incident", id: decodeURIComponent(incident[1]) };
   }
   if (path === "/payments") {
     return { name: "payments", search };

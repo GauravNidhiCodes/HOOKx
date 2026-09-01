@@ -18,6 +18,8 @@ export interface RetryRepository {
   getByWebhookEventId(webhookEventId: string): Promise<RetryRecord | null>;
   getById(id: string): Promise<RetryRecord | null>;
   listActive(): Promise<readonly RetryRecord[]>;
+  count(): Promise<number>;
+  countDeadLetters(): Promise<number>;
   listDeadLetters(): Promise<readonly DeadLetterRecord[]>;
   getDeadLetterByWebhookEventId(
     webhookEventId: string,

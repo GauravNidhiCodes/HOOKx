@@ -1,9 +1,12 @@
 import type {
   ExceptionListQuery,
+  IncidentListQuery,
   PaymentListQuery,
   PublicAuditEvent,
   PublicDeadLetter,
   PublicException,
+  PublicIncident,
+  PublicIncidentTimelineItem,
   PublicInvestigation,
   PublicPayment,
   PublicPaymentListItem,
@@ -47,6 +50,14 @@ export function isApiError(value: unknown): value is ApiError {
 export type HookxApi = {
   listExceptions(query: ExceptionListQuery): Promise<readonly PublicException[]>;
   getException(id: string): Promise<PublicException>;
+  listIncidents(query: IncidentListQuery): Promise<readonly PublicIncident[]>;
+  getIncident(id: string): Promise<PublicIncident>;
+  getIncidentTimeline(
+    id: string,
+  ): Promise<{
+    readonly incident: PublicIncident;
+    readonly timeline: readonly PublicIncidentTimelineItem[];
+  }>;
   listPayments(query?: PaymentListQuery): Promise<readonly PublicPaymentListItem[]>;
   getPayment(paymentId: string, provider?: string): Promise<PublicPayment | null>;
   listPaymentExceptions(paymentId: string): Promise<readonly PublicException[]>;
@@ -141,6 +152,61 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
         fail(status, body, correlationId, "UNABLE TO LOAD EXCEPTION");
       }
       return (body as { exception: PublicException }).exception;
+    },
+
+    async listIncidents(query) {
+      const { status, body, correlationId } = await request(
+        `/incidents${queryString({
+          status: query.status,
+          severity: query.severity,
+          exceptionCode: query.exceptionCode,
+          provider: query.provider,
+          from: query.from,
+          to: query.to,
+        })}`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD INCIDENTS");
+      }
+      if (typeof body !== "object" || body === null || !("incidents" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD INCIDENTS");
+      }
+      return (body as { incidents: PublicIncident[] }).incidents;
+    },
+
+    async getIncident(id) {
+      const { status, body, correlationId } = await request(
+        `/incidents/${encodeURIComponent(id)}`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD INCIDENT");
+      }
+      if (typeof body !== "object" || body === null || !("incident" in body)) {
+        fail(status, body, correlationId, "UNABLE TO LOAD INCIDENT");
+      }
+      return (body as { incident: PublicIncident }).incident;
+    },
+
+    async getIncidentTimeline(id) {
+      const { status, body, correlationId } = await request(
+        `/incidents/${encodeURIComponent(id)}/timeline`,
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD TIMELINE");
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("incident" in body) ||
+        !("timeline" in body)
+      ) {
+        fail(status, body, correlationId, "UNABLE TO LOAD TIMELINE");
+      }
+      const payload = body as {
+        incident: PublicIncident;
+        timeline: PublicIncidentTimelineItem[];
+      };
+      return { incident: payload.incident, timeline: payload.timeline };
     },
 
     async listPayments(query = {}) {

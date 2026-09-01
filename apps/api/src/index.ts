@@ -3,9 +3,11 @@ import { createInvestigatorFromEnv } from "@hookx/investigation";
 import { redactDatabaseUrl, resolveDatabaseUrl } from "@hookx/storage";
 import { openWebhookEventStore } from "@hookx/storage";
 import { createSignatureVerifierRegistry } from "@hookx/webhook";
+import { createJsonLogger, createProcessMetrics } from "@hookx/observability";
 import { createApp } from "./app.js";
 import { systemClock } from "./clock.js";
 import {
+  resolveLiveProviders,
   resolveRetryRuntimeConfig,
   resolveRazorpayWebhookSecret,
   resolveSyntheticWebhookSecret,
@@ -24,6 +26,12 @@ async function start(): Promise<void> {
   const databaseUrl = resolveDatabaseUrl(process.env, "HOOKX_DATABASE_URL");
   const retryConfig = resolveRetryRuntimeConfig(process.env);
   const store = await openWebhookEventStore({ url: databaseUrl });
+  const logger = createJsonLogger({
+    write: (line) => {
+      process.stdout.write(`${line}\n`);
+    },
+  });
+  const metrics = createProcessMetrics();
   const app = createApp({
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: secret,
@@ -43,6 +51,10 @@ async function start(): Promise<void> {
     retryPolicy: retryConfig.policy,
     leaseMs: retryConfig.leaseMs,
     clock: systemClock(),
+    logger,
+    metrics,
+    ping: () => store.ping(),
+    liveProviders: resolveLiveProviders(process.env),
   });
 
   serve({ fetch: app.fetch, hostname: host, port }, (info) => {

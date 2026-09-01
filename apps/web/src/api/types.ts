@@ -85,6 +85,67 @@ export type PublicInvestigation = {
   readonly result: InvestigationResult;
 };
 
+export type PublicIncident = {
+  readonly incidentId: string;
+  readonly exceptionId: string;
+  readonly exceptionCode: string;
+  readonly severity: string;
+  readonly status: string;
+  readonly paymentId: string | null;
+  readonly eventId: string | null;
+  readonly correlationId: string;
+  readonly provider: string | null;
+  readonly detectedAt: string;
+  readonly reason: string;
+  readonly synthetic: boolean;
+};
+
+export type PublicIncidentTimelineItem = {
+  readonly seq: number;
+  readonly clock: string;
+  readonly eventTime: string | null;
+  readonly receivedTime: string | null;
+  readonly processedTime: string | null;
+  readonly lifecycle: string;
+  readonly decision: string | null;
+  readonly reason: string | null;
+  readonly correlationId: string;
+  readonly provider: string | null;
+  readonly paymentId: string | null;
+  readonly eventId: string | null;
+  readonly exceptionId: string | null;
+  readonly exceptionCode: string | null;
+  readonly previousState: string | null;
+  readonly resultingState: string | null;
+  readonly source: string;
+  readonly sourceId: string;
+  readonly inferred: boolean;
+  readonly synthetic: boolean;
+  readonly retry: {
+    readonly attempt: number | null;
+    readonly scheduledAt: string | null;
+    readonly attemptedAt: string | null;
+    readonly result: string | null;
+    readonly failureClass: string | null;
+  } | null;
+  readonly replay: {
+    readonly replayId: string;
+    readonly trigger: string;
+    readonly eventsConsidered: number;
+    readonly previousState: string | null;
+    readonly resultingState: string | null;
+  } | null;
+};
+
+export type IncidentListQuery = {
+  readonly status?: string;
+  readonly severity?: string;
+  readonly exceptionCode?: string;
+  readonly provider?: string;
+  readonly from?: string;
+  readonly to?: string;
+};
+
 export type ExceptionListQuery = {
   readonly status?: string;
   readonly severity?: string;

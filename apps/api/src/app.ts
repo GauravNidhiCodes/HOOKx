@@ -7,6 +7,12 @@ import type {
   RetryRepository,
 } from "@hookx/storage";
 import type { Investigator } from "@hookx/investigation";
+import {
+  createProcessMetrics,
+  silentLogger,
+  type Logger,
+  type ProcessMetrics,
+} from "@hookx/observability";
 import type { Clock } from "./clock.js";
 import {
   handleCorrelationAudit,
@@ -31,6 +37,13 @@ import {
   handlePaymentExceptions,
 } from "./http/exceptions.js";
 import {
+  handleGetIncident,
+  handleGetIncidentTimeline,
+  handleListIncidents,
+} from "./http/incidents.js";
+import { handleHealth, handleReady } from "./http/health.js";
+import { handleMetricsSummary } from "./http/metrics.js";
+import {
   handleGetInvestigation,
   handlePostInvestigate,
 } from "./http/investigation.js";
@@ -45,10 +58,21 @@ export type ApiDependencies = ProcessIncomingWebhookDependencies & {
   readonly exceptions?: ExceptionRepository;
   readonly investigations?: InvestigationRepository;
   readonly investigator?: Investigator;
+  readonly logger?: Logger;
+  readonly metrics?: ProcessMetrics;
+  readonly ping?: () => Promise<void>;
+  readonly liveProviders?: readonly string[];
 };
 
 export function createApp(dependencies: ApiDependencies): Hono {
   const app = new Hono();
+  const logger = dependencies.logger ?? silentLogger();
+  const metrics = dependencies.metrics ?? createProcessMetrics();
+  const wired: ApiDependencies = {
+    ...dependencies,
+    logger,
+    metrics,
+  };
 
   app.get("/", (c) => {
     return c.json({
@@ -57,6 +81,9 @@ export function createApp(dependencies: ApiDependencies): Hono {
       fullName: "HOOKX — Payment Webhook Reliability Engine",
       status: "ok",
       ingest: "/webhooks/:provider",
+      health: "/health",
+      ready: "/ready",
+      metrics: "/metrics/summary",
       retries: "/retries",
       deadLetters: "/dead-letters",
       payment: "/payments/:paymentId",
@@ -68,45 +95,56 @@ export function createApp(dependencies: ApiDependencies): Hono {
       webhookAudit: "/webhooks/:webhookEventId/audit",
       exceptions: "/exceptions",
       paymentExceptions: "/payments/:paymentId/exceptions",
+      incidents: "/incidents",
+      incident: "/incidents/:id",
+      incidentTimeline: "/incidents/:id/timeline",
       investigate: "/exceptions/:id/investigate",
       investigation: "/exceptions/:id/investigation",
     });
   });
 
-  app.post("/webhooks/:provider", (c) => handleWebhookPost(c, dependencies));
-  app.get("/webhooks", (c) => handleListWebhooks(c, dependencies));
+  app.get("/health", (c) => handleHealth(c));
+  app.get("/ready", (c) => handleReady(c, wired.ping));
+  app.get("/metrics/summary", (c) => handleMetricsSummary(c, wired));
+  app.post("/webhooks/:provider", (c) => handleWebhookPost(c, wired));
+  app.get("/webhooks", (c) => handleListWebhooks(c, wired));
   app.get("/webhooks/:webhookEventId/audit", (c) =>
-    handleWebhookAudit(c, dependencies),
+    handleWebhookAudit(c, wired),
   );
   app.get("/webhooks/:webhookEventId", (c) =>
-    handleGetWebhookEvent(c, dependencies),
+    handleGetWebhookEvent(c, wired),
   );
-  app.get("/retries", (c) => handleListRetries(c, dependencies));
-  app.get("/retries/:webhookEventId", (c) => handleGetRetry(c, dependencies));
-  app.get("/dead-letters", (c) => handleListDeadLetters(c, dependencies));
+  app.get("/retries", (c) => handleListRetries(c, wired));
+  app.get("/retries/:webhookEventId", (c) => handleGetRetry(c, wired));
+  app.get("/dead-letters", (c) => handleListDeadLetters(c, wired));
   app.get("/dead-letters/:webhookEventId", (c) =>
-    handleGetDeadLetter(c, dependencies),
+    handleGetDeadLetter(c, wired),
   );
-  app.get("/payments", (c) => handleListPayments(c, dependencies));
+  app.get("/payments", (c) => handleListPayments(c, wired));
   app.get("/payments/:paymentId/webhooks", (c) =>
-    handlePaymentWebhooks(c, dependencies),
+    handlePaymentWebhooks(c, wired),
   );
   app.get("/payments/:paymentId/audit", (c) =>
-    handlePaymentAudit(c, dependencies),
+    handlePaymentAudit(c, wired),
   );
   app.get("/payments/:paymentId/exceptions", (c) =>
-    handlePaymentExceptions(c, dependencies),
+    handlePaymentExceptions(c, wired),
   );
-  app.get("/payments/:paymentId", (c) => handleGetPayment(c, dependencies));
+  app.get("/payments/:paymentId", (c) => handleGetPayment(c, wired));
   app.post("/exceptions/:id/investigate", (c) =>
-    handlePostInvestigate(c, dependencies),
+    handlePostInvestigate(c, wired),
   );
   app.get("/exceptions/:id/investigation", (c) =>
-    handleGetInvestigation(c, dependencies),
+    handleGetInvestigation(c, wired),
   );
-  app.get("/exceptions/:id", (c) => handleGetException(c, dependencies));
-  app.get("/exceptions", (c) => handleListExceptions(c, dependencies));
-  app.get("/audit", (c) => handleCorrelationAudit(c, dependencies));
+  app.get("/exceptions/:id", (c) => handleGetException(c, wired));
+  app.get("/exceptions", (c) => handleListExceptions(c, wired));
+  app.get("/incidents/:id/timeline", (c) =>
+    handleGetIncidentTimeline(c, wired),
+  );
+  app.get("/incidents/:id", (c) => handleGetIncident(c, wired));
+  app.get("/incidents", (c) => handleListIncidents(c, wired));
+  app.get("/audit", (c) => handleCorrelationAudit(c, wired));
 
   return app;
 }

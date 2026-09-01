@@ -50,6 +50,13 @@
       "when": 1788231000000,
       "tag": "0006_investigations",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788234000000,
+      "tag": "0007_exceptions_code_detected_idx",
+      "breakpoints": true
     }
   ]
 }

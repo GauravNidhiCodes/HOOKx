@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { Instant } from "@hookx/domain";
 import { StorageError } from "../errors.js";
@@ -73,6 +73,18 @@ export class DrizzleRetryRepository implements RetryRepository {
         sql`${webhookRetries.status} IN ('PENDING', 'PROCESSING', 'RETRY_SCHEDULED')`,
       );
     return rows.map((row) => toRetryRecord(row));
+  }
+
+  public async count(): Promise<number> {
+    const rows = await this.db.select({ value: count() }).from(webhookRetries);
+    return Number(rows[0]?.value ?? 0);
+  }
+
+  public async countDeadLetters(): Promise<number> {
+    const rows = await this.db
+      .select({ value: count() })
+      .from(webhookDeadLetters);
+    return Number(rows[0]?.value ?? 0);
   }
 
   public async listDeadLetters(): Promise<readonly DeadLetterRecord[]> {

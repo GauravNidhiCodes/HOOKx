@@ -32,7 +32,10 @@ import type {
   SignatureVerifierRegistry,
 } from "@hookx/webhook";
 import { getProviderAdapter, isWebhookError } from "@hookx/webhook";
+import type { Logger, ProcessMetrics } from "@hookx/observability";
 import { PIPELINE_ERROR_CODE, pipelineHttpBody, type PipelineHttpBody } from "./errors.js";
+import { emitLifecycle } from "../observability/emit.js";
+import { observabilityRetrySink } from "../observability/retry-sink.js";
 
 export type ProcessIncomingWebhookDependencies = {
   readonly verifiers: SignatureVerifierRegistry;
@@ -46,6 +49,8 @@ export type ProcessIncomingWebhookDependencies = {
   readonly persistOutcome?: PersistOutcomeFn;
   readonly payments?: PaymentRepository;
   readonly exceptions?: ExceptionRepository;
+  readonly logger?: Logger;
+  readonly metrics?: ProcessMetrics;
 };
 
 export type ProcessIncomingWebhookInput = {
@@ -158,12 +163,13 @@ async function recordIngestExceptions(
   ids: {
     readonly paymentId?: PaymentId | null;
     readonly webhookEventId?: string | null;
+    readonly eventType?: string;
   } = {},
 ): Promise<void> {
   if (facts.length === 0) {
     return;
   }
-  await recordExceptionsSafely(
+  const created = await recordExceptionsSafely(
     {
       exceptions: dependencies.exceptions,
       audit: dependencies.audit,
@@ -178,6 +184,93 @@ async function recordIngestExceptions(
     },
     "SYSTEM",
   );
+  for (const record of created) {
+    emitLifecycle(dependencies, {
+      level: record.severity === "INFO" ? "INFO" : "WARN",
+      lifecycle: "EXCEPTION_CREATED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: record.paymentId,
+      eventId: record.webhookEventId,
+      eventType: ids.eventType,
+      exceptionCode: record.exceptionCode,
+      processingDecision: record.reason,
+    });
+  }
+}
+
+function logReplayDecisions(
+  dependencies: ProcessIncomingWebhookDependencies,
+  input: ProcessIncomingWebhookInput,
+  event: {
+    readonly paymentId: string;
+    readonly externalEventId: string;
+    readonly eventType: string;
+    readonly provider: string;
+  },
+  decisions: readonly {
+    readonly eventId: string;
+    readonly decision: string;
+    readonly reason: string;
+    readonly previousState: string | null;
+    readonly resultingState: string | null;
+  }[],
+): void {
+  const incoming = decisions.find((item) => item.eventId === event.externalEventId);
+  if (incoming?.decision === "DELAYED") {
+    emitLifecycle(dependencies, {
+      level: "INFO",
+      lifecycle: "REPLAY_STARTED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: event.provider,
+      paymentId: event.paymentId,
+      eventId: event.externalEventId,
+      eventType: event.eventType,
+      processingDecision: incoming.decision,
+      trigger: incoming.reason,
+      replayId: event.externalEventId,
+      previousState: incoming.previousState,
+      resultingState: incoming.resultingState,
+      eventsConsidered: decisions.length,
+    });
+  }
+  if (incoming?.decision === "ACCEPTED") {
+    emitLifecycle(dependencies, {
+      level: "INFO",
+      lifecycle: "STATE_TRANSITION",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: event.provider,
+      paymentId: event.paymentId,
+      eventId: event.externalEventId,
+      eventType: event.eventType,
+      processingDecision: incoming.decision,
+      previousState: incoming.previousState,
+      resultingState: incoming.resultingState,
+    });
+  }
+  for (const item of decisions) {
+    if (item.eventId === event.externalEventId || item.decision !== "ACCEPTED") {
+      continue;
+    }
+    emitLifecycle(dependencies, {
+      level: "INFO",
+      lifecycle: "REPLAY_COMPLETED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: event.provider,
+      paymentId: event.paymentId,
+      eventId: item.eventId,
+      processingDecision: item.decision,
+      replayId: item.eventId,
+      trigger: "OUT_OF_ORDER",
+      previousState: item.previousState,
+      resultingState: item.resultingState,
+      eventsConsidered: decisions.length,
+    });
+  }
 }
 
 /**
@@ -190,6 +283,13 @@ export async function processIncomingWebhook(
   input: ProcessIncomingWebhookInput,
 ): Promise<ProcessIncomingWebhookResult> {
   const startedAt = performance.now();
+  emitLifecycle(dependencies, {
+    level: "INFO",
+    lifecycle: "WEBHOOK_RECEIVED",
+    timestamp: input.now,
+    correlationId: input.requestId,
+    provider: input.provider,
+  });
   const verifier = dependencies.verifiers.get(input.provider);
   if (verifier === null) {
     await recordRejection(dependencies, input, AUDIT_REASON.UNSUPPORTED_PROVIDER);
@@ -198,6 +298,15 @@ export async function processIncomingWebhook(
       input,
       factsFromVerificationStatus("UNSUPPORTED_PROVIDER"),
     );
+    emitLifecycle(dependencies, {
+      level: "WARN",
+      lifecycle: "PROCESSING_FAILED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      processingDecision: "UNSUPPORTED_PROVIDER",
+      verification: "UNSUPPORTED_PROVIDER",
+    });
     return respond(
       404,
       pipelineHttpBody(
@@ -227,6 +336,15 @@ export async function processIncomingWebhook(
       input,
       factsFromVerificationStatus(verification.status),
     );
+    emitLifecycle(dependencies, {
+      level: "WARN",
+      lifecycle: "SIGNATURE_REJECTED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      processingDecision: verification.status,
+      verification: verification.status,
+    });
     const malformed = verification.status === "MALFORMED_SIGNATURE";
     return respond(
       malformed ? 400 : 401,
@@ -244,6 +362,15 @@ export async function processIncomingWebhook(
     );
   }
 
+  emitLifecycle(dependencies, {
+    level: "INFO",
+    lifecycle: "SIGNATURE_VERIFIED",
+    timestamp: input.now,
+    correlationId: input.requestId,
+    provider: input.provider,
+    verification: "VERIFIED",
+  });
+
   let payload: unknown;
   try {
     payload = JSON.parse(new TextDecoder().decode(input.rawBody));
@@ -254,6 +381,15 @@ export async function processIncomingWebhook(
       input,
       factsFromWebhookErrorCode(AUDIT_REASON.INVALID_PAYLOAD),
     );
+    emitLifecycle(dependencies, {
+      level: "WARN",
+      lifecycle: "PROCESSING_FAILED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      processingDecision: PIPELINE_ERROR_CODE.INVALID_PAYLOAD,
+      verification: "VERIFIED",
+    });
     return respond(
       400,
       pipelineHttpBody(
@@ -277,6 +413,16 @@ export async function processIncomingWebhook(
       receivedAt: input.now,
       headers: input.headers,
     });
+    emitLifecycle(dependencies, {
+      level: "DEBUG",
+      lifecycle: "WEBHOOK_NORMALIZED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventId: event.externalEventId,
+      eventType: event.eventType,
+    });
   } catch (error) {
     if (isWebhookError(error)) {
       await recordRejection(dependencies, input, error.code);
@@ -285,6 +431,15 @@ export async function processIncomingWebhook(
         input,
         factsFromWebhookErrorCode(error.code),
       );
+      emitLifecycle(dependencies, {
+        level: "WARN",
+        lifecycle: "PROCESSING_FAILED",
+        timestamp: input.now,
+        correlationId: input.requestId,
+        provider: input.provider,
+        processingDecision: error.code,
+        verification: "VERIFIED",
+      });
       return respond(
         400,
         pipelineHttpBody("bad_request", input.requestId, error.code),
@@ -296,6 +451,14 @@ export async function processIncomingWebhook(
         startedAt,
       );
     }
+    emitLifecycle(dependencies, {
+      level: "ERROR",
+      lifecycle: "PROCESSING_FAILED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      processingDecision: PIPELINE_ERROR_CODE.TEMPORARY_PROCESSING_FAILURE,
+    });
     return internalError(input.requestId, input.provider, "VERIFIED", startedAt);
   }
 
@@ -303,6 +466,16 @@ export async function processIncomingWebhook(
   try {
     stored = await dependencies.repository.store(event);
   } catch {
+    emitLifecycle(dependencies, {
+      level: "ERROR",
+      lifecycle: "PROCESSING_FAILED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventType: event.eventType,
+      processingDecision: PIPELINE_ERROR_CODE.TEMPORARY_PROCESSING_FAILURE,
+    });
     return internalError(input.requestId, input.provider, "VERIFIED", startedAt);
   }
 
@@ -329,8 +502,21 @@ export async function processIncomingWebhook(
       {
         paymentId: event.paymentId,
         webhookEventId: stored.existing.id,
+        eventType: event.eventType,
       },
     );
+    emitLifecycle(dependencies, {
+      level: "WARN",
+      lifecycle: "CONFLICT_DETECTED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventId: stored.existing.id,
+      eventType: event.eventType,
+      storeOutcome: "CONFLICT",
+      processingDecision: "CONFLICT",
+    });
     return respond(
       409,
       pipelineHttpBody("conflict", input.requestId, PIPELINE_ERROR_CODE.CONFLICT),
@@ -366,6 +552,54 @@ export async function processIncomingWebhook(
     }
   }
 
+  if (stored.outcome === "DUPLICATE") {
+    emitLifecycle(dependencies, {
+      level: "INFO",
+      lifecycle: "DUPLICATE_DETECTED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventId: stored.record.id,
+      eventType: event.eventType,
+      storeOutcome: "DUPLICATE",
+      processingDecision: "DUPLICATE",
+    });
+  } else {
+    emitLifecycle(dependencies, {
+      level: "INFO",
+      lifecycle: "EVENT_PERSISTED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventId: stored.record.id,
+      eventType: event.eventType,
+      storeOutcome: "STORED",
+    });
+    emitLifecycle(dependencies, {
+      level: "DEBUG",
+      lifecycle: "PROCESSING_STARTED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventId: stored.record.id,
+      eventType: event.eventType,
+    });
+  }
+
+  const retryLifecycle = observabilityRetrySink(
+    dependencies.lifecycle,
+    dependencies,
+    {
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventType: event.eventType,
+    },
+  );
+
   if (dependencies.retry !== undefined) {
     let retryStatus: string | undefined;
     try {
@@ -375,7 +609,7 @@ export async function processIncomingWebhook(
           events: dependencies.repository,
           policy: dependencies.retryPolicy ?? DEFAULT_RETRY_POLICY,
           processPaymentEvents: dependencies.processPaymentEvents,
-          lifecycle: dependencies.lifecycle,
+          lifecycle: retryLifecycle,
           leaseMs: dependencies.leaseMs ?? DEFAULT_RETRY_LEASE_MS,
           audit: dependencies.audit,
           persistOutcome: dependencies.persistOutcome,
@@ -388,6 +622,17 @@ export async function processIncomingWebhook(
       );
       retryStatus = retryRow.status;
     } catch {
+      emitLifecycle(dependencies, {
+        level: "ERROR",
+        lifecycle: "PROCESSING_FAILED",
+        timestamp: input.now,
+        correlationId: input.requestId,
+        provider: input.provider,
+        paymentId: event.paymentId,
+        eventId: stored.record.id,
+        eventType: event.eventType,
+        processingDecision: PIPELINE_ERROR_CODE.TEMPORARY_PROCESSING_FAILURE,
+      });
       return respond(
         500,
         pipelineHttpBody(
@@ -416,6 +661,7 @@ export async function processIncomingWebhook(
         decision = replay.decisions.find(
           (item) => item.eventId === event.externalEventId,
         )?.decision;
+        logReplayDecisions(dependencies, input, event, replay.decisions);
       } catch {
         // Observation must not change the HTTP outcome.
       }
@@ -429,6 +675,7 @@ export async function processIncomingWebhook(
         {
           paymentId: event.paymentId,
           webhookEventId: stored.record.id,
+          eventType: event.eventType,
         },
       );
       return respond(
@@ -449,6 +696,17 @@ export async function processIncomingWebhook(
     }
 
     if (retryStatus === "RETRY_SCHEDULED") {
+      emitLifecycle(dependencies, {
+        level: "WARN",
+        lifecycle: "PROCESSING_FAILED",
+        timestamp: input.now,
+        correlationId: input.requestId,
+        provider: input.provider,
+        paymentId: event.paymentId,
+        eventId: stored.record.id,
+        eventType: event.eventType,
+        processingDecision: PIPELINE_ERROR_CODE.TEMPORARY_PROCESSING_FAILURE,
+      });
       return respond(
         500,
         pipelineHttpBody(
@@ -495,6 +753,7 @@ export async function processIncomingWebhook(
     const decision = replay.decisions.find(
       (item) => item.eventId === event.externalEventId,
     );
+    logReplayDecisions(dependencies, input, event, replay.decisions);
     if (stored.outcome === "DUPLICATE") {
       await recordIngestExceptions(
         dependencies,
@@ -503,6 +762,7 @@ export async function processIncomingWebhook(
         {
           paymentId: event.paymentId,
           webhookEventId: stored.record.id,
+          eventType: event.eventType,
         },
       );
     } else if (decision !== undefined) {
@@ -518,6 +778,7 @@ export async function processIncomingWebhook(
         {
           paymentId: event.paymentId,
           webhookEventId: stored.record.id,
+          eventType: event.eventType,
         },
       );
     }
@@ -539,6 +800,17 @@ export async function processIncomingWebhook(
       startedAt,
     );
   } catch {
+    emitLifecycle(dependencies, {
+      level: "ERROR",
+      lifecycle: "PROCESSING_FAILED",
+      timestamp: input.now,
+      correlationId: input.requestId,
+      provider: input.provider,
+      paymentId: event.paymentId,
+      eventId: stored.record.id,
+      eventType: event.eventType,
+      processingDecision: PIPELINE_ERROR_CODE.TEMPORARY_PROCESSING_FAILURE,
+    });
     return internalError(input.requestId, input.provider, "VERIFIED", startedAt);
   }
 }
