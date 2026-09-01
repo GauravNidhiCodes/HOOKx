@@ -6,6 +6,15 @@ import react from "@vitejs/plugin-react";
 const root = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(root, "../..");
 
+const apiProxy = {
+  target: "http://127.0.0.1:8787",
+  bypass(req: { headers: { accept?: string } }) {
+    if (req.headers.accept?.includes("text/html")) {
+      return "/index.html";
+    }
+  },
+};
+
 export default defineConfig({
   plugins: [react()],
   envDir: repo,
@@ -24,12 +33,12 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      "/exceptions": "http://127.0.0.1:8787",
-      "/payments": "http://127.0.0.1:8787",
-      "/webhooks": "http://127.0.0.1:8787",
-      "/retries": "http://127.0.0.1:8787",
-      "/dead-letters": "http://127.0.0.1:8787",
-      "/audit": "http://127.0.0.1:8787",
+      "/exceptions": apiProxy,
+      "/payments": apiProxy,
+      "/webhooks": apiProxy,
+      "/retries": apiProxy,
+      "/dead-letters": apiProxy,
+      "/audit": apiProxy,
     },
   },
 });
