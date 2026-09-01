@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { instant } from "@hookx/domain";
 import {
   createSignatureVerifierRegistry,
+  RAZORPAY_EVENT_ID_HEADER,
+  RAZORPAY_FIXTURE_EVENT_ID,
+  RAZORPAY_SIGNATURE_HEADER,
+  razorpayPaymentAuthorizedPayload,
+  signRazorpayWebhook,
   signSyntheticWebhook,
   SYNTHETIC_SIGNATURE_HEADER,
   syntheticOpenedPayload,
@@ -153,8 +158,39 @@ describe("POST /webhooks/:provider", () => {
 
   it("isolates providers: unknown provider is not ingested", async () => {
     const { app, repository } = createTestApp();
-    const response = await postSigned(app, { provider: "razorpay" });
+    const response = await postSigned(app, { provider: "stripe" });
     expect(response.status).toBe(404);
+    expect(repository.storeCalls).toBe(0);
+  });
+
+  it("does not treat Razorpay as unknown when the signature is missing", async () => {
+    const { app, repository } = createTestApp();
+    const response = await postSigned(app, {
+      provider: "razorpay",
+      signature: null,
+    });
+    expect(response.status).toBe(401);
+    expect((await readJson(response)).code).toBe("MISSING_SIGNATURE");
+    expect(repository.storeCalls).toBe(0);
+  });
+
+  it("rejects Razorpay when the webhook secret is not configured", async () => {
+    const { app, repository } = createTestApp();
+    const rawBody = JSON.stringify(razorpayPaymentAuthorizedPayload());
+    const response = await app.request("/webhooks/razorpay", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [RAZORPAY_SIGNATURE_HEADER]: signRazorpayWebhook({
+          secret: "dev-only-razorpay-webhook-secret",
+          rawBody,
+        }),
+        [RAZORPAY_EVENT_ID_HEADER]: RAZORPAY_FIXTURE_EVENT_ID.AUTHORIZED,
+      },
+      body: rawBody,
+    });
+    expect(response.status).toBe(401);
+    expect((await readJson(response)).code).toBe("INVALID_SIGNATURE");
     expect(repository.storeCalls).toBe(0);
   });
 

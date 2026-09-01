@@ -273,7 +273,10 @@ export async function processIncomingWebhook(
   let event;
   try {
     const adapter = getProviderAdapter(input.provider);
-    event = adapter.normalize(payload, { receivedAt: input.now });
+    event = adapter.normalize(payload, {
+      receivedAt: input.now,
+      headers: input.headers,
+    });
   } catch (error) {
     if (isWebhookError(error)) {
       await recordRejection(dependencies, input, error.code);

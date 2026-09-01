@@ -7,6 +7,7 @@ import { createApp } from "./app.js";
 import { systemClock } from "./clock.js";
 import {
   resolveRetryRuntimeConfig,
+  resolveRazorpayWebhookSecret,
   resolveSyntheticWebhookSecret,
   resolveSyntheticWebhookToleranceSeconds,
 } from "./config.js";
@@ -29,6 +30,7 @@ async function start(): Promise<void> {
       syntheticToleranceSeconds: resolveSyntheticWebhookToleranceSeconds(
         process.env,
       ),
+      razorpayWebhookSecret: resolveRazorpayWebhookSecret(process.env),
     }),
     repository: store.repository,
     retry: store.retry,

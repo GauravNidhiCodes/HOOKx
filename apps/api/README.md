@@ -4,11 +4,11 @@ HTTP API for HOOKX webhook ingest, retry inspection, and read-only payment/audit
 
 This service is the request boundary. It does not own payment transition rules, provider parsing, schema SQL, or retry backoff.
 
-Live Razorpay (or any live PSP) integration is not implemented. The only ingest adapter is the synthetic provider (`SYNTHETIC`).
+Live Razorpay **API** integration is not implemented. Razorpay **webhook ingest** is implemented: signature verification and normalization only. See `docs/razorpay.md`. The synthetic provider (`SYNTHETIC`) remains the local simulator.
 
 ## `POST /webhooks/:provider`
 
-Primary ingest route. `:provider` is the provider identifier (`SYNTHETIC` for local and test deliveries).
+Primary ingest route. `:provider` is `SYNTHETIC` or `razorpay`.
 
 ### Request flow
 
@@ -52,7 +52,11 @@ Correlation ids are generated at this boundary, never inside the state machine.
 
 Verification runs on the original raw body **before** `JSON.parse`.
 
-The synthetic verifier expects `X-Hookx-Synthetic-Signature` (`t=<unix>,v1=<hex>`). The secret comes from `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. The expected signature and secret are never returned.
+The synthetic verifier expects `X-Hookx-Synthetic-Signature` (`t=<unix>,v1=<hex>`). The secret comes from `HOOKX_SYNTHETIC_WEBHOOK_SECRET`.
+
+Razorpay expects `X-Razorpay-Signature` (HMAC-SHA256 hex of the raw body). The secret comes from `RAZORPAY_WEBHOOK_SECRET` and is optional at process start. See `docs/razorpay.md`.
+
+The expected signature and secret are never returned.
 
 | Condition | HTTP | Persist event | Mutate payment |
 | --- | --- | --- | --- |
@@ -140,6 +144,6 @@ All simulator events are synthetic and do not represent real payment transaction
 
 ## Run
 
-Requires `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. See the repository `.env.example`.
+Requires `HOOKX_DATABASE_URL` and `HOOKX_SYNTHETIC_WEBHOOK_SECRET`. `RAZORPAY_WEBHOOK_SECRET` is required only when exercising `POST /webhooks/razorpay`. See the repository `.env.example`.
 
 Investigation defaults to the local stub. An LLM key is optional and is never required for webhook ingest.

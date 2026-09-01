@@ -185,12 +185,3 @@ export class SyntheticProviderAdapter
 }
 
 export const syntheticProviderAdapter = new SyntheticProviderAdapter();
-
-export function getProviderAdapter(
-  provider: string,
-): ProviderAdapter<SyntheticWebhookPayload> {
-  if (provider !== SYNTHETIC_PROVIDER_NAME) {
-    throw new WebhookError("UNSUPPORTED_PROVIDER", "Provider is not supported");
-  }
-  return syntheticProviderAdapter;
-}

@@ -5,6 +5,7 @@ import {
 } from "@hookx/investigation";
 import {
   resolveRetryRuntimeConfig,
+  resolveRazorpayWebhookSecret,
   resolveSyntheticWebhookSecret,
   resolveSyntheticWebhookToleranceSeconds,
 } from "./config.js";
@@ -43,6 +44,17 @@ describe("webhook secret configuration", () => {
 
   it("defaults the synthetic replay window", () => {
     expect(resolveSyntheticWebhookToleranceSeconds({})).toBe(300);
+  });
+
+  it("does not require a Razorpay webhook secret at process start", () => {
+    expect(resolveRazorpayWebhookSecret({})).toBeUndefined();
+  });
+
+  it("reads the Razorpay webhook secret only from the environment", () => {
+    const secret = "dev-only-razorpay-webhook-secret";
+    expect(
+      resolveRazorpayWebhookSecret({ RAZORPAY_WEBHOOK_SECRET: secret }),
+    ).toBe(secret);
   });
 });
 

@@ -74,15 +74,12 @@ Signature algorithms belong to provider adapters. The pipeline depends on `Signa
 WebhookVerifier (interface)
       ↑
 SyntheticVerifier     (HMAC-SHA256 + timestamp, local/test only)
-
-Future (not implemented):
-RazorpayVerifier
-StripeVerifier
+RazorpayVerifier      (HMAC-SHA256 of raw body, `X-Razorpay-Signature`)
 ```
 
-`createSignatureVerifierRegistry` currently registers only `SYNTHETIC`. Any other provider name returns `null`. Those requests must not be ingested.
+`createSignatureVerifierRegistry` registers `SYNTHETIC` and `razorpay`. Any other provider name returns `null`. Those requests must not be ingested.
 
-`ProviderAdapter<TPayload>` remains the envelope mapper after verification. It is still not coupled to Razorpay, Stripe, or any live PSP.
+`ProviderAdapter<TPayload>` maps a verified envelope to the normalized event. Razorpay-specific parsing lives in `src/razorpay/`.
 
 ## Synthetic signing scheme
 
@@ -119,6 +116,7 @@ API / process environment (placeholders only — see `.env.example`):
 ```
 HOOKX_SYNTHETIC_WEBHOOK_SECRET=dev-only-not-a-real-secret
 HOOKX_SYNTHETIC_WEBHOOK_TOLERANCE_SECONDS=300
+RAZORPAY_WEBHOOK_SECRET=
 ```
 
 Do not commit real secrets, print them, return them in HTTP bodies, or store them on webhook event rows.
@@ -129,7 +127,8 @@ The synthetic scheme includes a unix timestamp in the signature header so a repl
 
 - Authenticity is checked first. An invalid MAC is `INVALID_SIGNATURE` even if the timestamp is also stale (no extra oracle).
 - The window uses the injected `now` instant converted to unix seconds from the timestamp string, not the system clock.
-- Live Razorpay/Stripe replay rules are not implemented; they will live in those verifiers when those adapters exist.
+- Live Stripe replay rules are not implemented.
+- Razorpay does not include a timestamp in `X-Razorpay-Signature`; HOOKX does not invent a replay window for that header.
 
 ## Security assumptions
 
@@ -184,9 +183,9 @@ Typed errors:
 | `UNSUPPORTED_EVENT` | Provider event name is not mapped |
 | `MISSING_EXTERNAL_ID` | Empty or absent event id |
 | `MISSING_PAYMENT_ID` | Empty or absent payment id |
-| `INVALID_AMOUNT` | Amount is not a minor-unit decimal string |
+| `INVALID_AMOUNT` | Amount is not a minor-unit decimal string (synthetic) or a non-negative integer (Razorpay) |
 | `INVALID_CURRENCY` | Not a 3-letter alphabetic code |
-| `INVALID_TIMESTAMP` | Not a UTC instant (`Z` or `+00:00`) |
+| `INVALID_TIMESTAMP` | Not a UTC instant (`Z` or `+00:00`), or not unix seconds (Razorpay) |
 
 ## Event identity
 
@@ -217,3 +216,7 @@ Event mapping:
 | `syn.payment.return` | `refund.created` |
 
 Unknown kinds are rejected.
+
+## Razorpay provider
+
+See `docs/razorpay.md`. Adapter `razorpay`. Event id is the `x-razorpay-event-id` header. Amounts are JSON integers in minor units. `occurredAt` is envelope `created_at` unix seconds.

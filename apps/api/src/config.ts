@@ -30,6 +30,16 @@ export function resolveSyntheticWebhookToleranceSeconds(
   return parsed;
 }
 
+export function resolveRazorpayWebhookSecret(
+  env: NodeJS.ProcessEnv,
+): string | undefined {
+  const value = env["RAZORPAY_WEBHOOK_SECRET"];
+  if (typeof value !== "string" || value.length === 0) {
+    return undefined;
+  }
+  return value;
+}
+
 export type RetryRuntimeConfig = {
   readonly policy: RetryPolicy;
   readonly leaseMs: number;

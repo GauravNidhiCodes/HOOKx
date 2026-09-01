@@ -63,7 +63,7 @@ What this revision actually implements:
 - **Determinism.** Transition results depend only on the provided event, current state, and seen-identity set.
 - **Durable webhook identity.** Normalized events are stored under a PostgreSQL uniqueness constraint on `provider + external_event_id`. Identical redeliveries are duplicates; conflicting hashes are conflicts. The original row is not overwritten.
 - **Out-of-order replay.** Stored events are ordered by `occurredAt` with a webhook-identity tie-break, then replayed through `processEvent`. Early events are `DELAYED`, not silently applied. Impossible transitions after ordering require investigation.
-- **Signature verification.** External webhooks are verified on the original raw body before JSON parse, normalization, or storage. The synthetic adapter uses HMAC-SHA256 with an injected-time replay window. Live PSP verifiers are not implemented.
+- **Signature verification.** External webhooks are verified on the original raw body before JSON parse, normalization, or storage. The synthetic adapter uses HMAC-SHA256 with an injected-time replay window. Razorpay uses HMAC-SHA256 over the raw body and `X-Razorpay-Signature` (see `docs/razorpay.md`).
 - **Retry and recovery.** A valid persisted webhook that fails temporarily is claimed with `SELECT … FOR UPDATE SKIP LOCKED`, retried with deterministic exponential backoff, and dead-lettered after max attempts or a permanent failure. Duplicate deliveries cannot create a second event row or a second payment transition.
 - **Append-only audit trail.** Live ingest and retry write immutable `audit_events` rows (received, duplicate, conflict, state change, delay, retry lifecycle). Replay does not rewrite that history. This is not a cryptographic ledger.
 
@@ -71,7 +71,7 @@ What this revision does not implement or claim:
 
 - Production readiness
 - Guaranteed delivery
-- Live Razorpay (or any live provider) processing
+- Live Razorpay REST APIs / checkout (webhook ingest is implemented; see `docs/razorpay.md`)
 - Cryptographic audit immutability
 - Production-scale performance
 
@@ -157,7 +157,7 @@ pnpm simulate list
 | Synthetic fixtures | Implemented |
 | HTTP webhook ingest | Implemented (end-to-end `POST /webhooks/:provider` pipeline) |
 | Signature verification | Implemented (synthetic HMAC-SHA256) |
-| Provider adapters (Razorpay, etc.) | Not implemented |
+| Provider adapters (Razorpay, etc.) | Razorpay webhook adapter implemented (ingest only; no Razorpay APIs). See `docs/razorpay.md`. |
 | PostgreSQL / Drizzle persistence | Implemented (events, payments, retries, dead letters) |
 | Out-of-order event replay | Implemented |
 | Retry, recovery | Implemented (PostgreSQL worker + backoff) |

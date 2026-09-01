@@ -7,11 +7,13 @@ import type { WebhookIdentity } from "./identity.js";
 
 export interface NormalizeOptions {
   readonly receivedAt: Instant;
+  /** Provider headers after the HTTP layer lowercases names. */
+  readonly headers?: ReadonlyMap<string, string>;
 }
 
 export interface ProviderAdapter<TPayload> {
   readonly provider: ProviderId;
-  validate(payload: unknown): TPayload;
+  validate(payload: unknown, options?: NormalizeOptions): TPayload;
   identify(payload: TPayload): WebhookIdentity;
   extractPaymentId(payload: TPayload): PaymentId;
   extractOccurredAt(payload: TPayload): Instant;

@@ -308,6 +308,7 @@ describe("provider isolation", () => {
     expectWebhookError("UNSUPPORTED_PROVIDER", () => {
       getProviderAdapter("stripe");
     });
+    expect(getProviderAdapter("razorpay").provider).toBe("razorpay");
     expectWebhookError("UNSUPPORTED_PROVIDER", () => {
       syntheticProviderAdapter.normalize(
         { event: "payment.captured", id: "evt_1" },

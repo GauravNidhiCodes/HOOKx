@@ -48,9 +48,43 @@ export {
 } from "./synthetic/mapping.js";
 export {
   SyntheticProviderAdapter,
-  getProviderAdapter,
   syntheticProviderAdapter,
 } from "./synthetic/adapter.js";
+export { getProviderAdapter } from "./registry.js";
+export {
+  RAZORPAY_PROVIDER_NAME,
+  RAZORPAY_SIGNATURE_HEADER,
+  RAZORPAY_EVENT_ID_HEADER,
+} from "./razorpay/constants.js";
+export {
+  RAZORPAY_EVENT_TYPE_MAP,
+  isRazorpaySupportedEventName,
+  mapRazorpayEventType,
+} from "./razorpay/mapping.js";
+export {
+  RazorpayProviderAdapter,
+  razorpayProviderAdapter,
+} from "./razorpay/adapter.js";
+export { RazorpaySignatureVerifier } from "./razorpay/verifier.js";
+export { signRazorpayWebhook } from "./razorpay/sign.js";
+export {
+  RAZORPAY_FIXTURE_AMOUNT,
+  RAZORPAY_FIXTURE_CAPTURED_OCCURRED_AT,
+  RAZORPAY_FIXTURE_CURRENCY,
+  RAZORPAY_FIXTURE_EVENT_ID,
+  RAZORPAY_FIXTURE_FAILED_OCCURRED_AT,
+  RAZORPAY_FIXTURE_OCCURRED_AT,
+  RAZORPAY_FIXTURE_ORDER_ID,
+  RAZORPAY_FIXTURE_PAYMENT_ID,
+  RAZORPAY_FIXTURE_REFUND_ID,
+  RAZORPAY_FIXTURE_REFUND_OCCURRED_AT,
+  razorpayMalformedPayload,
+  razorpayPaymentAuthorizedPayload,
+  razorpayPaymentCapturedPayload,
+  razorpayPaymentFailedPayload,
+  razorpayRefundCreatedPayload,
+  razorpayUnsupportedEventPayload,
+} from "./razorpay/fixtures.js";
 export {
   SYNTHETIC_AMOUNT_MINOR_STRING,
   SYNTHETIC_MARKER,
