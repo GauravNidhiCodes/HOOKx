@@ -33,10 +33,10 @@ describe("overview", () => {
     expect(nav.textContent).not.toContain("Events");
     expect(screen.getByRole("heading", { name: "ARCHITECTURE" })).toBeTruthy();
     expect(screen.getByLabelText("System architecture").textContent).toContain(
-      "Verification",
+      "Verify",
     );
     expect(screen.getByLabelText("System architecture").textContent).toContain(
-      "Idempotent ingestion",
+      "Idempotent ingest",
     );
     expect(screen.getByText("AI outside the financial decision path.")).toBeTruthy();
     expect(screen.getByText("NO DATA")).toBeTruthy();

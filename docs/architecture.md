@@ -21,11 +21,11 @@ Razorpay-specific code lives under `packages/webhook/src/razorpay/`. The core en
 
 ```mermaid
 flowchart TD
-  P[Provider] --> V[Verification]
-  V --> A[Adapter]
-  A --> N[Normalization]
-  N --> I[Idempotent ingestion]
-  I --> D[Deterministic processing]
+  P[Payment provider] --> W[Webhook]
+  W --> V[Verify]
+  V --> N[Normalize]
+  N --> I[Idempotent ingest]
+  I --> D[Deterministic processor]
   D --> R[Retry / replay]
   R --> X[Exception]
   X --> U[Audit]
@@ -33,20 +33,30 @@ flowchart TD
   G --> O[Operator]
 ```
 
-Ingestion in order: capture raw body → verify signature → adapter normalize → idempotent persist → process / replay → durable payment + audit → HTTP response.
+Ingestion in order: capture raw body → verify signature → adapter normalize → idempotent persist → process / replay → durable payment + audit → HTTP response. Normalize is the provider adapter.
 
 ```
-Provider
-  → Verification
-  → Adapter
-  → Normalization
-  → Idempotent ingestion
-  → Deterministic processing
-  → Retry / replay
-  → Exception
-  → Audit
-  → Investigation
-  → Operator
+PAYMENT PROVIDER
+      ↓
+   WEBHOOK
+      ↓
+    VERIFY
+      ↓
+   NORMALIZE
+      ↓
+IDEMPOTENT INGEST
+      ↓
+DETERMINISTIC PROCESSOR
+      ↓
+ RETRY / REPLAY
+      ↓
+   EXCEPTION
+      ↓
+     AUDIT
+      ↓
+ INVESTIGATION
+      ↓
+   OPERATOR
 ```
 
 ## Retries and replay

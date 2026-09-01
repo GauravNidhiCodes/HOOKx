@@ -19,11 +19,11 @@ const CAPABILITIES = [
 
 const ARCHITECTURE = [
   "Provider",
-  "Verification",
-  "Adapter",
-  "Normalization",
-  "Idempotent ingestion",
-  "Deterministic processing",
+  "Webhook",
+  "Verify",
+  "Normalize",
+  "Idempotent ingest",
+  "Deterministic processor",
   "Retry / replay",
   "Exception",
   "Audit",
