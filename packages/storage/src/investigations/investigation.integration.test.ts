@@ -35,11 +35,16 @@ function advisoryResult(exceptionId: string) {
       },
     ],
     likelyCause: "The provider may have delivered a conflicting payload.",
+    incidentType: "CONFLICTING_EVENT",
+    severity: "ERROR",
+    rootCause: "The provider may have delivered a conflicting payload.",
+    impact: "Payment state was not modified by this advisory record.",
     recommendedAction: {
       code: "INVESTIGATE_CONFLICTING_PAYLOAD",
       detail: "Review the stored event. Advisory only.",
     },
     confidence: "MEDIUM",
+    confidenceReason: "Only the stored exception citation is attached to this record.",
     limitations: [
       "This record is advisory.",
       "Classification remains the deterministic exception engine.",

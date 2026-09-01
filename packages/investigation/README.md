@@ -64,7 +64,7 @@ Metadata on every implementation:
 
 - `implementation` — `stub`, `openai`, `unavailable`, …
 - `modelId` — provider model string, or `null` for local implementations
-- `promptVersion` — currently `investigation-v1`
+- `promptVersion` — currently `investigation-v2`
 
 Callers construct context at the application boundary and pass that object in. They do not pass a store.
 
@@ -159,7 +159,7 @@ Do not present `likelyCause` as a confirmed ledger fact. The stub implementation
 
 ## Prompt and security
 
-Privileged instructions live in `INVESTIGATION_SYSTEM_PROMPT` (`promptVersion` `investigation-v1`). That string tells the model it is investigating a webhook exception, it is not authorized to modify financial state, it may use only supplied evidence, it must not invent facts, it must distinguish facts from hypotheses, and recommendations are advisory.
+Privileged instructions live in `INVESTIGATION_SYSTEM_PROMPT` (`promptVersion` `investigation-v2`). That string tells the model it is investigating a payment webhook reliability incident, it may use only supplied evidence, it must not invent events or causes, and it must say `INSUFFICIENT EVIDENCE` rather than guess.
 
 Untrusted payment data is sent in a **separate user message** labeled `UNTRUSTED INVESTIGATION EVIDENCE`. Provider payload text (and any instruction-like strings that leaked into sanitized metadata) must not be concatenated into the system prompt.
 
@@ -231,8 +231,11 @@ Never fail `POST /webhooks/:provider` because an LLM is unavailable. That path m
 
 Defined on `@hookx/api`, not in this package:
 
-- `POST /exceptions/:id/investigate` — load exception, build context, investigate, validate, persist, return
+- `POST /incidents/:id/investigate` and `POST /exceptions/:id/investigate` — load incident, build context, investigate, validate, persist, audit, return
+- `GET /incidents/:id/investigations` — investigation history
 - `GET /exceptions/:id/investigation` — latest advisory record
+
+See `docs/ai-investigator.md`. **AI does not determine financial state.**
 
 Neither route mutates payment state or exception classification.
 

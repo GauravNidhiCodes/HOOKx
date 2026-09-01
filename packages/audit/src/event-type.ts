@@ -14,6 +14,7 @@ export const AUDIT_EVENT_TYPES = [
   "WEBHOOK_CONFLICT_DETECTED",
   "INVALID_TRANSITION_DETECTED",
   "RETRY_EXHAUSTED",
+  "INVESTIGATION_RECORDED",
 ] as const;
 
 export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];

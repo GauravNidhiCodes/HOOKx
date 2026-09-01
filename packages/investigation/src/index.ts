@@ -23,17 +23,27 @@ export {
 } from "./evidence.js";
 export {
   serializeInvestigationContext,
+  replayViewFromEvidence,
+  computeEvidenceHash,
+  withEvidenceHash,
   type InvestigationAuditView,
   type InvestigationContext,
   type InvestigationExceptionView,
+  type InvestigationIncidentView,
+  type InvestigationInput,
   type InvestigationPaymentView,
+  type InvestigationReplayView,
   type InvestigationRetryView,
   type InvestigationRuleView,
   type InvestigationWebhookView,
 } from "./context.js";
 export { applicableRulesFor } from "./rules.js";
-export { exceptionViewFromRecord } from "./from-exception.js";
 export {
+  exceptionViewFromRecord,
+  incidentViewFromRecord,
+} from "./from-exception.js";
+export {
+  claimsUnsupportedFinancialLoss,
   createInvestigationRecord,
   createInvestigationResult,
   type InvestigationRecord,
@@ -61,9 +71,32 @@ export {
   type OpenAIInvestigatorConfig,
 } from "./openai.js";
 export {
+  OpenAICompatibleProvider,
+} from "./openai-provider.js";
+export type {
+  AIProvider,
+  StructuredInvestigationRequest,
+} from "./provider.js";
+export {
   INVESTIGATION_PROVIDERS,
   createInvestigatorFromEnv,
   resolveInvestigationRuntimeConfig,
   type InvestigationProvider,
   type InvestigationRuntimeConfig,
 } from "./factory.js";
+export {
+  INVESTIGATION_INCIDENT_TYPES,
+  INSUFFICIENT_EVIDENCE_ROOT_CAUSE,
+  explanatoryIncidentTypeFor,
+  isInvestigationIncidentType,
+  type InvestigationIncidentType,
+} from "./incident-type.js";
+export {
+  isInsufficientEvidence,
+  evidenceConflictNote,
+} from "./insufficient.js";
+export {
+  redactSecretString,
+  sanitizeInvestigationContext,
+  serializedContextContainsForbiddenMaterial,
+} from "./sanitize.js";

@@ -1,6 +1,16 @@
 import type { ExceptionRecord } from "@hookx/exceptions";
 import { sanitizeAuditMetadata } from "@hookx/audit";
-import type { InvestigationExceptionView } from "./context.js";
+import type {
+  InvestigationExceptionView,
+  InvestigationIncidentView,
+} from "./context.js";
+
+function isSyntheticIncident(record: ExceptionRecord): boolean {
+  if (record.provider === "SYNTHETIC") {
+    return true;
+  }
+  return record.paymentId !== null && record.paymentId.startsWith("SYNTHETIC:");
+}
 
 export function exceptionViewFromRecord(
   record: ExceptionRecord,
@@ -17,5 +27,22 @@ export function exceptionViewFromRecord(
     detectedAt: record.detectedAt,
     correlationId: record.correlationId,
     metadata: sanitizeAuditMetadata(record.metadata),
+  });
+}
+
+export function incidentViewFromRecord(
+  record: ExceptionRecord,
+): InvestigationIncidentView {
+  return Object.freeze({
+    incidentId: record.exceptionId,
+    exceptionId: record.exceptionId,
+    exceptionCode: record.exceptionCode,
+    severity: record.severity,
+    status: record.status,
+    provider: record.provider,
+    paymentId: record.paymentId,
+    eventId: record.webhookEventId,
+    detectedAt: record.detectedAt,
+    synthetic: isSyntheticIncident(record),
   });
 }

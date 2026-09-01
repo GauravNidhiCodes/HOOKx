@@ -274,7 +274,10 @@ export function composeIncidentTimeline(
     }
   }
 
-  if (input.investigation !== null) {
+  const investigationAlreadyOnAudit = input.audit.some(
+    (event) => event.eventType === "INVESTIGATION_RECORDED",
+  );
+  if (input.investigation !== null && !investigationAlreadyOnAudit) {
     drafts.push({
       clock: input.investigation.createdAt,
       eventTime: null,
@@ -436,6 +439,20 @@ function expandAudit(
       decision: event.reason,
     });
     return created;
+  }
+  if (event.eventType === "INVESTIGATION_RECORDED") {
+    const investigationId =
+      typeof event.metadata["investigationId"] === "string"
+        ? event.metadata["investigationId"]
+        : event.auditEventId;
+    return [
+      {
+        lifecycle: "INVESTIGATION_AVAILABLE",
+        source: "INVESTIGATION",
+        sourceId: investigationId,
+        decision: event.reason,
+      },
+    ];
   }
   return [];
 }

@@ -1,10 +1,16 @@
 import { DomainError, instant, type Instant } from "@hookx/domain";
+import { isExceptionSeverity, type ExceptionSeverity } from "@hookx/exceptions";
 import {
   isInvestigationConfidence,
   type InvestigationConfidence,
 } from "./confidence.js";
 import type { InvestigationEvidence } from "./evidence.js";
 import { isEvidenceSourceType } from "./evidence.js";
+import {
+  INSUFFICIENT_EVIDENCE_ROOT_CAUSE,
+  isInvestigationIncidentType,
+  type InvestigationIncidentType,
+} from "./incident-type.js";
 import {
   isForbiddenFinancialAction,
   isRecommendedActionCode,
@@ -16,9 +22,15 @@ export type InvestigationResult = {
   readonly summary: string;
   readonly facts: readonly string[];
   readonly evidence: readonly InvestigationEvidence[];
+  readonly incidentType: InvestigationIncidentType;
+  readonly severity: ExceptionSeverity;
+  readonly rootCause: string;
   readonly likelyCause: string;
+  readonly impact: string;
+  readonly recommendedActions: readonly RecommendedAction[];
   readonly recommendedAction: RecommendedAction;
   readonly confidence: InvestigationConfidence;
+  readonly confidenceReason: string;
   readonly limitations: readonly string[];
 };
 
@@ -28,7 +40,15 @@ const MAX_FACT = 500;
 const MAX_FACTS = 16;
 const MAX_EVIDENCE = 16;
 const MAX_LIMITATIONS = 12;
+const MAX_ACTIONS = 8;
 const PRINTABLE = /^[\u0020-\u007E\n]+$/;
+
+const CLAIMED_CUSTOMER_LOSS =
+  /\b(customer|user|payer)\b.{0,48}\b(lost|lose|losing)\b.{0,24}\b(money|funds|cash)\b/i;
+
+export function claimsUnsupportedFinancialLoss(text: string): boolean {
+  return CLAIMED_CUSTOMER_LOSS.test(text);
+}
 
 function assertText(value: unknown, label: string, max: number): string {
   if (typeof value !== "string") {
@@ -107,25 +127,25 @@ function parseEvidence(value: unknown): readonly InvestigationEvidence[] {
   );
 }
 
-function parseAction(value: unknown): RecommendedAction {
+function parseAction(value: unknown, label: string): RecommendedAction {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new InvestigationError(
       INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
-      "recommendedAction must be an object",
+      `${label} must be an object`,
     );
   }
   const row = value as Record<string, unknown>;
   if (typeof row["code"] !== "string" || !isRecommendedActionCode(row["code"])) {
     throw new InvestigationError(
       INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
-      "recommendedAction.code is not an allowed advisory code",
+      `${label}.code is not an allowed advisory code`,
     );
   }
-  const detail = assertText(row["detail"], "recommendedAction.detail", MAX_FACT);
+  const detail = assertText(row["detail"], `${label}.detail`, MAX_FACT);
   if (isForbiddenFinancialAction(detail) || isForbiddenFinancialAction(row["code"])) {
     throw new InvestigationError(
       INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
-      "recommendedAction must not mutate financial state",
+      `${label} must not mutate financial state`,
     );
   }
   return Object.freeze({
@@ -133,6 +153,53 @@ function parseAction(value: unknown): RecommendedAction {
     detail,
     executable: false,
   });
+}
+
+function parseActions(row: Record<string, unknown>): {
+  readonly recommendedAction: RecommendedAction;
+  readonly recommendedActions: readonly RecommendedAction[];
+} {
+    if (row["recommendedAction"] !== undefined) {
+      parseAction(row["recommendedAction"], "recommendedAction");
+    }
+    if (Array.isArray(row["recommendedActions"])) {
+      if (
+        row["recommendedActions"].length === 0 ||
+        row["recommendedActions"].length > MAX_ACTIONS
+      ) {
+        throw new InvestigationError(
+          INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
+          "recommendedActions count is invalid",
+        );
+      }
+      const recommendedActions = Object.freeze(
+        row["recommendedActions"].map((item, index) =>
+          parseAction(item, `recommendedActions[${String(index)}]`),
+        ),
+      );
+      const first = recommendedActions[0];
+      if (first === undefined) {
+        throw new InvestigationError(
+          INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
+          "recommendedActions must not be empty",
+        );
+      }
+      return { recommendedAction: first, recommendedActions };
+    }
+    const recommendedAction = parseAction(row["recommendedAction"], "recommendedAction");
+    return {
+      recommendedAction,
+      recommendedActions: Object.freeze([recommendedAction]),
+    };
+}
+
+function rejectLossAndMutation(text: string, label: string): void {
+  if (isForbiddenFinancialAction(text) || claimsUnsupportedFinancialLoss(text)) {
+    throw new InvestigationError(
+      INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
+      `${label} must not prescribe financial mutation or infer unproven customer loss`,
+    );
+  }
 }
 
 export function createInvestigationResult(
@@ -146,26 +213,61 @@ export function createInvestigationResult(
   }
   const row = input as Record<string, unknown>;
   const summary = assertText(row["summary"], "summary", MAX_SUMMARY);
-  const likelyCause = assertText(row["likelyCause"], "likelyCause", MAX_CAUSE);
+  const rootCause = assertText(
+    row["rootCause"] ?? row["likelyCause"],
+    "rootCause",
+    MAX_CAUSE,
+  );
+  const likelyCause = assertText(
+    row["likelyCause"] ?? row["rootCause"],
+    "likelyCause",
+    MAX_CAUSE,
+  );
+  const impact = assertText(row["impact"], "impact", MAX_SUMMARY);
+  const confidenceReason = assertText(
+    row["confidenceReason"],
+    "confidenceReason",
+    MAX_CAUSE,
+  );
   if (typeof row["confidence"] !== "string" || !isInvestigationConfidence(row["confidence"])) {
     throw new InvestigationError(
       INVESTIGATION_ERROR_CODE.INVALID_CONFIDENCE,
       "confidence must be LOW, MEDIUM, or HIGH",
     );
   }
-  if (isForbiddenFinancialAction(summary) || isForbiddenFinancialAction(likelyCause)) {
+  if (
+    typeof row["incidentType"] !== "string" ||
+    !isInvestigationIncidentType(row["incidentType"])
+  ) {
     throw new InvestigationError(
-      INVESTIGATION_ERROR_CODE.INVALID_RECOMMENDATION,
-      "investigation text must not prescribe financial mutation",
+      INVESTIGATION_ERROR_CODE.MALFORMED_MODEL_OUTPUT,
+      "incidentType is not an allowed classification",
     );
   }
+  if (typeof row["severity"] !== "string" || !isExceptionSeverity(row["severity"])) {
+    throw new InvestigationError(
+      INVESTIGATION_ERROR_CODE.MALFORMED_MODEL_OUTPUT,
+      "severity must be INFO, WARNING, ERROR, or CRITICAL",
+    );
+  }
+  rejectLossAndMutation(summary, "summary");
+  rejectLossAndMutation(rootCause, "rootCause");
+  rejectLossAndMutation(likelyCause, "likelyCause");
+  rejectLossAndMutation(impact, "impact");
+  const actions = parseActions(row);
   const result: InvestigationResult = {
     summary,
     facts: assertStringList(row["facts"], "facts", MAX_FACTS, MAX_FACT),
     evidence: parseEvidence(row["evidence"]),
+    incidentType: row["incidentType"],
+    severity: row["severity"],
+    rootCause,
     likelyCause,
-    recommendedAction: parseAction(row["recommendedAction"]),
+    impact,
+    recommendedActions: actions.recommendedActions,
+    recommendedAction: actions.recommendedAction,
     confidence: row["confidence"],
+    confidenceReason,
     limitations: assertStringList(
       row["limitations"],
       "limitations",
@@ -173,10 +275,23 @@ export function createInvestigationResult(
       MAX_FACT,
     ),
   };
+  for (const fact of result.facts) {
+    rejectLossAndMutation(fact, "facts");
+  }
+  if (
+    result.incidentType === "INSUFFICIENT_EVIDENCE" &&
+    result.rootCause !== INSUFFICIENT_EVIDENCE_ROOT_CAUSE
+  ) {
+    throw new InvestigationError(
+      INVESTIGATION_ERROR_CODE.MALFORMED_MODEL_OUTPUT,
+      "INSUFFICIENT_EVIDENCE requires rootCause INSUFFICIENT EVIDENCE",
+    );
+  }
   return Object.freeze({
     ...result,
     facts: result.facts,
     evidence: result.evidence,
+    recommendedActions: result.recommendedActions,
     recommendedAction: result.recommendedAction,
     limitations: result.limitations,
   });

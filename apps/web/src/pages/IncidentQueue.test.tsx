@@ -12,6 +12,7 @@ import {
   replayIncidentTimeline,
   retryIncidentTimeline,
   sampleIncident,
+  sampleInvestigation,
 } from "../test-support/fixtures";
 import "../test-support/cleanup";
 
@@ -161,5 +162,45 @@ describe("incident detail", () => {
     expect(
       await screen.findByText("No persisted timeline exists for this incident."),
     ).toBeTruthy();
+  });
+
+  it("runs INVESTIGATE INCIDENT and shows structured AI analysis", async () => {
+    const api = createMockApi({
+      listIncidentInvestigations: vi.fn(async () => []),
+    });
+    const user = userEvent.setup();
+    render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
+    await screen.findByRole("heading", { name: "INCIDENT" });
+    expect(screen.getByText("AI-GENERATED ANALYSIS — NOT AN AUTOMATED FINANCIAL DECISION")).toBeTruthy();
+    await user.click(
+      screen.getByRole("button", { name: "INVESTIGATE INCIDENT" }),
+    );
+    expect(api.investigateIncident).toHaveBeenCalledWith(EXCEPTION_ID);
+    expect(
+      await screen.findByText("Deterministic conflict classification with no financial mutation."),
+    ).toBeTruthy();
+    expect(screen.getByText("ROOT CAUSE")).toBeTruthy();
+    expect(screen.getByText("IMPACT")).toBeTruthy();
+    expect(screen.getByText("RECOMMENDED ACTIONS")).toBeTruthy();
+    expect(screen.getByText("SUPPORTED BY")).toBeTruthy();
+  });
+
+  it("shows investigation unavailable without treating it as a financial decision", async () => {
+    const api = createMockApi({
+      listIncidentInvestigations: vi.fn(async () => [
+        {
+          ...sampleInvestigation,
+          investigator: "unavailable",
+          result: {
+            ...sampleInvestigation.result,
+            summary:
+              "INVESTIGATION UNAVAILABLE. Deterministic incident classification and payment state are unchanged.",
+            confidence: "LOW" as const,
+          },
+        },
+      ]),
+    });
+    render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
+    expect(await screen.findAllByText(/INVESTIGATION UNAVAILABLE/)).toBeTruthy();
   });
 });

@@ -26,9 +26,18 @@ type ForbiddenRepo = Extract<
   "store" | "markProcessed" | "markRejected" | "markConflict"
 >;
 
+type ForbiddenPayments = Extract<
+  keyof NonNullable<InvestigationContextSources["payments"]>,
+  "upsert" | "insert" | "update" | "delete"
+>;
+
 describe("buildInvestigationContext", () => {
   it("only receives read methods on the webhook repository", () => {
     expectTypeOf<ForbiddenRepo>().toEqualTypeOf<never>();
+  });
+
+  it("only receives read methods on the payment repository", () => {
+    expectTypeOf<ForbiddenPayments>().toEqualTypeOf<never>();
   });
 
   it("minimizes fields and omits payload hashes", async () => {
@@ -105,6 +114,9 @@ describe("buildInvestigationContext", () => {
     expect(serialized).not.toContain("SYNTHETIC:hash:inv-ctx");
     expect(serialized).not.toContain("dev-only-not-a-real-secret");
     expect(context.exception.metadata["secret"]).toBeUndefined();
+    expect(context.evidenceHash.startsWith("sha256:")).toBe(true);
+    expect(context.incident.incidentId).toBe(created.record.exceptionId);
+    expect(context.replay.deliveryOrder.length).toBeGreaterThan(0);
   });
 
   it("caps related webhooks and always keeps the exception webhook", async () => {

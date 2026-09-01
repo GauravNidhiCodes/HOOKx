@@ -4,6 +4,9 @@ import type { ExceptionRecord } from "@hookx/exceptions";
 import {
   applicableRulesFor,
   exceptionViewFromRecord,
+  incidentViewFromRecord,
+  replayViewFromEvidence,
+  sanitizeInvestigationContext,
   type InvestigationAuditView,
   type InvestigationContext,
   type InvestigationRetryView,
@@ -219,14 +222,19 @@ export async function buildInvestigationContext(
     );
   }
 
-  return Object.freeze({
+  const auditViews = Object.freeze(capAudit(auditRows).map(auditView));
+  const webhookViews = Object.freeze(webhooks.map(webhookView));
+  return sanitizeInvestigationContext({
     investigatedAt,
     correlationId,
+    incident: incidentViewFromRecord(exception),
     exception: exceptionViewFromRecord(exception),
     payment,
-    webhooks: Object.freeze(webhooks.map(webhookView)),
+    webhooks: webhookViews,
     retries: Object.freeze(retries),
-    audit: Object.freeze(capAudit(auditRows).map(auditView)),
+    audit: auditViews,
+    replay: replayViewFromEvidence(webhookViews, auditViews),
     applicableRules: applicableRulesFor(exception.exceptionCode),
+    evidenceHash: "",
   });
 }

@@ -86,7 +86,7 @@ Table `investigations` (advisory AI investigation records):
 | `exception_id` | `uuid` FK → `exceptions` | Exception being explained |
 | `investigator` | `text` | Implementation name (`stub`, `openai`, `unavailable`, …) |
 | `model_id` | `text` nullable | Model identifier when an LLM was used |
-| `prompt_version` | `text` | Prompt identifier (`investigation-v1`) |
+| `prompt_version` | `text` | Prompt identifier (`investigation-v2`) |
 | `result` | `jsonb` | Validated `InvestigationResult` |
 | `created_at` | `timestamptz` | Investigation time |
 | `correlation_id` | `text` | Request/operation id |
@@ -311,7 +311,7 @@ The tests:
 4. Apply Drizzle migrations
 5. Run uniqueness, conflict, round-trip, status, concurrent insert, payment listing, out-of-order replay, retry claim, dead-letter, exception, and investigation tests
 
-Retry integration tests use a separate database pathname (`hookx_retry_test`) so they do not race `hookx_test`. API ingest e2e uses `hookx_api_test`. Pipeline e2e uses `hookx_pipeline_test`. Payment upsert tests use `hookx_payment_test`. Audit integration uses `hookx_audit_test`. Simulator e2e uses `hookx_simulator_test`. Exception persistence uses `hookx_exception_test`. Exception API e2e uses `hookx_exception_api_test`. Investigation persistence uses `hookx_investigation_test`. Investigation API e2e uses `hookx_investigation_api_test`. Failure Lab e2e uses `hookx_failure_lab_test`. Failure Lab purge uses `hookx_failure_lab_purge_test`. The `pnpm simulate` CLI uses `hookx_simulate`.
+Retry integration tests use a separate database pathname (`hookx_retry_test`) so they do not race `hookx_test`. API ingest e2e uses `hookx_api_test`. Pipeline e2e uses `hookx_pipeline_test`. Payment upsert tests use `hookx_payment_test`. Audit integration uses `hookx_audit_test`. Simulator e2e uses `hookx_simulator_test`. Exception persistence uses `hookx_exception_test`. Exception API e2e uses `hookx_exception_api_test`. Investigation persistence uses `hookx_investigation_test`. Investigation API e2e uses `hookx_investigation_api_test`. Failure Lab e2e uses `hookx_failure_lab_test`. Failure Lab purge uses `hookx_failure_lab_purge_test`. Failure Lab → AI investigator e2e uses `hookx_ai_investigator_lab_test`. The `pnpm simulate` CLI uses `hookx_simulate`.
 
 If PostgreSQL is not running, those tests fail with a pointer to this README. They do not skip.
 

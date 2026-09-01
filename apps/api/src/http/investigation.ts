@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Instant } from "@hookx/domain";
+import { AUDIT_REASON } from "@hookx/audit";
+import type { ExceptionRecord } from "@hookx/exceptions";
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import {
@@ -32,26 +34,30 @@ export type InvestigationRouteDependencies = {
 
 type PublicInvestigation = {
   readonly investigationId: string;
+  readonly incidentId: string;
   readonly exceptionId: string;
   readonly investigator: string;
   readonly modelId: string | null;
   readonly promptVersion: string;
   readonly createdAt: string;
   readonly correlationId: string;
+  readonly evidenceHash: string;
   readonly result: InvestigationRecord["result"];
 };
 
 const CORRELATION = /^[A-Za-z0-9._:~-]+$/;
 
-function toPublic(record: InvestigationRecord): PublicInvestigation {
+function toPublic(record: InvestigationRecord, evidenceHash: string): PublicInvestigation {
   return {
     investigationId: record.investigationId,
+    incidentId: record.exceptionId,
     exceptionId: record.exceptionId,
     investigator: record.investigator,
     modelId: record.modelId,
     promptVersion: record.promptVersion,
     createdAt: record.createdAt,
     correlationId: record.correlationId,
+    evidenceHash,
     result: record.result,
   };
 }
@@ -73,6 +79,42 @@ function investigationCorrelationId(raw: string | undefined): string {
 
 function resolveInvestigator(investigator: Investigator | undefined): Investigator {
   return investigator ?? new UnavailableInvestigator("Investigator is not configured");
+}
+
+async function recordInvestigationAudit(
+  audit: AuditRepository | undefined,
+  exception: ExceptionRecord,
+  record: InvestigationRecord,
+  evidenceHash: string,
+  now: Instant,
+  correlationId: string,
+): Promise<void> {
+  if (audit === undefined) {
+    return;
+  }
+  await audit.append({
+    eventType: "INVESTIGATION_RECORDED",
+    occurredAt: now,
+    recordedAt: now,
+    provider: exception.provider,
+    paymentId: exception.paymentId,
+    webhookEventId: exception.webhookEventId,
+    previousState: null,
+    resultingState: null,
+    actor: "OPERATOR",
+    reason: AUDIT_REASON.INVESTIGATION_RECORDED,
+    correlationId,
+    metadata: {
+      investigationId: record.investigationId,
+      incidentId: exception.exceptionId,
+      investigator: record.investigator,
+      modelId: record.modelId ?? "",
+      promptVersion: record.promptVersion,
+      evidenceHash,
+      incidentType: record.result.incidentType,
+      confidence: record.result.confidence,
+    },
+  });
 }
 
 async function persistUnavailable(
@@ -115,7 +157,28 @@ export async function handleGetInvestigation(
   if (record === null) {
     return unavailable(context, "INVESTIGATION_NOT_FOUND");
   }
-  return context.json({ investigation: toPublic(record) });
+  return context.json({ investigation: toPublic(record, "") });
+}
+
+export async function handleListInvestigations(
+  context: Context,
+  dependencies: InvestigationRouteDependencies,
+): Promise<Response> {
+  if (
+    dependencies.exceptions === undefined ||
+    dependencies.investigations === undefined
+  ) {
+    return unavailable(context, "INVESTIGATIONS_UNAVAILABLE");
+  }
+  const id = context.req.param("id") ?? "";
+  const exception = await dependencies.exceptions.findById(id);
+  if (exception === null) {
+    return unavailable(context, "EXCEPTION_NOT_FOUND");
+  }
+  const records = await dependencies.investigations.listByException(id);
+  return context.json({
+    investigations: records.map((row) => toPublic(row, "")),
+  });
 }
 
 export async function handlePostInvestigate(
@@ -149,9 +212,10 @@ export async function handlePostInvestigate(
     correlationId,
   );
   const investigator = resolveInvestigator(dependencies.investigator);
+  let record: InvestigationRecord;
   try {
     const result = await investigator.investigate(investigationContext);
-    const record = await dependencies.investigations.create({
+    record = await dependencies.investigations.create({
       exceptionId: exception.exceptionId,
       investigator: investigator.implementation,
       modelId: investigator.modelId,
@@ -160,13 +224,12 @@ export async function handlePostInvestigate(
       createdAt: now,
       correlationId,
     });
-    return context.json({ investigation: toPublic(record) });
   } catch (error) {
     const reason =
       error instanceof InvestigationError
         ? error.message
         : "AI provider unavailable";
-    const record = await persistUnavailable(
+    record = await persistUnavailable(
       dependencies.investigations,
       exception.exceptionId,
       investigationContext,
@@ -174,6 +237,16 @@ export async function handlePostInvestigate(
       correlationId,
       reason,
     );
-    return context.json({ investigation: toPublic(record) });
   }
+  await recordInvestigationAudit(
+    dependencies.audit,
+    exception,
+    record,
+    investigationContext.evidenceHash,
+    now,
+    correlationId,
+  );
+  return context.json({
+    investigation: toPublic(record, investigationContext.evidenceHash),
+  });
 }

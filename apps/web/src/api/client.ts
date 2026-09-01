@@ -74,6 +74,8 @@ export type HookxApi = {
   getDeadLetter(webhookEventId: string): Promise<PublicDeadLetter | null>;
   getInvestigation(exceptionId: string): Promise<PublicInvestigation | null>;
   investigate(exceptionId: string): Promise<PublicInvestigation>;
+  listIncidentInvestigations(incidentId: string): Promise<readonly PublicInvestigation[]>;
+  investigateIncident(incidentId: string): Promise<PublicInvestigation>;
   getFailureLabCatalog(): Promise<FailureLabCatalog>;
   runFailureLab(scenario: FailureLabScenarioId): Promise<FailureLabRunReport>;
   getFailureLabRun(runId: string): Promise<FailureLabRunReport>;
@@ -367,6 +369,44 @@ export function createBrowserApi(baseUrl = ""): HookxApi {
     async investigate(exceptionId) {
       const { status, body, correlationId } = await request(
         `/exceptions/${encodeURIComponent(exceptionId)}/investigate`,
+        { method: "POST" },
+      );
+      if (status !== 200) {
+        fail(status, body, correlationId, "INVESTIGATION REQUEST FAILED");
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("investigation" in body)
+      ) {
+        fail(status, body, correlationId, "INVESTIGATION REQUEST FAILED");
+      }
+      return (body as { investigation: PublicInvestigation }).investigation;
+    },
+
+    async listIncidentInvestigations(incidentId) {
+      const { status, body, correlationId } = await request(
+        `/incidents/${encodeURIComponent(incidentId)}/investigations`,
+      );
+      if (status === 404) {
+        return [];
+      }
+      if (status !== 200) {
+        fail(status, body, correlationId, "UNABLE TO LOAD INVESTIGATION");
+      }
+      if (
+        typeof body !== "object" ||
+        body === null ||
+        !("investigations" in body)
+      ) {
+        return [];
+      }
+      return (body as { investigations: PublicInvestigation[] }).investigations;
+    },
+
+    async investigateIncident(incidentId) {
+      const { status, body, correlationId } = await request(
+        `/incidents/${encodeURIComponent(incidentId)}/investigate`,
         { method: "POST" },
       );
       if (status !== 200) {

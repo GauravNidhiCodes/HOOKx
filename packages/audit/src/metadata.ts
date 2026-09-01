@@ -3,7 +3,7 @@ export type AuditMetadataValue = string | number | boolean | null;
 export type AuditMetadata = Readonly<Record<string, AuditMetadataValue>>;
 
 const BLOCKED_KEY =
-  /(secret|signature|password|authorization|credential|payload|token|cookie|rawbody)/i;
+  /(secret|signature|password|authorization|credential|payload|token|cookie|rawbody|api[_-]?key|webhook[_-]?secret|hmac|authheader)/i;
 
 const MAX_KEYS = 16;
 const MAX_STRING_LENGTH = 128;

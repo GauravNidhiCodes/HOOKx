@@ -73,7 +73,9 @@ That is the investigation loop: payment → events → exceptions → back to pa
 
 `/incidents` lists persisted exceptions as incidents. Successful webhooks do not appear. `/incidents/:id` loads one backend timeline (`GET /incidents/:id/timeline`) instead of reconstructing chronology from many client calls. Clock order is delivery/recording time; event time and received time are both shown when stored.
 
-See `docs/observability.md`.
+**INVESTIGATE INCIDENT** requests `POST /incidents/:id/investigate`. The page then shows structured **AI INVESTIGATION** (summary, root cause, evidence with SUPPORTED BY citations, impact, recommended actions, confidence, limitations). The banners **AI-GENERATED ANALYSIS — NOT AN AUTOMATED FINANCIAL DECISION** and **ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE** are always visible. This is not a chatbot.
+
+See `docs/observability.md` and `docs/ai-investigator.md`.
 
 ## Failure Lab
 
@@ -87,7 +89,9 @@ Investigation is advisory. The console displays:
 
 `ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE`
 
-Evidence items link to the underlying exception or webhook when the source type allows it. Recommended actions are labelled **NOT EXECUTABLE**. The Investigate button on an exception does not capture, refund, or change payment state.
+Evidence items link to the underlying exception, incident, or webhook when the source type allows it. Recommended actions are labelled **NOT EXECUTABLE**. **INVESTIGATE INCIDENT** does not capture, refund, or change payment state. See `docs/ai-investigator.md`.
+
+**AI does not determine financial state.**
 
 ## Synthetic data
 

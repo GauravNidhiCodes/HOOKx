@@ -179,7 +179,7 @@ describe("investigation end-to-end", () => {
       };
     };
     expect(body.investigation.investigator).toBe("stub");
-    expect(body.investigation.promptVersion).toBe("investigation-v1");
+    expect(body.investigation.promptVersion).toBe("investigation-v2");
     expect(body.investigation.result.recommendedAction.executable).toBe(false);
     expect(body.investigation.result.recommendedAction.code).toBe(
       "INVESTIGATE_CONFLICTING_PAYLOAD",
@@ -224,5 +224,26 @@ describe("investigation end-to-end", () => {
       await store.audit.listByPayment(paymentId(paymentRef))
     ).filter((row) => row.eventType === "PAYMENT_STATE_CHANGED").length;
     expect(stateChangesAfter).toBe(stateChangesBefore);
+
+    const viaIncident = await app.request(
+      `/incidents/${exceptionBefore.exceptionId}/investigate`,
+      { method: "POST", headers: { "x-request-id": `inv-repeat-${randomUUID()}` } },
+    );
+    expect(viaIncident.status).toBe(200);
+    const listed = await app.request(
+      `/incidents/${exceptionBefore.exceptionId}/investigations`,
+    );
+    expect(listed.status).toBe(200);
+    const listedBody = (await listed.json()) as {
+      investigations: Array<{ investigationId: string }>;
+    };
+    expect(listedBody.investigations.length).toBeGreaterThanOrEqual(2);
+    const auditAfter = await store.audit.listByPayment(paymentId(paymentRef));
+    expect(
+      auditAfter.some((row) => row.eventType === "INVESTIGATION_RECORDED"),
+    ).toBe(true);
+    expect(await store.payments.get(PROVIDER, paymentId(paymentRef))).toEqual(
+      paymentBefore,
+    );
   });
 });

@@ -3,6 +3,8 @@ import type { Investigator } from "./investigator.js";
 import { INVESTIGATION_PROMPT_VERSION } from "./prompt.js";
 import type { InvestigationResult } from "./result.js";
 import { validateInvestigationResult } from "./validate.js";
+import { INSUFFICIENT_EVIDENCE_ROOT_CAUSE } from "./incident-type.js";
+import { isInsufficientEvidence } from "./insufficient.js";
 
 /**
  * Used when an LLM provider was requested but credentials or the network are
@@ -20,10 +22,11 @@ export class UnavailableInvestigator implements Investigator {
   public async investigate(
     context: InvestigationContext,
   ): Promise<InvestigationResult> {
+    const insufficient = isInsufficientEvidence(context);
     return validateInvestigationResult(
       {
         summary:
-          "Investigation is unavailable. Deterministic exception classification and payment state are unchanged.",
+          "INVESTIGATION UNAVAILABLE. Deterministic incident classification and payment state are unchanged.",
         facts: [
           `Exception ${context.exception.exceptionId} remains ${context.exception.exceptionCode}.`,
           "No model explanation was produced.",
@@ -35,15 +38,26 @@ export class UnavailableInvestigator implements Investigator {
             fact: `Stored exception ${context.exception.exceptionCode} is ${context.exception.status} for operator review.`,
           },
         ],
-        likelyCause:
-          "No hypothesis is offered because an investigator implementation was not available.",
+        incidentType: insufficient ? "INSUFFICIENT_EVIDENCE" : "UNKNOWN",
+        severity: context.exception.severity,
+        rootCause: insufficient
+          ? INSUFFICIENT_EVIDENCE_ROOT_CAUSE
+          : "No hypothesis is offered because an investigator implementation was not available.",
+        likelyCause: insufficient
+          ? INSUFFICIENT_EVIDENCE_ROOT_CAUSE
+          : "No hypothesis is offered because an investigator implementation was not available.",
+        impact:
+          "No additional operational impact was assessed because investigation is unavailable.",
         recommendedAction: {
           code: "REQUEST_OPERATOR_REVIEW",
           detail: "Review the deterministic exception and audit trail without relying on a model.",
         },
         confidence: "LOW",
+        confidenceReason:
+          "The AI provider did not return a validated explanation.",
         limitations: [
           this.reason,
+          "INVESTIGATION UNAVAILABLE",
           "Classification remains the deterministic exception engine.",
         ],
       },

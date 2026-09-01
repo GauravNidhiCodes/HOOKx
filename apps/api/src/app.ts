@@ -46,6 +46,7 @@ import { handleHealth, handleReady } from "./http/health.js";
 import { handleMetricsSummary } from "./http/metrics.js";
 import {
   handleGetInvestigation,
+  handleListInvestigations,
   handlePostInvestigate,
 } from "./http/investigation.js";
 import { handleWebhookPost } from "./http/webhooks.js";
@@ -113,6 +114,8 @@ export function createApp(dependencies: ApiDependencies): Hono {
       failureLabRun: "/failure-lab/run",
       investigate: "/exceptions/:id/investigate",
       investigation: "/exceptions/:id/investigation",
+      incidentInvestigate: "/incidents/:id/investigate",
+      incidentInvestigations: "/incidents/:id/investigations",
     });
   });
 
@@ -147,11 +150,20 @@ export function createApp(dependencies: ApiDependencies): Hono {
   app.post("/exceptions/:id/investigate", (c) =>
     handlePostInvestigate(c, wired),
   );
+  app.get("/exceptions/:id/investigations", (c) =>
+    handleListInvestigations(c, wired),
+  );
   app.get("/exceptions/:id/investigation", (c) =>
     handleGetInvestigation(c, wired),
   );
   app.get("/exceptions/:id", (c) => handleGetException(c, wired));
   app.get("/exceptions", (c) => handleListExceptions(c, wired));
+  app.post("/incidents/:id/investigate", (c) =>
+    handlePostInvestigate(c, wired),
+  );
+  app.get("/incidents/:id/investigations", (c) =>
+    handleListInvestigations(c, wired),
+  );
   app.get("/incidents/:id/timeline", (c) =>
     handleGetIncidentTimeline(c, wired),
   );

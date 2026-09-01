@@ -474,12 +474,14 @@ export const sampleRetry: PublicRetry = {
 
 export const sampleInvestigation: PublicInvestigation = {
   investigationId: "22222222-2222-4222-8222-222222222222",
+  incidentId: EXCEPTION_ID,
   exceptionId: EXCEPTION_ID,
   investigator: "stub",
   modelId: null,
-  promptVersion: "investigation.v1",
+  promptVersion: "investigation-v2",
   createdAt: "2026-01-15T14:05:00.000Z",
   correlationId: "corr-ui-invest",
+  evidenceHash: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   result: {
     summary: "Deterministic conflict classification with no financial mutation.",
     facts: ["Exception remains CONFLICTING_EVENT."],
@@ -495,13 +497,25 @@ export const sampleInvestigation: PublicInvestigation = {
         fact: "Stored webhook identity was retained.",
       },
     ],
+    incidentType: "CONFLICTING_EVENT",
+    severity: "ERROR",
+    rootCause: "The provider may have retried the same event identity with a different payload.",
     likelyCause: "The provider may have retried the same event identity with a different payload.",
+    impact: "Payment state remained CREATED. No second economic state transition occurred.",
+    recommendedActions: [
+      {
+        code: "INVESTIGATE_CONFLICTING_PAYLOAD",
+        detail: "Compare the stored event with the rejected delivery. Do not capture or refund.",
+        executable: false,
+      },
+    ],
     recommendedAction: {
       code: "INVESTIGATE_CONFLICTING_PAYLOAD",
       detail: "Compare the stored event with the rejected delivery. Do not capture or refund.",
       executable: false,
     },
     confidence: "MEDIUM",
+    confidenceReason: "Conflict classification is present with a stored webhook identity.",
     limitations: ["Investigation does not change payment state."],
   },
 };
@@ -696,6 +710,8 @@ export function createMockApi(overrides: Partial<HookxApi> = {}): HookxApi {
     getDeadLetter: vi.fn(async () => null),
     getInvestigation: vi.fn(async () => null),
     investigate: vi.fn(async () => sampleInvestigation),
+    listIncidentInvestigations: vi.fn(async () => []),
+    investigateIncident: vi.fn(async () => sampleInvestigation),
     getFailureLabCatalog: vi.fn(async () => sampleFailureLabCatalog),
     runFailureLab: vi.fn(async () => sampleFailureLabRun),
     getFailureLabRun: vi.fn(async () => sampleFailureLabRun),

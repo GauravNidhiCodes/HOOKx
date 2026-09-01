@@ -171,4 +171,4 @@ pnpm simulate list
 | Failure Lab | Implemented (synthetic scenarios through real ingest, isolated failure injection, lab-only reset) |
 | Production deployment | Not implemented |
 
-The web shell is a black-and-white operator console. It reads exceptions, incidents, payments, webhook events, audit history, retries, and investigations from the API. The Failure Lab at `/failure-lab` posts synthetic webhooks through the real ingest pipeline. See `docs/operator-console.md`, `docs/observability.md`, and `docs/failure-lab.md`. It does not display fabricated volume or success metrics.
+The web shell is a black-and-white operator console. It reads exceptions, incidents, payments, webhook events, audit history, retries, and investigations from the API. Incident detail can request a read-only AI investigation (`docs/ai-investigator.md`). The Failure Lab at `/failure-lab` posts synthetic webhooks through the real ingest pipeline. See `docs/operator-console.md`, `docs/observability.md`, and `docs/failure-lab.md`. It does not display fabricated volume or success metrics.

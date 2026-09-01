@@ -1,6 +1,11 @@
 import { instant, paymentId, providerId } from "@hookx/domain";
-import type { InvestigationContext } from "./context.js";
+import {
+  replayViewFromEvidence,
+  withEvidenceHash,
+  type InvestigationContext,
+} from "./context.js";
 import { applicableRulesFor } from "./rules.js";
+import { explanatoryIncidentTypeFor } from "./incident-type.js";
 
 const NOW = instant("2026-01-15T10:00:01.000Z");
 const DETECTED = instant("2026-01-15T10:00:00.000Z");
@@ -28,52 +33,72 @@ export function sampleInvestigationContext(
     correlationId: "corr-inv-1",
     metadata: Object.freeze({ originalAuthoritative: true }),
   };
-  return {
+  const webhooks =
+    extras.webhooks ??
+    [
+      {
+        webhookEventId: SAMPLE_WEBHOOK_ID,
+        externalEventId: SAMPLE_EXTERNAL_EVENT_ID,
+        eventType: "payment.created",
+        occurredAt: DETECTED,
+        receivedAt: DETECTED,
+        processingStatus: "PROCESSED",
+        amountMinor: "10000",
+        currency: "INR",
+      },
+    ];
+  const audit =
+    extras.audit ??
+    [
+      {
+        auditEventId: SAMPLE_AUDIT_ID,
+        eventType: "PAYMENT_STATE_CHANGED",
+        occurredAt: DETECTED,
+        recordedAt: DETECTED,
+        previousState: null,
+        resultingState: "CREATED",
+        reason: "ACCEPTED",
+        actor: "PIPELINE",
+      },
+    ];
+  const retries = extras.retries ?? [];
+  const assembled = {
     investigatedAt: extras.investigatedAt ?? NOW,
     correlationId: extras.correlationId ?? "corr-inv-1",
+    incident: extras.incident ?? {
+      incidentId: exception.exceptionId,
+      exceptionId: exception.exceptionId,
+      exceptionCode: exception.exceptionCode,
+      severity: exception.severity,
+      status: exception.status,
+      provider: exception.provider,
+      paymentId: exception.paymentId,
+      eventId: exception.webhookEventId,
+      detectedAt: exception.detectedAt,
+      synthetic: true,
+    },
     exception,
     payment:
       extras.payment === undefined
         ? {
             paymentId: paymentId(SAMPLE_PAYMENT_ID),
             provider: providerId("SYNTHETIC"),
-            state: "CREATED",
+            state: "CREATED" as const,
             amountMinor: "10000",
             currency: "INR",
             lastOccurredAt: DETECTED,
           }
         : extras.payment,
-    webhooks:
-      extras.webhooks ??
-      [
-        {
-          webhookEventId: SAMPLE_WEBHOOK_ID,
-          externalEventId: SAMPLE_EXTERNAL_EVENT_ID,
-          eventType: "payment.created",
-          occurredAt: DETECTED,
-          receivedAt: DETECTED,
-          processingStatus: "PROCESSED",
-          amountMinor: "10000",
-          currency: "INR",
-        },
-      ],
-    retries: extras.retries ?? [],
-    audit:
-      extras.audit ??
-      [
-        {
-          auditEventId: SAMPLE_AUDIT_ID,
-          eventType: "PAYMENT_STATE_CHANGED",
-          occurredAt: DETECTED,
-          recordedAt: DETECTED,
-          previousState: null,
-          resultingState: "CREATED",
-          reason: "ACCEPTED",
-          actor: "PIPELINE",
-        },
-      ],
+    webhooks,
+    retries,
+    audit,
+    replay: extras.replay ?? replayViewFromEvidence(webhooks, audit),
     applicableRules: extras.applicableRules ?? applicableRulesFor(exception.exceptionCode),
   };
+  if (extras.evidenceHash !== undefined) {
+    return { ...assembled, evidenceHash: extras.evidenceHash };
+  }
+  return withEvidenceHash(assembled);
 }
 
 export function validModelResult(context: InvestigationContext) {
@@ -94,13 +119,27 @@ export function validModelResult(context: InvestigationContext) {
         fact: `Deterministic code ${context.exception.exceptionCode} with status ${context.exception.status}.`,
       },
     ],
+    incidentType: explanatoryIncidentTypeFor(context.exception.exceptionCode),
+    severity: context.exception.severity,
+    rootCause:
+      "The provider may have retried the same event identity with a different payload.",
     likelyCause:
       "The provider may have retried the same event identity with a different payload.",
+    impact:
+      "Payment state remained as recorded in the supplied projection. No customer-loss claim is supported.",
     recommendedAction: {
       code: "INVESTIGATE_CONFLICTING_PAYLOAD",
       detail: "Compare the authoritative stored event with the rejected delivery. Advisory only.",
     },
+    recommendedActions: [
+      {
+        code: "INVESTIGATE_CONFLICTING_PAYLOAD",
+        detail: "Compare the authoritative stored event with the rejected delivery. Advisory only.",
+      },
+    ],
     confidence: "MEDIUM",
+    confidenceReason:
+      "The deterministic exception is present with a stored webhook; some corroborating audit detail may still be incomplete.",
     limitations: [
       "Confidence describes the explanation, not that money is safe.",
       "Classification remains the deterministic exception engine.",

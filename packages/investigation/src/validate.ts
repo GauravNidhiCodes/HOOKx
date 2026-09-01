@@ -2,6 +2,13 @@ import type { InvestigationContext } from "./context.js";
 import { INVESTIGATION_ERROR_CODE, InvestigationError } from "./error.js";
 import type { InvestigationResult } from "./result.js";
 import { createInvestigationResult } from "./result.js";
+import {
+  INSUFFICIENT_EVIDENCE_ROOT_CAUSE,
+} from "./incident-type.js";
+import {
+  evidenceConflictNote,
+  isInsufficientEvidence,
+} from "./insufficient.js";
 
 const IDENTIFIER =
   /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|SYNTHETIC:[A-Za-z0-9._:~-]+|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z/gi;
@@ -16,6 +23,8 @@ export function contextIdentifierCatalog(
     }
   };
   add(context.correlationId);
+  add(context.evidenceHash);
+  add(context.incident.incidentId);
   add(context.exception.exceptionId);
   add(context.exception.webhookEventId);
   add(context.exception.paymentId);
@@ -50,6 +59,12 @@ export function contextIdentifierCatalog(
   for (const rule of context.applicableRules) {
     add(rule.id);
   }
+  for (const id of context.replay.deliveryOrder) {
+    add(id);
+  }
+  for (const id of context.replay.eventTimeOrder) {
+    add(id);
+  }
   return ids;
 }
 
@@ -58,8 +73,11 @@ function evidenceAllowed(
   sourceType: string,
   sourceId: string,
 ): boolean {
-  if (sourceType === "EXCEPTION") {
-    return sourceId === context.exception.exceptionId;
+  if (sourceType === "EXCEPTION" || sourceType === "INCIDENT") {
+    return (
+      sourceId === context.exception.exceptionId ||
+      sourceId === context.incident.incidentId
+    );
   }
   if (sourceType === "WEBHOOK_EVENT") {
     return context.webhooks.some((row) => row.webhookEventId === sourceId);
@@ -78,11 +96,16 @@ function scanInventedIdentifiers(
   catalog: ReadonlySet<string>,
 ): void {
   const matches = text.match(IDENTIFIER) ?? [];
-  for (const match of matches) {
-    if (!catalog.has(match)) {
+  for (const raw of matches) {
+    const match = raw.replace(/[.,;:]+$/u, "");
+    if (match.length === 0) {
+      continue;
+    }
+    if (!catalog.has(match) && !catalog.has(raw)) {
       throw new InvestigationError(
         INVESTIGATION_ERROR_CODE.HALLUCINATED_EVIDENCE,
-        "Output referenced an identifier that is not in the supplied context",
+        "Output referenced an identifier that is not in the supplied context: " +
+          match,
       );
     }
   }
@@ -96,9 +119,9 @@ export function validateInvestigationResult(
   input: unknown,
   context: InvestigationContext,
 ): InvestigationResult {
-  const result = createInvestigationResult(input);
+  const parsed = createInvestigationResult(input);
   const catalog = contextIdentifierCatalog(context);
-  for (const item of result.evidence) {
+  for (const item of parsed.evidence) {
     if (!evidenceAllowed(context, item.sourceType, item.sourceId)) {
       throw new InvestigationError(
         INVESTIGATION_ERROR_CODE.INVALID_EVIDENCE,
@@ -107,13 +130,48 @@ export function validateInvestigationResult(
     }
     scanInventedIdentifiers(item.fact, catalog);
   }
-  scanInventedIdentifiers(result.summary, catalog);
-  scanInventedIdentifiers(result.likelyCause, catalog);
-  for (const fact of result.facts) {
+  scanInventedIdentifiers(parsed.summary, catalog);
+  scanInventedIdentifiers(parsed.rootCause, catalog);
+  scanInventedIdentifiers(parsed.likelyCause, catalog);
+  scanInventedIdentifiers(parsed.impact, catalog);
+  scanInventedIdentifiers(parsed.confidenceReason, catalog);
+  for (const fact of parsed.facts) {
     scanInventedIdentifiers(fact, catalog);
   }
-  scanInventedIdentifiers(result.recommendedAction.detail, catalog);
-  return result;
+  for (const action of parsed.recommendedActions) {
+    scanInventedIdentifiers(action.detail, catalog);
+  }
+  if (isInsufficientEvidence(context)) {
+    if (parsed.incidentType !== "INSUFFICIENT_EVIDENCE") {
+      throw new InvestigationError(
+        INVESTIGATION_ERROR_CODE.HALLUCINATED_EVIDENCE,
+        "Insufficient evidence must not invent a root-cause classification",
+      );
+    }
+    if (parsed.rootCause !== INSUFFICIENT_EVIDENCE_ROOT_CAUSE) {
+      throw new InvestigationError(
+        INVESTIGATION_ERROR_CODE.HALLUCINATED_EVIDENCE,
+        "Insufficient evidence must not invent a root cause",
+      );
+    }
+    if (parsed.confidence !== "LOW") {
+      throw new InvestigationError(
+        INVESTIGATION_ERROR_CODE.INVALID_CONFIDENCE,
+        "Insufficient evidence requires LOW confidence",
+      );
+    }
+  }
+  const conflict = evidenceConflictNote(context);
+  if (conflict !== null && parsed.confidence === "HIGH") {
+    throw new InvestigationError(
+      INVESTIGATION_ERROR_CODE.INVALID_CONFIDENCE,
+      "Conflicting evidence cannot be HIGH confidence",
+    );
+  }
+  return Object.freeze({
+    ...parsed,
+    severity: context.exception.severity,
+  });
 }
 
 export function parseModelJson(raw: string): unknown {

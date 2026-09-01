@@ -88,11 +88,12 @@ function appOf(options: {
   readonly investigations: MemoryInvestigationRepository;
   readonly payments: MemoryPaymentRepository;
   readonly investigator?: Investigator;
+  readonly audit?: MemoryAuditRepository;
 }) {
   return createApp({
     repository: options.repository,
     retry: new MemoryRetryRepository(),
-    audit: new MemoryAuditRepository(),
+    audit: options.audit ?? new MemoryAuditRepository(),
     payments: options.payments,
     exceptions: options.exceptions,
     investigations: options.investigations,
@@ -133,10 +134,13 @@ describe("investigation HTTP", () => {
     const postedBody = (await posted.json()) as {
       investigation: {
         investigator: string;
+        incidentId: string;
         result: {
           evidence: Array<{ sourceType: string; sourceId: string }>;
           recommendedAction: { executable: boolean; code: string };
           likelyCause: string;
+          rootCause: string;
+          incidentType: string;
           facts: string[];
           confidence: string;
         };
@@ -147,6 +151,9 @@ describe("investigation HTTP", () => {
       false,
     );
     expect(postedBody.investigation.result.confidence).toBe("MEDIUM");
+    expect(postedBody.investigation.result.incidentType).toBe("CONFLICTING_EVENT");
+    expect(postedBody.investigation.result.rootCause.length).toBeGreaterThan(0);
+    expect(postedBody.investigation.incidentId).toBe(exception.exceptionId);
     expect(
       postedBody.investigation.result.evidence.some(
         (item) => item.sourceId === exception.exceptionId,
@@ -164,6 +171,58 @@ describe("investigation HTTP", () => {
     );
     expect(got.status).toBe(200);
 
+    expect(await exceptions.findById(exception.exceptionId)).toEqual(exception);
+    expect(await payments.get(PROVIDER, PAYMENT)).toMatchObject({
+      state: "CREATED",
+      amountMinor: 10000n,
+    });
+  });
+
+  it("records an investigation audit event and preserves history on repeat", async () => {
+    const repository = new MemoryWebhookEventRepository();
+    const exceptions = new MemoryExceptionRepository();
+    const investigations = new MemoryInvestigationRepository();
+    const payments = new MemoryPaymentRepository();
+    const audit = new MemoryAuditRepository();
+    const { exception } = await seedException(repository, exceptions, payments);
+    const app = appOf({
+      repository,
+      exceptions,
+      investigations,
+      payments,
+      audit,
+      investigator: new StubInvestigator(),
+    });
+    const first = await app.request(
+      `/incidents/${exception.exceptionId}/investigate`,
+      { method: "POST", headers: { "x-request-id": "corr-inv-incident-1" } },
+    );
+    expect(first.status).toBe(200);
+    const second = await app.request(
+      `/incidents/${exception.exceptionId}/investigate`,
+      { method: "POST", headers: { "x-request-id": "corr-inv-incident-2" } },
+    );
+    expect(second.status).toBe(200);
+    const listed = await app.request(
+      `/incidents/${exception.exceptionId}/investigations`,
+    );
+    expect(listed.status).toBe(200);
+    const listedBody = (await listed.json()) as {
+      investigations: Array<{ investigationId: string; correlationId: string }>;
+    };
+    expect(listedBody.investigations).toHaveLength(2);
+    expect(listedBody.investigations[0]?.investigationId).not.toBe(
+      listedBody.investigations[1]?.investigationId,
+    );
+    const recorded = audit.records.filter(
+      (row) => row.eventType === "INVESTIGATION_RECORDED",
+    );
+    expect(recorded).toHaveLength(2);
+    const recordedIds = recorded.map((row) => row.metadata["investigationId"]);
+    const listedIds = listedBody.investigations.map((row) => row.investigationId);
+    expect(recordedIds.sort()).toEqual([...listedIds].sort());
+    expect(JSON.stringify(recorded[0]?.metadata)).not.toMatch(/sk-/);
+    expect(JSON.stringify(recorded[0]?.metadata)).not.toMatch(/signature/i);
     expect(await exceptions.findById(exception.exceptionId)).toEqual(exception);
     expect(await payments.get(PROVIDER, PAYMENT)).toMatchObject({
       state: "CREATED",

@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { instant } from "@hookx/domain";
 import { INVESTIGATION_ERROR_CODE, InvestigationError } from "./error.js";
 import { StubInvestigator } from "./stub.js";
 import { UnavailableInvestigator } from "./unavailable.js";
 import {
   SAMPLE_EXCEPTION_ID,
   SAMPLE_WEBHOOK_ID,
+  SAMPLE_AUDIT_ID,
+  SAMPLE_RETRY_ID,
   sampleInvestigationContext,
   validModelResult,
 } from "./sample-context.js";
@@ -42,6 +45,11 @@ describe("StubInvestigator", () => {
       expect(fact.toLowerCase()).not.toMatch(/\blikely\b/);
     }
     expect(result.likelyCause.toLowerCase()).toMatch(/\bmay have\b/);
+    expect(result.rootCause).toBe(result.likelyCause);
+    expect(result.incidentType).toBe("CONFLICTING_EVENT");
+    expect(result.impact.length).toBeGreaterThan(0);
+    expect(result.recommendedActions[0]?.code).toBe("INVESTIGATE_CONFLICTING_PAYLOAD");
+    expect(result.confidenceReason.length).toBeGreaterThan(0);
   });
 });
 
@@ -82,7 +90,7 @@ describe("structured investigation result", () => {
     const context = sampleInvestigationContext();
     expect(() =>
       validateInvestigationResult({ summary: "incomplete" }, context),
-    ).toThrow(/likelyCause/);
+    ).toThrow(/rootCause/);
   });
 
   it("rejects an evidence sourceId that is not in the context", () => {
@@ -209,5 +217,182 @@ describe("UnavailableInvestigator", () => {
     expect(result.recommendedAction.code).toBe("REQUEST_OPERATOR_REVIEW");
     expect(result.limitations[0]).toBe("network down");
     expect(result.likelyCause).toContain("No hypothesis");
+    expect(result.summary).toContain("INVESTIGATION UNAVAILABLE");
+  });
+});
+
+describe("insufficient evidence", () => {
+  it("does not invent a root cause when history is missing", async () => {
+    const context = sampleInvestigationContext({
+      payment: null,
+      webhooks: [],
+      retries: [],
+      audit: [],
+    });
+    const result = await new StubInvestigator().investigate(context);
+    expect(result.rootCause).toBe("INSUFFICIENT EVIDENCE");
+    expect(result.incidentType).toBe("INSUFFICIENT_EVIDENCE");
+    expect(result.confidence).toBe("LOW");
+    expect(
+      result.limitations.some((row) =>
+        row.includes("The available event history does not establish the cause"),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a model that invents a cause without evidence", () => {
+    const context = sampleInvestigationContext({
+      payment: null,
+      webhooks: [],
+      retries: [],
+      audit: [],
+    });
+    expect(() =>
+      validateInvestigationResult(
+        {
+          ...validModelResult(context),
+          incidentType: "DUPLICATE_DELIVERY",
+          rootCause: "Duplicate delivery.",
+          likelyCause: "Duplicate delivery.",
+        },
+        context,
+      ),
+    ).toThrow(InvestigationError);
+  });
+});
+
+describe("evidence-bound scenario investigations", () => {
+  it("explains duplicate delivery from supplied audit and webhook rows", async () => {
+    const base = sampleInvestigationContext();
+    const context = sampleInvestigationContext({
+      exception: {
+        ...base.exception,
+        exceptionCode: "DUPLICATE_EVENT",
+        severity: "INFO",
+        reason: "DUPLICATE_EVENT",
+      },
+      audit: [
+        {
+          auditEventId: SAMPLE_AUDIT_ID,
+          eventType: "WEBHOOK_DUPLICATE",
+          occurredAt: base.investigatedAt,
+          recordedAt: base.investigatedAt,
+          previousState: "CREATED",
+          resultingState: "CREATED",
+          reason: "DUPLICATE_EVENT",
+          actor: "SYSTEM",
+        },
+        ...base.audit,
+      ],
+    });
+    const result = await new StubInvestigator().investigate(context);
+    expect(result.incidentType).toBe("DUPLICATE_DELIVERY");
+    expect(result.confidence).toBe("HIGH");
+    expect(result.impact.toLowerCase()).toMatch(/transition/);
+    expect(result.evidence.some((item) => item.sourceType === "WEBHOOK_EVENT")).toBe(
+      true,
+    );
+    expect(result.summary).not.toContain("customer lost money");
+  });
+
+  it("explains retry exhaustion from dead-letter evidence", async () => {
+    const base = sampleInvestigationContext();
+    const context = sampleInvestigationContext({
+      exception: {
+        ...base.exception,
+        exceptionCode: "RETRY_EXHAUSTED",
+        severity: "CRITICAL",
+        reason: "RETRY_EXHAUSTED",
+      },
+      retries: [
+        {
+          retryId: SAMPLE_RETRY_ID,
+          webhookEventId: SAMPLE_WEBHOOK_ID,
+          attemptCount: 5,
+          status: "DEAD_LETTERED",
+          lastErrorCode: "TEMPORARY_PROCESSING_FAILURE",
+          lastFailedAt: base.investigatedAt,
+          deadLettered: true,
+        },
+      ],
+      audit: [
+        {
+          auditEventId: SAMPLE_AUDIT_ID,
+          eventType: "RETRY_DEAD_LETTERED",
+          occurredAt: base.investigatedAt,
+          recordedAt: base.investigatedAt,
+          previousState: null,
+          resultingState: null,
+          reason: "RETRY_EXHAUSTED",
+          actor: "RETRY_WORKER",
+        },
+      ],
+    });
+    const result = await new StubInvestigator().investigate(context);
+    expect(result.incidentType).toBe("RETRY_EXHAUSTION");
+    expect(result.confidence).toBe("HIGH");
+    expect(result.impact.toLowerCase()).toMatch(/dead-letter/);
+  });
+
+  it("explains replay/out-of-order from delivery vs event-time order", async () => {
+    const second = "66666666-6666-4666-8666-666666666666";
+    const context = sampleInvestigationContext({
+      exception: {
+        ...sampleInvestigationContext().exception,
+        exceptionCode: "OUT_OF_ORDER_EVENT",
+        severity: "WARNING",
+        reason: "OUT_OF_ORDER_EVENT",
+      },
+      webhooks: [
+        {
+          webhookEventId: SAMPLE_WEBHOOK_ID,
+          externalEventId: "SYNTHETIC:evt:late",
+          eventType: "payment.captured",
+          occurredAt: instant("2026-01-15T10:00:02.000Z"),
+          receivedAt: instant("2026-01-15T10:00:00.000Z"),
+          processingStatus: "PROCESSED",
+          amountMinor: "10000",
+          currency: "INR",
+        },
+        {
+          webhookEventId: second,
+          externalEventId: "SYNTHETIC:evt:early",
+          eventType: "payment.created",
+          occurredAt: instant("2026-01-15T10:00:00.000Z"),
+          receivedAt: instant("2026-01-15T10:00:01.000Z"),
+          processingStatus: "PROCESSED",
+          amountMinor: "10000",
+          currency: "INR",
+        },
+      ],
+      audit: [
+        {
+          auditEventId: SAMPLE_AUDIT_ID,
+          eventType: "WEBHOOK_DELAYED",
+          occurredAt: instant("2026-01-15T10:00:00.000Z"),
+          recordedAt: instant("2026-01-15T10:00:00.000Z"),
+          previousState: null,
+          resultingState: null,
+          reason: "OUT_OF_ORDER",
+          actor: "SYSTEM",
+        },
+      ],
+    });
+    const result = await new StubInvestigator().investigate(context);
+    expect(result.incidentType).toBe("OUT_OF_ORDER_EVENT");
+    expect(result.confidence).toBe("HIGH");
+    expect(context.replay.orderingMismatch).toBe(true);
+  });
+});
+
+describe("unsupported financial claims", () => {
+  it("rejects inferred customer loss", () => {
+    const context = sampleInvestigationContext();
+    expect(() =>
+      createInvestigationResult({
+        ...validModelResult(context),
+        impact: "The customer lost money because the webhook failed.",
+      }),
+    ).toThrow(InvestigationError);
   });
 });

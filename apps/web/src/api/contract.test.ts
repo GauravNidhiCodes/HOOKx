@@ -35,12 +35,17 @@ describe("operator API contracts", () => {
           fact: "Deterministic engine classified CONFLICTING_EVENT.",
         },
       ],
+      incidentType: "CONFLICTING_EVENT",
+      severity: "ERROR",
+      rootCause: "The provider may have retried an event identity with a different payload.",
       likelyCause: "The provider may have retried an event identity with a different payload.",
+      impact: "Payment state remained unchanged according to the supplied projection.",
       recommendedAction: {
         code: "INVESTIGATE_CONFLICTING_PAYLOAD",
         detail: "Compare stored and rejected deliveries. Do not mutate payment state.",
       },
       confidence: "LOW",
+      confidenceReason: "Only the exception record and a single citation were supplied.",
       limitations: ["Investigation is advisory."],
     });
     expect(Object.keys(result).sort()).toEqual([...INVESTIGATION_RESULT_KEYS].sort());

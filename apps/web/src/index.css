@@ -480,6 +480,18 @@ button:disabled:hover {
   gap: var(--space-3);
 }
 
+.investigation__meta {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+}
+
+.evidence__support {
+  margin-left: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
 .synthetic-flag {
   font-family: var(--font-mono);
   font-size: 0.7rem;

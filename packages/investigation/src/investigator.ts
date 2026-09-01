@@ -6,10 +6,13 @@ import type { InvestigationResult } from "./result.js";
  * payment mutators, provider credentials (except an optional LLM API key
  * isolated inside the adapter), HTTP clients for payment providers, or shell
  * access.
+ *
+ * investigate() accepts InvestigationInput (an evidence package). The
+ * application never passes ORM clients or mutation methods.
  */
 export interface Investigator {
   readonly implementation: string;
   readonly modelId: string | null;
   readonly promptVersion: string;
-  investigate(context: InvestigationContext): Promise<InvestigationResult>;
+  investigate(input: InvestigationContext): Promise<InvestigationResult>;
 }

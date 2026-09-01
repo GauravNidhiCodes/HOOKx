@@ -76,12 +76,14 @@ export type PublicDeadLetter = {
 
 export type PublicInvestigation = {
   readonly investigationId: string;
+  readonly incidentId?: string;
   readonly exceptionId: string;
   readonly investigator: string;
   readonly modelId: string | null;
   readonly promptVersion: string;
   readonly createdAt: string;
   readonly correlationId: string;
+  readonly evidenceHash?: string;
   readonly result: InvestigationResult;
 };
 
@@ -305,8 +307,14 @@ export const INVESTIGATION_RESULT_KEYS = [
   "summary",
   "facts",
   "evidence",
+  "incidentType",
+  "severity",
+  "rootCause",
   "likelyCause",
+  "impact",
+  "recommendedActions",
   "recommendedAction",
   "confidence",
+  "confidenceReason",
   "limitations",
 ] as const;

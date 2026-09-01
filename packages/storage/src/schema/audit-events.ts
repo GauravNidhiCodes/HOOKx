@@ -73,7 +73,8 @@ export const auditEvents = pgTable(
         'EXCEPTION_STATUS_CHANGED',
         'WEBHOOK_CONFLICT_DETECTED',
         'INVALID_TRANSITION_DETECTED',
-        'RETRY_EXHAUSTED'
+        'RETRY_EXHAUSTED',
+        'INVESTIGATION_RECORDED'
       )`,
     ),
     check(

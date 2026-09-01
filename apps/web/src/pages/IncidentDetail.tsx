@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, isApiError } from "../api/client";
 import { useApi } from "../api/context";
 import type {
   PublicIncident,
   PublicIncidentTimelineItem,
+  PublicInvestigation,
 } from "../api/types";
 import { CopyButton } from "../components/CopyButton";
 import { IncidentTimeline } from "../components/IncidentTimeline";
+import { InvestigationPanel } from "../components/InvestigationPanel";
 import {
   ErrorPanel,
   Section,
@@ -15,6 +17,10 @@ import {
   SyntheticMark,
 } from "../components/chrome";
 import { blank } from "../lib/format";
+import {
+  ADVISORY_AUTHORITATIVE,
+  AI_GENERATED_ANALYSIS,
+} from "../lib/operator-catalog";
 import { Link } from "../routing/router";
 
 export function IncidentDetail({ incidentId }: { readonly incidentId: string }) {
@@ -23,8 +29,16 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
   const [timeline, setTimeline] = useState<readonly PublicIncidentTimelineItem[] | null>(
     null,
   );
+  const [investigations, setInvestigations] = useState<
+    readonly PublicInvestigation[]
+  >([]);
   const [error, setError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(true);
+  const [investigationLoading, setInvestigationLoading] = useState(false);
+  const [investigationError, setInvestigationError] = useState<ApiError | null>(
+    null,
+  );
+  const investigationLocked = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,10 +50,14 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
         }
         setIncident(record);
         const composed = await api.getIncidentTimeline(record.incidentId);
+        const history = await api.listIncidentInvestigations(record.incidentId);
         if (cancelled) {
           return;
         }
         setTimeline(composed.timeline);
+        if (!investigationLocked.current) {
+          setInvestigations(history);
+        }
         setLoading(false);
       })
       .catch((caught: unknown) => {
@@ -58,6 +76,29 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
     };
   }, [api, incidentId]);
 
+  async function runInvestigation() {
+    investigationLocked.current = true;
+    setInvestigationLoading(true);
+    setInvestigationError(null);
+    try {
+      const result = await api.investigateIncident(incidentId);
+      setInvestigations((current) => {
+        const rest = current.filter(
+          (row) => row.investigationId !== result.investigationId,
+        );
+        return [result, ...rest];
+      });
+    } catch (caught: unknown) {
+      setInvestigationError(
+        isApiError(caught)
+          ? caught
+          : new ApiError("REQUEST_FAILED", "", 0, "INVESTIGATION REQUEST FAILED"),
+      );
+    } finally {
+      setInvestigationLoading(false);
+    }
+  }
+
   if (error !== null) {
     return (
       <ErrorPanel
@@ -70,6 +111,8 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
   if (loading || incident === null) {
     return <StatusLine>LOADING INCIDENT…</StatusLine>;
   }
+
+  const latest = investigations[0] ?? null;
 
   return (
     <>
@@ -166,6 +209,46 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
         ) : (
           <IncidentTimeline items={timeline} />
         )}
+      </Section>
+      <Section title="AI INVESTIGATION">
+        <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
+        <p className="advisory">{AI_GENERATED_ANALYSIS}</p>
+        <button
+          type="button"
+          onClick={() => {
+            void runInvestigation();
+          }}
+          disabled={investigationLoading}
+        >
+          INVESTIGATE INCIDENT
+        </button>
+        {investigationLoading ? (
+          <StatusLine>LOADING INVESTIGATION…</StatusLine>
+        ) : null}
+        {investigationError !== null ? (
+          <ErrorPanel
+            title="INVESTIGATION REQUEST FAILED"
+            correlationId={investigationError.correlationId}
+            code={investigationError.code}
+          />
+        ) : null}
+        {latest !== null ? (
+          <InvestigationPanel investigation={latest} />
+        ) : investigationLoading ? null : (
+          <p>No investigation has been recorded for this incident.</p>
+        )}
+        {investigations.length > 1 ? (
+          <>
+            <h3 className="kicker">PREVIOUS RUNS</h3>
+            <ul className="plain-list">
+              {investigations.slice(1).map((row) => (
+                <li key={row.investigationId} className="mono">
+                  {row.investigationId} · {row.createdAt} · {row.investigator}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
       </Section>
     </>
   );

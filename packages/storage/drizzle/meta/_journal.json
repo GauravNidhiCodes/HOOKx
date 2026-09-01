@@ -64,6 +64,13 @@
       "when": 1788237000000,
       "tag": "0008_failure_lab_purge",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788240000000,
+      "tag": "0009_investigation_recorded",
+      "breakpoints": true
     }
   ]
 }
