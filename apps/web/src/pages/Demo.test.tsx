@@ -51,6 +51,7 @@ describe("golden demo", () => {
     expect(screen.getByText("RETRYABLE")).toBeTruthy();
     expect(screen.getByText(/ATTEMPT 1 FAILED/)).toBeTruthy();
     expect(screen.getByText(/ATTEMPT 2 RECOVERED/)).toBeTruthy();
+    expect(screen.getByText("WEBHOOK RECOVERED")).toBeTruthy();
     expect(screen.getByText("NO DUPLICATE ECONOMIC EFFECT")).toBeTruthy();
     expect(screen.getByText("AUDIT TRAIL AVAILABLE")).toBeTruthy();
     expect(
@@ -75,11 +76,11 @@ describe("golden demo", () => {
     render(<App api={api} initialHref="/demo" />);
     await user.click(await screen.findByRole("button", { name: "RUN DEMO" }));
     await screen.findByText("DEMO RUN COMPLETE");
-    await user.click(screen.getByRole("button", { name: "INVESTIGATE INCIDENT" }));
+    await user.click(screen.getByRole("button", { name: "INVESTIGATE" }));
     await waitFor(() => {
       expect(api.investigateIncident).toHaveBeenCalledWith(EXCEPTION_ID);
     });
-    expect(await screen.findByText("AI-GENERATED INVESTIGATION")).toBeTruthy();
+    expect(await screen.findAllByText("AI-GENERATED INVESTIGATION")).toBeTruthy();
     expect(screen.getAllByText(/READ-ONLY/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NO FINANCIAL STATE CHANGES/).length).toBeGreaterThan(0);
     expect(screen.getByText(sampleInvestigation.result.summary)).toBeTruthy();
@@ -128,6 +129,7 @@ describe("golden demo", () => {
     await user.click(await screen.findByRole("button", { name: "RUN DEMO" }));
     expect(await screen.findAllByText(/RETRY EXHAUSTED/)).toBeTruthy();
     expect(screen.queryByText(/ATTEMPT 2 RECOVERED/)).toBeNull();
+    expect(screen.queryByText("WEBHOOK RECOVERED")).toBeNull();
     expect(screen.getByText(/Processing did not recover/)).toBeTruthy();
   });
 });

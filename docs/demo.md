@@ -36,13 +36,13 @@ pnpm dev
 
 ## Demonstration sequence
 
-1. **Overview.** Confirm HOOKX / Payment Webhook Reliability Engine, the problem sentence, **RUN GOLDEN DEMO**, architecture flow, and principles. If the database is empty, persisted state shows **NO DATA**.
-2. **Failure Lab.** Primary nav → Failure Lab. The page states **THIS IS SYNTHETIC**.
-3. **Run scenario.** Open **04 — TRANSIENT FAILURE** (labelled **SYNTHETIC · DEMO RUN**, also `#architecture-demo`). Read **WHAT WE SIMULATE** and **WHAT HOOKX SHOULD DO**. Click **RUN**.
+1. **Overview.** Confirm HOOKX / Payment Webhook Reliability Engine, **WHAT IT SOLVES**, **HOOKX PROVIDES**, and **RUN GOLDEN DEMO**. If the database is empty, persisted state shows **NO DATA**.
+2. **Failure Lab (optional).** Primary nav → Failure Lab. The page states **THIS IS SYNTHETIC**. Golden Demo is listed first.
+3. **Run scenario.** Open **08 — GOLDEN DEMO** (labelled **SYNTHETIC · GOLDEN DEMO**, also `#golden-demo`) or **04 — TRANSIENT FAILURE**. Read **INPUT** and **EXPECTED BEHAVIOR**. Click **RUN**.
 4. **View result.** **WHAT ACTUALLY HAPPENED** is the backend report: deliveries, retry `SUCCEEDED`, payment `CREATED`, `PROCESSING_FAILURE` incident, audit count, execution log. Identifiers include a unique `runId`.
 5. **View incident.** **VIEW INCIDENT** opens the persisted incident (not a frontend simulation).
-6. **View timeline.** **VIEW TIMELINE** (or the timeline on the incident) shows timestamp, event, decision, result. Event / received / processed times appear when stored.
-7. **Investigate.** **INVESTIGATE INCIDENT**. Banners: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. The deterministic result section remains the financial authority.
+6. **View timeline.** **VIEW TIMELINE** (or the timeline on the incident) shows timestamp, event, result. Extra times and identifiers sit under **TECHNICAL DETAILS**.
+7. **Investigate.** **INVESTIGATE**. Banners: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. **DETERMINISTIC SYSTEM RESULT** remains the financial authority.
 8. **View evidence.** Evidence citations link to exception, event, or incident records. **VIEW EVIDENCE** from the lab report opens the stored webhook.
 9. **Verify audit.** Incident timeline includes investigation availability. The API writes `INVESTIGATION_RECORDED`. Payment state after investigation matches payment state before investigation.
 

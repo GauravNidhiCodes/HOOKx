@@ -20,7 +20,7 @@ describe("overview", () => {
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /Webhook delivery is not the same thing as reliable financial processing/,
+        /Webhook reliability is difficult because providers can retry, duplicate, delay or deliver conflicting events/,
       ),
     ).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "Primary" });
@@ -38,7 +38,7 @@ describe("overview", () => {
     expect(screen.getByLabelText("System architecture").textContent).toContain(
       "Idempotent ingestion",
     );
-    expect(screen.getByText("AI outside the financial decision path")).toBeTruthy();
+    expect(screen.getByText("AI outside the financial decision path.")).toBeTruthy();
     expect(screen.getByText("NO DATA")).toBeTruthy();
     expect(screen.queryByText(/uptime/i)).toBeNull();
     expect(screen.queryByText(/99\.99/)).toBeNull();

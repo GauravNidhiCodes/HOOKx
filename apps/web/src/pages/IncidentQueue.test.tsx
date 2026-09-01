@@ -83,7 +83,7 @@ describe("incident detail", () => {
     const api = createMockApi();
     render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
     expect(await screen.findByRole("heading", { name: "WHAT HAPPENED?" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "DETERMINISTIC RESULT" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "DETERMINISTIC SYSTEM RESULT" })).toBeTruthy();
     expect(screen.getAllByText("CONFLICTING_EVENT").length).toBeGreaterThan(0);
     expect(screen.getByText("TIMELINE")).toBeTruthy();
     expect(screen.getAllByText("WEBHOOK RECEIVED").length).toBeGreaterThan(0);
@@ -177,11 +177,11 @@ describe("incident detail", () => {
     render(<App api={api} initialHref={`/incidents/${EXCEPTION_ID}`} />);
     expect(await screen.findByText("NO INVESTIGATION")).toBeTruthy();
     expect(
-      screen.getByText("Run an investigation when evidence is available."),
+      screen.getByText("Run an investigation after an incident is available."),
     ).toBeTruthy();
   });
 
-  it("runs INVESTIGATE INCIDENT and shows structured AI analysis", async () => {
+  it("runs INVESTIGATE and shows structured AI analysis", async () => {
     const api = createMockApi({
       listIncidentInvestigations: vi.fn(async () => []),
     });
@@ -192,7 +192,7 @@ describe("incident detail", () => {
     expect(screen.getAllByText(/READ-ONLY/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/NO FINANCIAL STATE CHANGES/).length).toBeGreaterThan(0);
     await user.click(
-      screen.getByRole("button", { name: "INVESTIGATE INCIDENT" }),
+      screen.getByRole("button", { name: "INVESTIGATE" }),
     );
     expect(api.investigateIncident).toHaveBeenCalledWith(EXCEPTION_ID);
     expect(

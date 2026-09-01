@@ -23,11 +23,11 @@ export function Shell({ children }: { readonly children: React.ReactNode }) {
         <Link href="/demo" className="nav__item">
           Demo
         </Link>
-        <Link href="/failure-lab" className="nav__item">
-          Failure Lab
-        </Link>
         <Link href="/incidents" className="nav__item">
           Incidents
+        </Link>
+        <Link href="/failure-lab" className="nav__item">
+          Failure Lab
         </Link>
       </nav>
       <main id="main" className="main" tabIndex={-1}>

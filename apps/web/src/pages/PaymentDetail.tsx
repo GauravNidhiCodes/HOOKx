@@ -236,7 +236,7 @@ export function PaymentDetail({ paymentId }: { readonly paymentId: string }) {
                 eventFilter.eventType === undefined &&
                 eventFilter.processingStatus === undefined &&
                 eventFilter.q === undefined
-                  ? "No webhook events are currently available."
+                  ? "No webhook events are available."
                   : "No stored webhook events match the current filter."
               }
             />
@@ -284,7 +284,7 @@ export function PaymentDetail({ paymentId }: { readonly paymentId: string }) {
         ) : investigations.length === 0 ? (
           <section className="empty">
             <h3 className="kicker">NO INVESTIGATION</h3>
-            <p>Run an investigation when evidence is available.</p>
+            <p>Run an investigation after an incident is available.</p>
           </section>
         ) : (
           investigations.map((row) => (

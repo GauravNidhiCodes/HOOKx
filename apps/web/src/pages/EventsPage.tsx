@@ -88,7 +88,7 @@ function EventIndexResults({ query }: { readonly query: EventListFilter }) {
         query.eventType === undefined &&
         query.processingStatus === undefined &&
         query.q === undefined
-          ? "No webhook events are currently available."
+          ? "No webhook events are available."
           : "No stored webhook events match the current filter."
       }
     />

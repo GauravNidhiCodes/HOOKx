@@ -26,7 +26,7 @@ function hasLifecycle(
   return report.log.some((entry) => entry.lifecycle === name);
 }
 
-function recovered(report: FailureLabRunReport): boolean {
+export function webhookRecovered(report: FailureLabRunReport): boolean {
   if (report.retry?.status === "DEAD_LETTERED" || report.deadLetter !== null) {
     return false;
   }
@@ -79,7 +79,7 @@ export function deriveDemoSteps(
       case "RETRY":
         return hasLifecycle(report, "RETRY_SCHEDULED") || report.retry !== null;
       case "RECOVER":
-        return recovered(report);
+        return webhookRecovered(report);
       case "AUDIT":
         return report.auditCount > 0;
       case "INVESTIGATE":

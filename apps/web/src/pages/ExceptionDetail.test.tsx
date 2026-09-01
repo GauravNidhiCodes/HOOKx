@@ -96,7 +96,7 @@ describe("exception detail", () => {
     });
     const user = userEvent.setup();
     render(<App api={api} initialHref={`/exceptions/${EXCEPTION_ID}`} />);
-    const button = await screen.findByRole("button", { name: "Investigate" });
+    const button = await screen.findByRole("button", { name: "INVESTIGATE" });
     await user.click(button);
     expect(await screen.findByText("LOADING INVESTIGATION…")).toBeTruthy();
     finish?.(sampleInvestigation);
@@ -118,16 +118,16 @@ describe("exception detail", () => {
     });
     const user = userEvent.setup();
     render(<App api={api} initialHref={`/exceptions/${EXCEPTION_ID}`} />);
-    await user.click(await screen.findByRole("button", { name: "Investigate" }));
+    await user.click(await screen.findByRole("button", { name: "INVESTIGATE" }));
     expect(await screen.findByText("INVESTIGATION REQUEST FAILED")).toBeTruthy();
     expect(screen.getByText("corr-failed")).toBeTruthy();
     expect(screen.getByText("MALFORMED_MODEL_OUTPUT")).toBeTruthy();
   });
 
-  it("focuses Investigate with the keyboard", async () => {
+  it("focuses INVESTIGATE with the keyboard", async () => {
     const api = createMockApi();
     render(<App api={api} initialHref={`/exceptions/${EXCEPTION_ID}`} />);
-    const button = (await screen.findByRole("button", { name: "Investigate" })) as HTMLButtonElement;
+    const button = (await screen.findByRole("button", { name: "INVESTIGATE" })) as HTMLButtonElement;
     button.focus();
     expect(document.activeElement).toBe(button);
     await waitFor(() => {

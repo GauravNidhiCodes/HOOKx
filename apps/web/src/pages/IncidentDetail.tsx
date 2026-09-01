@@ -144,18 +144,24 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
       <Section title="WHY?">
         <p className="mono">{brief.why}</p>
       </Section>
-      <Section title="WHAT DID THE SYSTEM DO?">
+      <Section title="WHAT DID HOOKX DO?">
         <p>{brief.systemDid}</p>
       </Section>
-      <Section title="WHAT HAPPENED AFTERWARD?">
+      <Section title="WHAT WAS THE FINAL RESULT?">
         <p>{brief.afterward}</p>
       </Section>
-      <Section title="WHAT CAN THE OPERATOR DO?">
-        <p>{brief.operator}</p>
-      </Section>
-      <Section title="DETERMINISTIC RESULT">
+      <section className="section" id="timeline">
+        <h2 className="kicker">TIMELINE</h2>
+        <p>Persisted timestamps. This is the primary evidence for the incident.</p>
+        {timeline === null ? (
+          <StatusLine>LOADING TIMELINE…</StatusLine>
+        ) : (
+          <IncidentTimeline items={timeline} />
+        )}
+      </section>
+      <Section title="DETERMINISTIC SYSTEM RESULT">
         <p className="advisory">
-          DETERMINISTIC RESULT — PAYMENT STATE IS DECIDED HERE
+          DETERMINISTIC SYSTEM RESULT — PAYMENT STATE IS DECIDED HERE
         </p>
         <SpecList
           rows={[
@@ -223,16 +229,11 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
           ]}
         />
       </Section>
-      <section className="section" id="timeline">
-        <h2 className="kicker">TIMELINE</h2>
-        {timeline === null ? (
-          <StatusLine>LOADING TIMELINE…</StatusLine>
-        ) : (
-          <IncidentTimeline items={timeline} />
-        )}
-      </section>
+      <Section title="WHAT CAN THE OPERATOR DO?">
+        <p>{brief.operator}</p>
+      </Section>
       <section className="section" id="investigation">
-        <h2 className="kicker">AI INVESTIGATION</h2>
+        <h2 className="kicker">AI-GENERATED INVESTIGATION</h2>
         <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
         <p className="advisory">
           {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
@@ -249,7 +250,7 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
           }}
           disabled={investigationLoading}
         >
-          INVESTIGATE INCIDENT
+          INVESTIGATE
         </button>
         {investigationLoading ? (
           <StatusLine>LOADING INVESTIGATION…</StatusLine>
@@ -268,7 +269,7 @@ export function IncidentDetail({ incidentId }: { readonly incidentId: string }) 
         ) : investigationLoading ? null : (
           <section className="empty">
             <h3 className="kicker">NO INVESTIGATION</h3>
-            <p>Run an investigation when evidence is available.</p>
+            <p>Run an investigation after an incident is available.</p>
           </section>
         )}
         {investigations.length > 1 ? (

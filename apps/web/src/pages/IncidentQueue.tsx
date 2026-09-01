@@ -96,7 +96,7 @@ function IncidentResults({ query }: { readonly query: IncidentListQuery }) {
           query.provider === undefined &&
           query.from === undefined &&
           query.to === undefined
-            ? "No webhook incidents have been recorded yet."
+            ? "No webhook failures have been recorded."
             : "No stored incidents match the selected filters."}
         </p>
       </section>

@@ -25,6 +25,23 @@ function evidenceHref(item: InvestigationEvidence): string | null {
   return null;
 }
 
+function evidenceKind(item: InvestigationEvidence): string {
+  switch (item.sourceType) {
+    case "WEBHOOK_EVENT":
+      return "EVENT ID";
+    case "RETRY_ATTEMPT":
+      return "ATTEMPT";
+    case "EXCEPTION":
+      return "FAILURE REASON";
+    case "AUDIT_EVENT":
+      return "TIMELINE EVENT";
+    case "STATE_TRANSITION":
+      return "TIMELINE EVENT";
+    case "INCIDENT":
+      return "INCIDENT";
+  }
+}
+
 export function InvestigationPanel({
   investigation,
 }: {
@@ -36,11 +53,13 @@ export function InvestigationPanel({
     [investigation.result.recommendedAction];
   return (
     <div className="investigation">
-      <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
-      <p className="advisory">
-        {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
-      </p>
-      <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
+      <div className="investigation__banner">
+        <p className="advisory">{AI_GENERATED_INVESTIGATION}</p>
+        <p className="advisory">
+          {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
+        </p>
+        <p className="advisory">{ADVISORY_AUTHORITATIVE}</p>
+      </div>
       {unavailable ? (
         <p className="advisory">
           {INVESTIGATION_UNAVAILABLE} — NO PAYMENT STATE CHANGED
@@ -74,8 +93,9 @@ export function InvestigationPanel({
           const href = evidenceHref(item);
           return (
             <li key={`${item.sourceType}-${item.sourceId}-${item.fact}`}>
+              <span className="kicker">{evidenceKind(item)}</span>
               <span className="mono">
-                {item.sourceType}{" "}
+                {" "}
                 {href === null ? (
                   item.sourceId
                 ) : (

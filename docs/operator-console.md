@@ -6,15 +6,15 @@ All simulator-generated rows are labelled **SYNTHETIC**. The console never descr
 
 ## Navigation
 
-Primary destinations:
+Primary destinations (header order: Overview, Demo, Incidents, Failure Lab):
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Overview: HOOKX heading, problem sentence, **RUN GOLDEN DEMO**, architecture, principles, persisted counts or **NO DATA** |
+| `/` | Overview: HOOKX heading, what it solves, **RUN GOLDEN DEMO**, architecture, persisted counts or **NO DATA** |
 | `/demo` | Golden Demo: synthetic Razorpay-shaped fail-once through real ingest |
-| `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
 | `/incidents` | Exception-backed incident list (no fabricated KPIs) |
 | `/incidents/:id` | Incident chronology, deterministic result, optional AI investigation |
+| `/failure-lab` | Synthetic Failure Lab (real ingest pipeline; no Razorpay calls) |
 
 Linked investigation routes (not primary nav):
 
@@ -80,7 +80,7 @@ That is the investigation loop: payment → events → exceptions → back to pa
 
 `/incidents` lists persisted exceptions as incidents. Successful webhooks do not appear. `/incidents/:id` loads one backend timeline (`GET /incidents/:id/timeline`) instead of reconstructing chronology from many client calls. Clock order is delivery/recording time; event time and received time are both shown when stored.
 
-**INVESTIGATE INCIDENT** requests `POST /incidents/:id/investigate`. The page separates **DETERMINISTIC RESULT** from **AI INVESTIGATION**. Banners **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**, and **ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE** are visible. This is not a chatbot.
+**INVESTIGATE** requests `POST /incidents/:id/investigate`. The page separates **DETERMINISTIC SYSTEM RESULT** from **AI-GENERATED INVESTIGATION**. Banners **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**, and **ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE** are visible. This is not a chatbot.
 
 See `docs/observability.md` and `docs/ai-investigator.md`.
 
@@ -98,7 +98,7 @@ Investigation is advisory. The console displays:
 
 `ADVISORY — DETERMINISTIC SYSTEM REMAINS AUTHORITATIVE`
 
-Evidence items link to the underlying exception, incident, or webhook when the source type allows it. Recommended actions are labelled **NOT EXECUTABLE**. **INVESTIGATE INCIDENT** does not capture, refund, or change payment state. See `docs/ai-investigator.md`.
+Evidence items link to the underlying exception, incident, or webhook when the source type allows it. Recommended actions are labelled **NOT EXECUTABLE**. **INVESTIGATE** does not capture, refund, or change payment state. See `docs/ai-investigator.md`.
 
 **AI does not determine financial state.**
 

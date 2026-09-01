@@ -4,6 +4,7 @@ import {
   failureClassification,
   retryExhausted,
   unexpectedDemoOutcome,
+  webhookRecovered,
 } from "./demo-lifecycle";
 import {
   sampleFailureLabRun,
@@ -20,6 +21,7 @@ describe("demo lifecycle derivation", () => {
   it("marks receive through audit from a recovered golden report", () => {
     const steps = deriveDemoSteps(sampleGoldenDemoRun.run, false);
     const done = Object.fromEntries(steps.map((step) => [step.id, step.complete]));
+    expect(webhookRecovered(sampleGoldenDemoRun.run)).toBe(true);
     expect(done["RECEIVE"]).toBe(true);
     expect(done["VERIFY"]).toBe(true);
     expect(done["PROCESS"]).toBe(true);
@@ -37,6 +39,7 @@ describe("demo lifecycle derivation", () => {
 
   it("does not mark recover when retry is exhausted", () => {
     expect(retryExhausted(sampleGoldenDemoExhausted.run)).toBe(true);
+    expect(webhookRecovered(sampleGoldenDemoExhausted.run)).toBe(false);
     const steps = deriveDemoSteps(sampleGoldenDemoExhausted.run, false);
     expect(steps.find((step) => step.id === "RECOVER")?.complete).toBe(false);
   });

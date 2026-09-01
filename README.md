@@ -70,7 +70,7 @@ The fastest reviewer path is a **synthetic** Razorpay-shaped fail-once run throu
 7. Open `http://127.0.0.1:5173/demo`
 8. Click **RUN DEMO**
 9. Open **VIEW INCIDENT** and **VIEW TIMELINE**
-10. Click **INVESTIGATE INCIDENT**
+10. Click **INVESTIGATE**
 
 This is a **SYNTHETIC DEMONSTRATION**, not live payment processing. Nothing is sent to Razorpay. Details: [docs/golden-demo.md](docs/golden-demo.md).
 

@@ -15,6 +15,7 @@ import {
   failureClassification,
   retryExhausted,
   unexpectedDemoOutcome,
+  webhookRecovered,
 } from "../lib/demo-lifecycle";
 import { Link } from "../routing/router";
 
@@ -94,12 +95,15 @@ function Recovery({ demo }: { readonly demo: GoldenDemoRun }) {
       </section>
     );
   }
-  if (report.retry?.status !== "SUCCEEDED") {
+  if (!webhookRecovered(report)) {
     return null;
   }
   return (
     <section className="section">
       <h2 className="kicker">RECOVERY</h2>
+      <p className="result-flag" role="status">
+        WEBHOOK RECOVERED
+      </p>
       <p className="mono">
         EVENT {report.eventType ?? "—"} {report.eventProcessingStatus ?? "—"}
       </p>
@@ -190,8 +194,9 @@ export function Demo() {
   return (
     <>
       <header className="page-head">
-        <h1 className="kicker">HOOKX</h1>
-        <p className="kicker">PAYMENT WEBHOOK RELIABILITY ENGINE</p>
+        <h1 className="product-name">HOOKX</h1>
+        <p className="page-title">PAYMENT WEBHOOK RELIABILITY ENGINE</p>
+        <p className="kicker">GOLDEN DEMO</p>
         <p className="synthetic-flag" role="note">
           SYNTHETIC DEMONSTRATION
         </p>
@@ -224,7 +229,12 @@ export function Demo() {
       </ol>
 
       <div className="lab-follow">
-        <button type="button" onClick={() => void runDemo()} disabled={busy}>
+        <button
+          type="button"
+          className="cta"
+          onClick={() => void runDemo()}
+          disabled={busy}
+        >
           RUN DEMO
         </button>
         <button
@@ -279,7 +289,7 @@ export function Demo() {
           {demo.invariant.noDuplicateEconomicEffect ? (
             <section className="section">
               <h2 className="kicker">SAFETY</h2>
-              <p className="synthetic-flag" role="status">
+              <p className="result-flag" role="status">
                 NO DUPLICATE ECONOMIC EFFECT
               </p>
               <p className="mono">
@@ -318,25 +328,40 @@ export function Demo() {
                     className="incident-timeline__item"
                     key={`${entry.lifecycle}-${entry.clock}-${String(index)}`}
                   >
-                    <span className="incident-timeline__label">
-                      {entry.lifecycle.replaceAll("_", " ")}
-                    </span>
-                    <span className="incident-timeline__times mono">
-                      {formatClock(entry.clock)}
-                      {entry.decision !== null ? ` · ${entry.decision}` : ""}
-                    </span>
+                    <div className="timeline-row">
+                      <time
+                        className="timeline-row__time mono"
+                        dateTime={entry.clock}
+                      >
+                        {formatClock(entry.clock)}
+                      </time>
+                      <span className="timeline-row__event">
+                        {entry.lifecycle.replaceAll("_", " ")}
+                      </span>
+                      <span className="timeline-row__result">
+                        {entry.decision ?? "—"}
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ol>
             </section>
           ) : null}
 
+          <section className="section">
+            <h2 className="kicker">DETERMINISTIC SYSTEM RESULT</h2>
+            <p>
+              Retry, recovery, and economic effect are decided by the
+              processing engine. The values above come from the stored run
+              report.
+            </p>
+          </section>
+
           {demo.run.incidentId !== null ? (
             <section className="section">
-              <h2 className="kicker">INVESTIGATE</h2>
+              <h2 className="kicker">{AI_GENERATED_INVESTIGATION}</h2>
               <p className="advisory">
-                {AI_GENERATED_INVESTIGATION} · {AI_READONLY} ·{" "}
-                {AI_NO_FINANCIAL_STATE_CHANGES}
+                {AI_READONLY} · {AI_NO_FINANCIAL_STATE_CHANGES}
               </p>
               <p>
                 Recovery happened through deterministic retry. Investigation
@@ -347,7 +372,7 @@ export function Demo() {
                 onClick={() => void investigate()}
                 disabled={busy}
               >
-                INVESTIGATE INCIDENT
+                INVESTIGATE
               </button>
               {investigateError !== null ? (
                 <ErrorPanel
@@ -409,8 +434,8 @@ export function Demo() {
       ) : null}
 
       {history.length > 0 ? (
-        <section className="section">
-          <h2 className="kicker">RECENT SYNTHETIC RUNS</h2>
+        <details className="payload">
+          <summary>RECENT SYNTHETIC RUNS</summary>
           <ul className="plain-list">
             {history.map((row) => (
               <li key={row.demoRunId} className="mono">
@@ -418,7 +443,7 @@ export function Demo() {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       ) : null}
     </>
   );

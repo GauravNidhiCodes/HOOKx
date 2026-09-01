@@ -6,7 +6,7 @@ export function EventTable({
   events,
   showPayment = true,
   emptyTitle = "NO EVENTS",
-  emptyBody = "No webhook events are currently available.",
+  emptyBody = "No webhook events are available.",
 }: {
   readonly events: readonly PublicWebhookEvent[];
   readonly showPayment?: boolean;

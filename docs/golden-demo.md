@@ -15,7 +15,7 @@ Operator console `/demo` → **RUN DEMO** → `POST /demo/run` → Failure Lab s
 5. The lab retry worker drains due retries (clock advanced to `nextAttemptAt`; no cosmetic sleep). The second process succeeds. Event processing status is `PROCESSED`.
 6. The same signed identity is posted again. Ingest classifies **duplicate**. One stored event.
 7. The execution report is assembled from stored webhooks, retries, exceptions, audit, and the incident timeline.
-8. The operator may open **VIEW INCIDENT** / **VIEW TIMELINE** and **INVESTIGATE INCIDENT** (`POST /incidents/:id/investigate`). Investigation is read-only.
+8. The operator may open **VIEW INCIDENT** / **VIEW TIMELINE** and **INVESTIGATE** (`POST /incidents/:id/investigate`). Investigation is read-only.
 
 The UI marks lifecycle steps **only** from that report (and from a successful investigate call for step 08). It does not use `setTimeout` to fake progress.
 
@@ -68,7 +68,7 @@ If processing created an exception, the report includes `incidentId` and links t
 
 ## AI investigation
 
-**INVESTIGATE INCIDENT** calls the existing investigator. Labels: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. Investigation does not cause retry recovery. The stub (default) or optional OpenAI path both consume stored evidence. Recommended actions are not executable.
+**INVESTIGATE** calls the existing investigator. Labels: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. Investigation does not cause retry recovery. The stub (default) or optional OpenAI path both consume stored evidence. Recommended actions are not executable.
 
 ## Limitations
 
@@ -146,6 +146,6 @@ Click **RUN DEMO**. The console calls `POST /demo/run`. Lifecycle steps mark com
 
 10. **Run investigation**
 
-**INVESTIGATE INCIDENT** calls `POST /incidents/:id/investigate`. Labels: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. `HOOKX_INVESTIGATION_PROVIDER` may stay `stub`.
+**INVESTIGATE** calls `POST /incidents/:id/investigate`. Labels: **AI-GENERATED INVESTIGATION**, **READ-ONLY**, **NO FINANCIAL STATE CHANGES**. `HOOKX_INVESTIGATION_PROVIDER` may stay `stub`.
 
 Automated equivalent: `apps/api/src/demo/golden.e2e.test.ts` (PostgreSQL). Exhaustion negative path: `apps/api/src/demo/exhaustion.e2e.test.ts`.

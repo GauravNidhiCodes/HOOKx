@@ -184,13 +184,30 @@ a:active {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  overflow-x: auto;
 }
 
 .page-head {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  max-width: 42rem;
+  gap: var(--space-3);
+  max-width: 44rem;
+}
+
+.product-name {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.page-title {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .kicker {
@@ -199,6 +216,54 @@ a:active {
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+
+.cta,
+a.cta,
+a.cta:link,
+a.cta:visited {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--black);
+  color: var(--white);
+  border: var(--rule-heavy);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  width: fit-content;
+  cursor: pointer;
+}
+
+a.cta:hover,
+a.cta:active,
+.cta:hover,
+.cta:active {
+  background: var(--white);
+  color: var(--black);
+}
+
+button.cta:disabled,
+button.cta:disabled:hover {
+  background: var(--white);
+  color: var(--black);
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.result-flag {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border: var(--rule-heavy);
+  padding: 0.65rem 0.75rem;
+  max-width: 46rem;
 }
 
 .mono {
@@ -283,6 +348,23 @@ button:disabled {
 }
 
 button:disabled:hover {
+  background: var(--white);
+  color: var(--black);
+}
+
+button.cta {
+  background: var(--black);
+  color: var(--white);
+}
+
+button.cta:hover,
+button.cta:active {
+  background: var(--white);
+  color: var(--black);
+}
+
+button.cta:disabled,
+button.cta:disabled:hover {
   background: var(--white);
   color: var(--black);
 }
@@ -430,12 +512,37 @@ button:disabled:hover {
   padding: 0;
 }
 
+.timeline-row {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(8rem, 1.2fr) minmax(8rem, 1fr);
+  gap: var(--space-2) var(--space-3);
+  align-items: baseline;
+}
+
+.timeline-row__time {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.timeline-row__event {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.timeline-row__result {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+}
+
 .incident-timeline__item {
   padding: 0.85rem 0 0.85rem 0.15rem;
   border-bottom: var(--rule);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .incident-timeline__item:first-child {
@@ -482,6 +589,14 @@ button:disabled:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  border: var(--rule-heavy);
+  padding: var(--space-4);
+}
+
+.investigation__banner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .investigation__meta {
@@ -695,6 +810,7 @@ button:disabled:hover {
   display: flex;
   flex-wrap: wrap;
   border: var(--rule);
+  overflow-x: auto;
 }
 
 .architecture-flow li {
@@ -717,6 +833,7 @@ button:disabled:hover {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   border: var(--rule-heavy);
   margin: 0 0 var(--space-4);
+  overflow-x: auto;
 }
 
 .demo-lifecycle__step {
@@ -759,6 +876,11 @@ button:disabled:hover {
 }
 
 @media (max-width: 840px) {
+  .timeline-row {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+
   .spec__row {
     grid-template-columns: 1fr;
     gap: var(--space-1);
@@ -795,6 +917,10 @@ button:disabled:hover {
 }
 
 @media (max-width: 640px) {
+  .product-name {
+    font-size: 1.5rem;
+  }
+
   .masthead {
     flex-direction: column;
     align-items: flex-start;

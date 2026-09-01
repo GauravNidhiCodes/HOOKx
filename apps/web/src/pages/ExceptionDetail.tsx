@@ -305,7 +305,7 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
           }}
           disabled={investigationLoading}
         >
-          Investigate
+          INVESTIGATE
         </button>
         {investigationLoading ? (
           <StatusLine>LOADING INVESTIGATION…</StatusLine>
@@ -324,7 +324,7 @@ export function ExceptionDetail({ exceptionId }: { readonly exceptionId: string 
         ) : investigationLoading ? null : (
           <section className="empty">
             <h3 className="kicker">NO INVESTIGATION</h3>
-            <p>Run an investigation when evidence is available.</p>
+            <p>Run an investigation after an incident is available.</p>
           </section>
         )}
       </Section>

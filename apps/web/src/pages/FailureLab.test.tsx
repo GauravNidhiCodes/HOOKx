@@ -28,9 +28,13 @@ describe("failure lab", () => {
     expect(screen.getByText(/07 — RAZORPAY-SHAPED DUPLICATE/)).toBeTruthy();
     expect(screen.getByText(/08 — GOLDEN DEMO/)).toBeTruthy();
     expect(screen.getAllByText("NOT RUN").length).toBe(8);
-    expect(screen.getAllByText("WHAT WE SIMULATE").length).toBe(8);
-    expect(screen.getAllByText("WHAT HOOKX SHOULD DO").length).toBe(8);
+    expect(screen.getAllByText("INPUT").length).toBe(8);
+    expect(screen.getAllByText("EXPECTED BEHAVIOR").length).toBe(8);
     expect(screen.getByText("SYNTHETIC · DEMO RUN")).toBeTruthy();
+    expect(screen.getByText(/SYNTHETIC · GOLDEN DEMO/)).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "OPEN GOLDEN DEMO" }).getAttribute("href"),
+    ).toBe("/demo");
     expect(screen.getByText(/DATA SOURCE is always SYNTHETIC/)).toBeTruthy();
     expect(api.getFailureLabCatalog).toHaveBeenCalled();
   });

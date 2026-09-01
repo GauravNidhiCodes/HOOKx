@@ -5,8 +5,17 @@ import type { MetricsSummary } from "../api/types";
 import { ErrorPanel, StatusLine } from "../components/chrome";
 import { Link } from "../routing/router";
 
-const PRODUCT_SENTENCE =
-  "Webhook delivery is not the same thing as reliable financial processing. HOOKX verifies signed webhooks, stores each identity once, applies deterministic transitions, retries transient failures, and records an audit trail.";
+const PROBLEM =
+  "Webhook reliability is difficult because providers can retry, duplicate, delay or deliver conflicting events.";
+
+const CAPABILITIES = [
+  "verification",
+  "idempotency",
+  "deterministic processing",
+  "retry/recovery",
+  "auditability",
+  "investigation",
+] as const;
 
 const ARCHITECTURE = [
   "Provider",
@@ -20,16 +29,6 @@ const ARCHITECTURE = [
   "Audit",
   "Investigation",
   "Operator",
-] as const;
-
-const PRINCIPLES = [
-  "Idempotent ingestion",
-  "Deterministic state transitions",
-  "Provider-agnostic adapters",
-  "Append-only audit trail",
-  "Safe retries and replay",
-  "AI outside the financial decision path",
-  "Synthetic test environment",
 ] as const;
 
 function count(
@@ -120,7 +119,7 @@ export function Overview() {
         title="UNABLE TO LOAD OVERVIEW"
         correlationId={error.correlationId}
         code={error.code}
-        next="Retry this page, or continue from Failure Lab or Incidents."
+        next="Retry this page, or continue from Demo or Incidents."
       />
     );
   }
@@ -128,18 +127,33 @@ export function Overview() {
   return (
     <>
       <header className="page-head">
-        <h1 className="kicker">HOOKX</h1>
-        <p className="kicker">PAYMENT WEBHOOK RELIABILITY ENGINE</p>
-        <p>{PRODUCT_SENTENCE}</p>
-        <p>
-          When a webhook fails, the event is kept, classified, retried or
-          dead-lettered, and audited. Duplicates do not apply a second economic
-          effect. AI investigation is read-only and cannot change financial
-          state.
-        </p>
-        <p>
-          <Link href="/demo">RUN GOLDEN DEMO</Link>
-        </p>
+        <h1 className="product-name">HOOKX</h1>
+        <p className="page-title">PAYMENT WEBHOOK RELIABILITY ENGINE</p>
+        <section>
+          <h2 className="kicker">WHAT IT SOLVES</h2>
+          <p>{PROBLEM}</p>
+        </section>
+        <section>
+          <h2 className="kicker">HOOKX PROVIDES</h2>
+          <ul className="principles">
+            {CAPABILITIES.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <p>AI outside the financial decision path.</p>
+        </section>
+        <section>
+          <h2 className="kicker">HOW TO START THE DEMO</h2>
+          <p>
+            Open the Golden Demo and run a signed synthetic webhook through the
+            real ingest pipeline.
+          </p>
+          <p>
+            <Link href="/demo" className="cta">
+              RUN GOLDEN DEMO
+            </Link>
+          </p>
+        </section>
       </header>
       <section className="section">
         <h2 className="kicker">ARCHITECTURE</h2>
@@ -153,14 +167,6 @@ export function Overview() {
           adapter. The domain and processing engine do not import HTTP, UI, a
           database, or the AI investigator.
         </p>
-      </section>
-      <section className="section">
-        <h2 className="kicker">PRINCIPLES</h2>
-        <ul className="principles">
-          {PRINCIPLES.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
       </section>
       <section className="section">
         <h2 className="kicker">PERSISTED STATE</h2>

@@ -17,6 +17,19 @@ function lifecycleLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+const FEATURED_SCENARIO_ORDER: readonly FailureLabScenarioId[] = [
+  "GOLDEN_DEMO",
+  "DUPLICATE_DELIVERY",
+  "CONFLICTING_EVENT",
+  "TRANSIENT_FAILURE",
+  "RETRY_EXHAUSTION",
+];
+
+function scenarioRank(id: FailureLabScenarioId): number {
+  const rank = FEATURED_SCENARIO_ORDER.indexOf(id);
+  return rank === -1 ? FEATURED_SCENARIO_ORDER.length : rank;
+}
+
 function originLine(report: FailureLabRunReport): string {
   if (report.labels !== undefined && report.labels.length > 0) {
     return report.labels.join(" · ");
@@ -239,15 +252,20 @@ function ScenarioBlock({
         </p>
       ) : null}
       {goldenDemo ? (
-        <p className="synthetic-flag" role="note">
-          SYNTHETIC · GOLDEN DEMO · polished view at /demo
-        </p>
+        <>
+          <p className="synthetic-flag" role="note">
+            SYNTHETIC · GOLDEN DEMO · polished view at /demo
+          </p>
+          <p>
+            <Link href="/demo">OPEN GOLDEN DEMO</Link>
+          </p>
+        </>
       ) : null}
       <p>
-        <span className="kicker">WHAT WE SIMULATE</span> {scenario.explanation}
+        <span className="kicker">INPUT</span> {scenario.explanation}
       </p>
       <p>
-        <span className="kicker">WHAT HOOKX SHOULD DO</span> {scenario.expected}
+        <span className="kicker">EXPECTED BEHAVIOR</span> {scenario.expected}
       </p>
       <ScenarioStatus report={report} executing={executing} />
     </article>
@@ -364,12 +382,25 @@ export function FailureLab() {
     return <StatusLine>LOADING FAILURE LAB…</StatusLine>;
   }
 
+  const scenarios = [...catalog.scenarios].sort((left, right) => {
+    const byFeature = scenarioRank(left.id) - scenarioRank(right.id);
+    if (byFeature !== 0) {
+      return byFeature;
+    }
+    return left.number.localeCompare(right.number);
+  });
+
   return (
     <>
       <header className="page-head">
         <h1 className="kicker">SYNTHETIC FAILURE LAB</h1>
         <p className="synthetic-flag" role="note">
           THIS IS SYNTHETIC. {catalog.notice}
+        </p>
+        <p>
+          Golden Demo is the primary demonstration. Duplicate, conflict,
+          transient failure, and retry exhaustion are the other operator
+          scenarios. Remaining cases stay available below.
         </p>
         <p>
           Each run posts signed webhooks through ingest, validation, persistence,
@@ -382,7 +413,7 @@ export function FailureLab() {
           the incident → inspect the timeline → investigate → inspect evidence.
         </p>
       </header>
-      {catalog.scenarios.map((scenario) => (
+      {scenarios.map((scenario) => (
         <ScenarioBlock
           key={scenario.id}
           scenario={scenario}
