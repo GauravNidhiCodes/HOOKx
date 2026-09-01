@@ -36,6 +36,13 @@
       "when": 1788225000000,
       "tag": "0004_payments",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788228000000,
+      "tag": "0005_exceptions",
+      "breakpoints": true
     }
   ]
 }

@@ -44,6 +44,9 @@ importers:
       '@hookx/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@hookx/exceptions':
+        specifier: workspace:*
+        version: link:../../packages/exceptions
       '@hookx/simulator':
         specifier: workspace:*
         version: link:../../packages/simulator
@@ -103,6 +106,25 @@ importers:
 
   packages/domain: {}
 
+  packages/exceptions:
+    dependencies:
+      '@hookx/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@hookx/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@hookx/state-machine':
+        specifier: workspace:*
+        version: link:../state-machine
+      '@hookx/webhook':
+        specifier: workspace:*
+        version: link:../webhook
+    devDependencies:
+      '@types/node':
+        specifier: ^24.3.0
+        version: 24.13.3
+
   packages/simulator:
     dependencies:
       '@hookx/domain':
@@ -140,6 +162,9 @@ importers:
       '@hookx/domain':
         specifier: workspace:*
         version: link:../domain
+      '@hookx/exceptions':
+        specifier: workspace:*
+        version: link:../exceptions
       '@hookx/state-machine':
         specifier: workspace:*
         version: link:../state-machine

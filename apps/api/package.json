@@ -15,6 +15,7 @@
   "dependencies": {
     "@hookx/audit": "workspace:*",
     "@hookx/domain": "workspace:*",
+    "@hookx/exceptions": "workspace:*",
     "@hookx/simulator": "workspace:*",
     "@hookx/storage": "workspace:*",
     "@hookx/webhook": "workspace:*",

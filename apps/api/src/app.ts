@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type {
   AuditRepository,
+  ExceptionRepository,
   PaymentRepository,
   RetryRepository,
 } from "@hookx/storage";
@@ -17,6 +18,11 @@ import {
   handleListRetries,
 } from "./http/retries.js";
 import { handleGetPayment } from "./http/payments.js";
+import {
+  handleGetException,
+  handleListExceptions,
+  handlePaymentExceptions,
+} from "./http/exceptions.js";
 import { handleWebhookPost } from "./http/webhooks.js";
 import type { ProcessIncomingWebhookDependencies } from "./pipeline/process-incoming-webhook.js";
 
@@ -25,6 +31,7 @@ export type ApiDependencies = ProcessIncomingWebhookDependencies & {
   readonly retry: RetryRepository;
   readonly audit: AuditRepository;
   readonly payments?: PaymentRepository;
+  readonly exceptions?: ExceptionRepository;
 };
 
 export function createApp(dependencies: ApiDependencies): Hono {
@@ -42,6 +49,8 @@ export function createApp(dependencies: ApiDependencies): Hono {
       payment: "/payments/:paymentId",
       paymentAudit: "/payments/:paymentId/audit",
       webhookAudit: "/webhooks/:webhookEventId/audit",
+      exceptions: "/exceptions",
+      paymentExceptions: "/payments/:paymentId/exceptions",
     });
   });
 
@@ -58,7 +67,12 @@ export function createApp(dependencies: ApiDependencies): Hono {
   app.get("/payments/:paymentId/audit", (c) =>
     handlePaymentAudit(c, dependencies),
   );
+  app.get("/payments/:paymentId/exceptions", (c) =>
+    handlePaymentExceptions(c, dependencies),
+  );
   app.get("/payments/:paymentId", (c) => handleGetPayment(c, dependencies));
+  app.get("/exceptions/:id", (c) => handleGetException(c, dependencies));
+  app.get("/exceptions", (c) => handleListExceptions(c, dependencies));
   app.get("/audit", (c) => handleCorrelationAudit(c, dependencies));
 
   return app;

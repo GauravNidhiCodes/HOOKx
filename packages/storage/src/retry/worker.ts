@@ -1,6 +1,11 @@
 import type { AuditActor } from "@hookx/audit";
 import { AUDIT_REASON } from "@hookx/audit";
 import type { Instant } from "@hookx/domain";
+import {
+  factsFromReplayDecision,
+  factsFromRetryOutcome,
+  type DetectionFact,
+} from "@hookx/exceptions";
 import { processPaymentEvents } from "../process-payment-events.js";
 import type { StoredPayment } from "../payment/types.js";
 import { storedPaymentFromReplay } from "../payment/from-replay.js";
@@ -17,6 +22,9 @@ import type {
   PersistOutcomeFn,
   WebhookTerminalStatus,
 } from "../audit/repository.js";
+import { recordExceptionsSafely } from "../exceptions/record.js";
+import type { ExceptionRepository } from "../exceptions/repository.js";
+import type { StoredWebhookEvent } from "../types.js";
 import { FAILURE_CLASS, classifyFailure, safeFailureCode } from "./classify.js";
 import type { RetryLifecycleSink } from "./lifecycle.js";
 import { silentRetryLifecycleSink } from "./lifecycle.js";
@@ -28,6 +36,7 @@ import {
 import {
   processWebhookAttempt,
   type ProcessPaymentEventsFn,
+  type ProcessingAttemptResult,
 } from "./process-attempt.js";
 import type { RetryRepository } from "./repository.js";
 import type { RetryStatus } from "./status.js";
@@ -53,6 +62,7 @@ export type RetryWorkerDependencies = {
   readonly persistOutcome?: PersistOutcomeFn;
   readonly correlationId?: string;
   readonly actor?: AuditActor;
+  readonly exceptions?: ExceptionRepository;
 };
 
 export async function runRetryTick(
@@ -198,6 +208,19 @@ async function finishAttempt(
       reason: result.outcome,
       timestamp: now,
     });
+    if (result.outcome === "SUCCEEDED") {
+      await recordAttemptExceptions(dependencies, {
+        stored,
+        now,
+        correlationId,
+        actor,
+        retryOutcome: "SUCCEEDED",
+        result,
+        record,
+        policy,
+        exhaustedByAttempts: false,
+      });
+    }
     return "SUCCEEDED";
   }
 
@@ -249,6 +272,18 @@ async function finishAttempt(
       reason: code,
       timestamp: now,
     });
+    await recordAttemptExceptions(dependencies, {
+      stored,
+      now,
+      correlationId,
+      actor,
+      retryOutcome: "DEAD_LETTERED",
+      result,
+      record,
+      policy,
+      exhaustedByAttempts: exhaustedByAttempts,
+      failureCode: code,
+    });
     return "DEAD_LETTERED";
   }
 
@@ -273,6 +308,18 @@ async function finishAttempt(
     reason: code,
     timestamp: now,
   });
+  await recordAttemptExceptions(dependencies, {
+    stored,
+    now,
+    correlationId,
+    actor,
+    retryOutcome: "RETRY_SCHEDULED",
+    result,
+    record,
+    policy,
+    exhaustedByAttempts: false,
+    failureCode: code,
+  });
   return "RETRY_SCHEDULED";
 }
 
@@ -288,6 +335,7 @@ export async function processFreshEvent(
     readonly persistOutcome?: PersistOutcomeFn;
     readonly correlationId?: string;
     readonly actor?: AuditActor;
+    readonly exceptions?: ExceptionRepository;
   },
   webhookEventId: string,
   now: Instant,
@@ -329,6 +377,7 @@ export async function processFreshEvent(
       persistOutcome: dependencies.persistOutcome,
       correlationId,
       actor: dependencies.actor ?? "SYSTEM",
+      exceptions: dependencies.exceptions,
     },
     started,
     now,
@@ -339,6 +388,66 @@ export async function processFreshEvent(
     dependencies.actor ?? "SYSTEM",
   );
   return (await dependencies.retry.getByWebhookEventId(webhookEventId)) ?? started;
+}
+
+async function recordAttemptExceptions(
+  dependencies: RetryWorkerDependencies,
+  input: {
+    readonly stored: StoredWebhookEvent | null;
+    readonly now: Instant;
+    readonly correlationId: string;
+    readonly actor: AuditActor;
+    readonly retryOutcome: "SUCCEEDED" | "RETRY_SCHEDULED" | "DEAD_LETTERED";
+    readonly result: ProcessingAttemptResult;
+    readonly record: RetryRecord;
+    readonly policy: RetryPolicy;
+    readonly exhaustedByAttempts: boolean;
+    readonly failureCode?: string;
+  },
+): Promise<void> {
+  const facts: DetectionFact[] = [];
+  const decision =
+    input.result.outcome === "SUCCEEDED" ||
+    input.result.outcome === "NON_RETRYABLE"
+      ? input.result.decision
+      : undefined;
+  if (decision !== undefined && input.stored !== null) {
+    facts.push(
+      ...factsFromReplayDecision({
+        decision: decision.decision,
+        reason: decision.reason,
+        previousState: decision.previousState,
+        eventType: input.stored.event.eventType,
+      }),
+    );
+  }
+  facts.push(
+    ...factsFromRetryOutcome({
+      status: input.retryOutcome,
+      attemptCount: input.record.attemptCount,
+      maxAttempts: input.policy.maxAttempts,
+      failureCode: input.failureCode,
+      exhaustedByAttempts: input.exhaustedByAttempts,
+    }),
+  );
+  if (facts.length === 0) {
+    return;
+  }
+  await recordExceptionsSafely(
+    {
+      exceptions: dependencies.exceptions,
+      audit: dependencies.audit,
+    },
+    {
+      detectedAt: input.now,
+      correlationId: input.correlationId,
+      provider: input.stored?.event.provider ?? null,
+      paymentId: input.stored?.event.paymentId ?? null,
+      webhookEventId: input.stored?.id ?? input.record.webhookEventId,
+      facts,
+    },
+    input.actor,
+  );
 }
 
 function claimedPreviousStatus(record: RetryRecord): RetryStatus {

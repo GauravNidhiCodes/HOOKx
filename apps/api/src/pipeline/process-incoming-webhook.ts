@@ -1,12 +1,24 @@
 import { AUDIT_REASON } from "@hookx/audit";
-import { providerId, type Instant, type ProviderId } from "@hookx/domain";
-import type { PaymentRepository, WebhookEventRepository } from "@hookx/storage";
+import { providerId, type Instant, type PaymentId, type ProviderId } from "@hookx/domain";
+import {
+  factsFromReplayDecision,
+  factsFromStoreOutcome,
+  factsFromVerificationStatus,
+  factsFromWebhookErrorCode,
+  type DetectionFact,
+} from "@hookx/exceptions";
+import type {
+  ExceptionRepository,
+  PaymentRepository,
+  WebhookEventRepository,
+} from "@hookx/storage";
 import {
   DEFAULT_RETRY_LEASE_MS,
   DEFAULT_RETRY_POLICY,
   ingestRejectionDraft,
   processFreshEvent,
   processPaymentEvents,
+  recordExceptionsSafely,
   webhookReceiptDraft,
   type AuditRepository,
   type PersistOutcomeFn,
@@ -33,6 +45,7 @@ export type ProcessIncomingWebhookDependencies = {
   readonly audit?: AuditRepository;
   readonly persistOutcome?: PersistOutcomeFn;
   readonly payments?: PaymentRepository;
+  readonly exceptions?: ExceptionRepository;
 };
 
 export type ProcessIncomingWebhookInput = {
@@ -138,6 +151,35 @@ async function recordRejection(
   }
 }
 
+async function recordIngestExceptions(
+  dependencies: ProcessIncomingWebhookDependencies,
+  input: ProcessIncomingWebhookInput,
+  facts: readonly DetectionFact[],
+  ids: {
+    readonly paymentId?: PaymentId | null;
+    readonly webhookEventId?: string | null;
+  } = {},
+): Promise<void> {
+  if (facts.length === 0) {
+    return;
+  }
+  await recordExceptionsSafely(
+    {
+      exceptions: dependencies.exceptions,
+      audit: dependencies.audit,
+    },
+    {
+      detectedAt: input.now,
+      correlationId: input.requestId,
+      provider: optionalProvider(input.provider),
+      paymentId: ids.paymentId ?? null,
+      webhookEventId: ids.webhookEventId ?? null,
+      facts,
+    },
+    "SYSTEM",
+  );
+}
+
 /**
  * Application orchestration: verify → adapter → normalize → persist →
  * replay → durable payment + audit. Does not own transition rules, provider
@@ -151,6 +193,11 @@ export async function processIncomingWebhook(
   const verifier = dependencies.verifiers.get(input.provider);
   if (verifier === null) {
     await recordRejection(dependencies, input, AUDIT_REASON.UNSUPPORTED_PROVIDER);
+    await recordIngestExceptions(
+      dependencies,
+      input,
+      factsFromVerificationStatus("UNSUPPORTED_PROVIDER"),
+    );
     return respond(
       404,
       pipelineHttpBody(
@@ -175,6 +222,11 @@ export async function processIncomingWebhook(
 
   if (verification.status !== "VERIFIED") {
     await recordRejection(dependencies, input, verification.status);
+    await recordIngestExceptions(
+      dependencies,
+      input,
+      factsFromVerificationStatus(verification.status),
+    );
     const malformed = verification.status === "MALFORMED_SIGNATURE";
     return respond(
       malformed ? 400 : 401,
@@ -197,6 +249,11 @@ export async function processIncomingWebhook(
     payload = JSON.parse(new TextDecoder().decode(input.rawBody));
   } catch {
     await recordRejection(dependencies, input, AUDIT_REASON.INVALID_PAYLOAD);
+    await recordIngestExceptions(
+      dependencies,
+      input,
+      factsFromWebhookErrorCode(AUDIT_REASON.INVALID_PAYLOAD),
+    );
     return respond(
       400,
       pipelineHttpBody(
@@ -220,6 +277,11 @@ export async function processIncomingWebhook(
   } catch (error) {
     if (isWebhookError(error)) {
       await recordRejection(dependencies, input, error.code);
+      await recordIngestExceptions(
+        dependencies,
+        input,
+        factsFromWebhookErrorCode(error.code),
+      );
       return respond(
         400,
         pipelineHttpBody("bad_request", input.requestId, error.code),
@@ -257,6 +319,15 @@ export async function processIncomingWebhook(
         // Conflict HTTP response is authoritative for the provider.
       }
     }
+    await recordIngestExceptions(
+      dependencies,
+      input,
+      factsFromStoreOutcome("CONFLICT"),
+      {
+        paymentId: event.paymentId,
+        webhookEventId: stored.existing.id,
+      },
+    );
     return respond(
       409,
       pipelineHttpBody("conflict", input.requestId, PIPELINE_ERROR_CODE.CONFLICT),
@@ -307,6 +378,7 @@ export async function processIncomingWebhook(
           persistOutcome: dependencies.persistOutcome,
           correlationId: input.requestId,
           actor: "SYSTEM",
+          exceptions: dependencies.exceptions,
         },
         stored.record.id,
         input.now,
@@ -347,6 +419,15 @@ export async function processIncomingWebhook(
     }
 
     if (stored.outcome === "DUPLICATE") {
+      await recordIngestExceptions(
+        dependencies,
+        input,
+        factsFromStoreOutcome("DUPLICATE"),
+        {
+          paymentId: event.paymentId,
+          webhookEventId: stored.record.id,
+        },
+      );
       return respond(
         200,
         pipelineHttpBody("duplicate", input.requestId),
@@ -408,6 +489,35 @@ export async function processIncomingWebhook(
       event.provider,
       event.paymentId,
     );
+    const decision = replay.decisions.find(
+      (item) => item.eventId === event.externalEventId,
+    );
+    if (stored.outcome === "DUPLICATE") {
+      await recordIngestExceptions(
+        dependencies,
+        input,
+        factsFromStoreOutcome("DUPLICATE"),
+        {
+          paymentId: event.paymentId,
+          webhookEventId: stored.record.id,
+        },
+      );
+    } else if (decision !== undefined) {
+      await recordIngestExceptions(
+        dependencies,
+        input,
+        factsFromReplayDecision({
+          decision: decision.decision,
+          reason: decision.reason,
+          previousState: decision.previousState,
+          eventType: event.eventType,
+        }),
+        {
+          paymentId: event.paymentId,
+          webhookEventId: stored.record.id,
+        },
+      );
+    }
     return respond(
       200,
       pipelineHttpBody(
@@ -421,9 +531,7 @@ export async function processIncomingWebhook(
         externalEventId: event.externalEventId,
         paymentId: event.paymentId,
         storeOutcome: stored.outcome,
-        decision: replay.decisions.find(
-          (item) => item.eventId === event.externalEventId,
-        )?.decision,
+        decision: decision?.decision,
       },
       startedAt,
     );

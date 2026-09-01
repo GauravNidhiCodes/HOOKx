@@ -30,9 +30,11 @@ Reliable Payment State
 Retry / Recovery
       ↓
 Immutable Audit Trail
+      ↓
+Exception Detection
 ```
 
-Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, PostgreSQL-backed retry/recovery, and an append-only audit trail are implemented. Operator UI and live PSP adapters are not.
+Persistence, out-of-order replay, synthetic signature verification, HTTP ingest, PostgreSQL-backed retry/recovery, an append-only audit trail, and deterministic exception classification are implemented. Operator UI and live PSP adapters are not.
 
 ## Architecture
 
@@ -83,8 +85,9 @@ packages/
   state-machine/       Transition table + processEvent + replayEvents
   testkit/             SYNTHETIC fixtures
   simulator/           Synthetic webhook scenarios + generator
-  storage/             PostgreSQL webhook events + payments + retry/dead-letter + audit
+  storage/             PostgreSQL webhook events + payments + retry/dead-letter + audit + exceptions
   audit/               Append-only audit event model
+  exceptions/          Deterministic exception classification
 ```
 
 `providers` and `observability` packages are omitted until those layers exist.
@@ -157,6 +160,7 @@ pnpm simulate list
 | Retry, recovery | Implemented (PostgreSQL worker + backoff) |
 | Audit trail | Implemented (append-only `audit_events`) |
 | Synthetic webhook simulator | Implemented (CLI → real HTTP pipeline) |
+| Deterministic exception detection | Implemented (rules + PostgreSQL + read APIs) |
 | Operator dashboard / live payments | Not implemented |
 | Production deployment | Not implemented |
 

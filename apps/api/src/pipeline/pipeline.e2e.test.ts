@@ -70,6 +70,7 @@ describe("end-to-end webhook processing pipeline", () => {
         retry: store.retry,
         audit: store.audit,
         payments: store.payments,
+        exceptions: store.exceptions,
         persistOutcome: store.persistOutcome,
         retryPolicy: POLICY,
         leaseMs: LEASE_MS,
@@ -183,7 +184,7 @@ describe("end-to-end webhook processing pipeline", () => {
       (await store.audit.listByCorrelationId(requestId)).map(
         (row) => row.eventType,
       ),
-    ).toEqual(["WEBHOOK_REJECTED"]);
+    ).toEqual(["WEBHOOK_REJECTED", "EXCEPTION_DETECTED"]);
   });
 
   it("3 malformed payload after a valid signature is a bad request", async () => {
@@ -238,7 +239,7 @@ describe("end-to-end webhook processing pipeline", () => {
       (await store.audit.listByCorrelationId(secondId)).map(
         (row) => row.eventType,
       ),
-    ).toEqual(["WEBHOOK_DUPLICATE"]);
+    ).toEqual(["WEBHOOK_DUPLICATE", "EXCEPTION_DETECTED"]);
   });
 
   it("7/22 conflict path: original event and payment stay unchanged", async () => {
@@ -274,7 +275,7 @@ describe("end-to-end webhook processing pipeline", () => {
       (await store.audit.listByCorrelationId(requestId)).map(
         (row) => row.eventType,
       ),
-    ).toEqual(["WEBHOOK_CONFLICT"]);
+    ).toEqual(["WEBHOOK_CONFLICT", "WEBHOOK_CONFLICT_DETECTED"]);
   });
 
   it("8/9 out-of-order capture stays delayed until authorization arrives", async () => {
@@ -319,7 +320,12 @@ describe("end-to-end webhook processing pipeline", () => {
       (await store.audit.listByCorrelationId(delayedId)).map(
         (row) => row.eventType,
       ),
-    ).toEqual(["WEBHOOK_RECEIVED", "WEBHOOK_DELAYED"]);
+    ).toEqual([
+      "WEBHOOK_RECEIVED",
+      "WEBHOOK_DELAYED",
+      "EXCEPTION_DETECTED",
+      "EXCEPTION_DETECTED",
+    ]);
 
     const authorized = await postSigned(
       syntheticHoldPayload({
@@ -398,6 +404,11 @@ describe("end-to-end webhook processing pipeline", () => {
         (row) => row.eventType === "PAYMENT_STATE_CHANGED",
       ),
     ).toHaveLength(1);
+    expect(
+      (await store.exceptions.listByPayment(paymentId(paymentRef))).map(
+        (row) => row.exceptionCode,
+      ),
+    ).toContain("INVALID_STATE_TRANSITION");
   });
 
   it("11 retryable processing failure returns 500, keeps the event, then recovers", async () => {
@@ -423,6 +434,7 @@ describe("end-to-end webhook processing pipeline", () => {
       retry: store.retry,
       audit: store.audit,
       payments: store.payments,
+      exceptions: store.exceptions,
       persistOutcome: store.persistOutcome,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
@@ -458,7 +470,7 @@ describe("end-to-end webhook processing pipeline", () => {
       (await store.audit.listByCorrelationId(requestId)).map(
         (row) => row.eventType,
       ),
-    ).toEqual(["WEBHOOK_RECEIVED", "RETRY_SCHEDULED"]);
+    ).toEqual(["WEBHOOK_RECEIVED", "RETRY_SCHEDULED", "EXCEPTION_DETECTED"]);
 
     const tick = await runRetryTick(
       {
@@ -470,6 +482,7 @@ describe("end-to-end webhook processing pipeline", () => {
         audit: store.audit,
         persistOutcome: store.persistOutcome,
         actor: "RETRY_WORKER",
+        exceptions: store.exceptions,
       },
       addMilliseconds(NOW, 1_000),
     );
@@ -490,6 +503,7 @@ describe("end-to-end webhook processing pipeline", () => {
       retry: store.retry,
       audit: store.audit,
       payments: store.payments,
+      exceptions: store.exceptions,
       persistOutcome: store.persistOutcome,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,

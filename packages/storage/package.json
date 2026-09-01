@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hookx/audit": "workspace:*",
+    "@hookx/exceptions": "workspace:*",
     "@hookx/domain": "workspace:*",
     "@hookx/state-machine": "workspace:*",
     "@hookx/webhook": "workspace:*",

@@ -8,6 +8,8 @@ import { parseDatabaseName, toMaintenanceDatabaseUrl } from "./config.js";
 import { DrizzleAuditRepository } from "./audit/drizzle-audit-repository.js";
 import { createDrizzleOutcomeWriter } from "./audit/persist-outcome.js";
 import type { AuditRepository, PersistOutcomeFn } from "./audit/repository.js";
+import { DrizzleExceptionRepository } from "./exceptions/drizzle-exception-repository.js";
+import type { ExceptionRepository } from "./exceptions/repository.js";
 import { DrizzlePaymentRepository } from "./payment/drizzle-payment-repository.js";
 import type { PaymentRepository } from "./payment/repository.js";
 import { DrizzleRetryRepository } from "./retry/drizzle-retry-repository.js";
@@ -20,6 +22,7 @@ export type WebhookEventStore = {
   readonly retry: RetryRepository;
   readonly audit: AuditRepository;
   readonly payments: PaymentRepository;
+  readonly exceptions: ExceptionRepository;
   readonly persistOutcome: PersistOutcomeFn;
   close(): Promise<void>;
 };
@@ -45,6 +48,7 @@ export async function openWebhookEventStore(
     retry: new DrizzleRetryRepository(db),
     audit: new DrizzleAuditRepository(db),
     payments: new DrizzlePaymentRepository(db),
+    exceptions: new DrizzleExceptionRepository(db),
     persistOutcome: createDrizzleOutcomeWriter(db),
     async close() {
       await pool.end();

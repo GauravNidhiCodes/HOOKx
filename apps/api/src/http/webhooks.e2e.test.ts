@@ -59,6 +59,7 @@ describe("webhook ingest end-to-end", () => {
         audit: store.audit,
         persistOutcome: store.persistOutcome,
         payments: store.payments,
+        exceptions: store.exceptions,
         retryPolicy: POLICY,
         leaseMs: LEASE_MS,
         verifiers: verifierRegistry(),
@@ -195,6 +196,7 @@ describe("webhook ingest end-to-end", () => {
       audit: store.audit,
       persistOutcome: store.persistOutcome,
       payments: store.payments,
+      exceptions: store.exceptions,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: processFn,
@@ -228,6 +230,7 @@ describe("webhook ingest end-to-end", () => {
         audit: store.audit,
         persistOutcome: store.persistOutcome,
         actor: "RETRY_WORKER",
+        exceptions: store.exceptions,
       },
       addMilliseconds(NOW, 1_000),
     );
@@ -255,6 +258,7 @@ describe("webhook ingest end-to-end", () => {
       audit: store.audit,
       persistOutcome: store.persistOutcome,
       payments: store.payments,
+      exceptions: store.exceptions,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: async () => {
@@ -350,6 +354,7 @@ describe("webhook ingest end-to-end", () => {
     const duplicateAudit = await store.audit.listByCorrelationId(secondId);
     expect(duplicateAudit.map((row) => row.eventType)).toEqual([
       "WEBHOOK_DUPLICATE",
+      "EXCEPTION_DETECTED",
     ]);
     const paymentAudit = await store.audit.listByPayment(
       stored!.event.paymentId,
@@ -387,6 +392,7 @@ describe("webhook ingest end-to-end", () => {
       audit: store.audit,
       persistOutcome: store.persistOutcome,
       payments: store.payments,
+      exceptions: store.exceptions,
       retryPolicy: POLICY,
       leaseMs: LEASE_MS,
       processPaymentEvents: processFn,
@@ -412,6 +418,7 @@ describe("webhook ingest end-to-end", () => {
         audit: store.audit,
         persistOutcome: store.persistOutcome,
         actor: "RETRY_WORKER",
+        exceptions: store.exceptions,
       },
       addMilliseconds(NOW, 1_000),
     );
@@ -419,6 +426,7 @@ describe("webhook ingest end-to-end", () => {
       [
         "WEBHOOK_RECEIVED",
         "RETRY_SCHEDULED",
+        "EXCEPTION_DETECTED",
         "RETRY_ATTEMPTED",
         "PAYMENT_STATE_CHANGED",
         "RETRY_SUCCEEDED",

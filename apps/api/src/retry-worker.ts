@@ -21,6 +21,7 @@ async function start(): Promise<void> {
         audit: store.audit,
         persistOutcome: store.persistOutcome,
         actor: "RETRY_WORKER",
+        exceptions: store.exceptions,
       },
       systemClock().now(),
     );

@@ -43,15 +43,15 @@ Expected outcomes are declared on the scenario definition. Tests do not derive t
 
 **NORMAL_FLOW** — three accepted deliveries. Durable payment `CAPTURED`. Three `PAYMENT_STATE_CHANGED` audit rows.
 
-**DUPLICATE_DELIVERY** — HTTP `accepted` then `duplicate`. Stored economic events = 1. State transitions = 1.
+**DUPLICATE_DELIVERY** — HTTP `accepted` then `duplicate`. Stored economic events = 1. State transitions = 1. Exception `DUPLICATE_EVENT`.
 
-**OUT_OF_ORDER** — capture is stored and classified delayed. Authorization is accepted. Replay applies capture. Final state `CAPTURED`. Payment state is never written by the simulator.
+**OUT_OF_ORDER** — capture is stored and classified delayed. Authorization is accepted. Replay applies capture. Final state `CAPTURED`. Exceptions `OUT_OF_ORDER_EVENT` and `MISSING_EVENT` (`payment.authorized`). Payment state is never written by the simulator.
 
-**CONFLICT** — HTTP 409. Original amount unchanged. Payment stays `CREATED`. `WEBHOOK_CONFLICT` is audited.
+**CONFLICT** — HTTP 409. Original amount unchanged. Payment stays `CREATED`. `WEBHOOK_CONFLICT` is audited. Exception `CONFLICTING_EVENT`.
 
-**RETRY_FAILURE** — HTTP 500 `TEMPORARY_PROCESSING_FAILURE` on first delivery. Retry row scheduled. Worker tick succeeds. Event `PROCESSED`, payment `CREATED`. Audit includes `RETRY_SCHEDULED`, `RETRY_ATTEMPTED`, `RETRY_SUCCEEDED`.
+**RETRY_FAILURE** — HTTP 500 `TEMPORARY_PROCESSING_FAILURE` on first delivery. Retry row scheduled. Worker tick succeeds. Event `PROCESSED`, payment `CREATED`. Exception `PROCESSING_FAILURE` remains (not auto-resolved).
 
-**PERMANENT_FAILURE** — HTTP 500 on first delivery. Worker tick fails again. At `maxAttempts = 2` the retry is `DEAD_LETTERED`. The webhook row remains. No payment record. No pointless extra retries.
+**PERMANENT_FAILURE** — HTTP 500 on first delivery. Worker tick fails again. At `maxAttempts = 2` the retry is `DEAD_LETTERED`. Exception `RETRY_EXHAUSTED`. The webhook row remains.
 
 **MULTI_PAYMENT** — payments A and B reach `CAPTURED` independently. A's events never appear on B.
 

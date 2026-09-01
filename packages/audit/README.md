@@ -55,6 +55,11 @@ Only types that the live pipeline emits:
 | `RETRY_ATTEMPTED` | A later claim of a scheduled retry (not the first ingest attempt) |
 | `RETRY_SUCCEEDED` | A retry claim finished successfully |
 | `RETRY_DEAD_LETTERED` | Permanent failure or max attempts |
+| `EXCEPTION_DETECTED` | New exception row for a non-named code |
+| `WEBHOOK_CONFLICT_DETECTED` | `CONFLICTING_EVENT` exception inserted |
+| `INVALID_TRANSITION_DETECTED` | `INVALID_STATE_TRANSITION` exception inserted |
+| `RETRY_EXHAUSTED` | `RETRY_EXHAUSTED` exception inserted |
+| `EXCEPTION_STATUS_CHANGED` | Operator lifecycle update (reserved; no HTTP mutation yet) |
 
 ## Append-only behavior
 

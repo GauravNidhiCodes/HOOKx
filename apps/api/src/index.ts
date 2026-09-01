@@ -34,6 +34,7 @@ async function start(): Promise<void> {
     audit: store.audit,
     payments: store.payments,
     persistOutcome: store.persistOutcome,
+    exceptions: store.exceptions,
     retryPolicy: retryConfig.policy,
     leaseMs: retryConfig.leaseMs,
     clock: systemClock(),

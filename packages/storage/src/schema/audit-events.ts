@@ -68,7 +68,12 @@ export const auditEvents = pgTable(
         'RETRY_SCHEDULED',
         'RETRY_ATTEMPTED',
         'RETRY_SUCCEEDED',
-        'RETRY_DEAD_LETTERED'
+        'RETRY_DEAD_LETTERED',
+        'EXCEPTION_DETECTED',
+        'EXCEPTION_STATUS_CHANGED',
+        'WEBHOOK_CONFLICT_DETECTED',
+        'INVALID_TRANSITION_DETECTED',
+        'RETRY_EXHAUSTED'
       )`,
     ),
     check(

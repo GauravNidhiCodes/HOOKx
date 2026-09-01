@@ -85,6 +85,7 @@ describe("synthetic webhook simulator scenarios", () => {
     expect(result.stateTransitionCount).toBe(1);
     expect(result.payments[0]?.state).toBe("CREATED");
     expect(result.auditEventTypes).toContain("WEBHOOK_DUPLICATE");
+    expect(result.exceptionCodes).toContain("DUPLICATE_EVENT");
     expect(scenario.expected.storedEventCount).toBe(1);
   });
 
@@ -102,6 +103,8 @@ describe("synthetic webhook simulator scenarios", () => {
     );
     expect(result.payments[0]?.state).toBe("CAPTURED");
     expect(result.auditEventTypes).toContain("WEBHOOK_DELAYED");
+    expect(result.exceptionCodes).toContain("OUT_OF_ORDER_EVENT");
+    expect(result.exceptionCodes).toContain("MISSING_EVENT");
   });
 
   it("CONFLICT: original event is unchanged and payment stays safe", async () => {
@@ -113,6 +116,7 @@ describe("synthetic webhook simulator scenarios", () => {
     expect(result.payments[0]?.state).toBe("CREATED");
     expect(result.stateTransitionCount).toBe(1);
     expect(result.auditEventTypes).toContain("WEBHOOK_CONFLICT");
+    expect(result.exceptionCodes).toContain("CONFLICTING_EVENT");
   });
 
   it("RETRY_FAILURE: first attempt fails, second succeeds", async () => {
@@ -134,6 +138,7 @@ describe("synthetic webhook simulator scenarios", () => {
         "PAYMENT_STATE_CHANGED",
       ]),
     );
+    expect(result.exceptionCodes).toContain("PROCESSING_FAILURE");
     expect(
       calculateRetryDelay(1, {
         maxAttempts: scenario.retry.maxAttempts,
@@ -154,6 +159,7 @@ describe("synthetic webhook simulator scenarios", () => {
     expect(result.payments[0]?.state).toBeNull();
     expect(result.stateTransitionCount).toBe(0);
     expect(result.auditEventTypes).toContain("RETRY_DEAD_LETTERED");
+    expect(result.exceptionCodes).toContain("RETRY_EXHAUSTED");
   });
 
   it("MULTI_PAYMENT: interleaved events stay isolated", async () => {

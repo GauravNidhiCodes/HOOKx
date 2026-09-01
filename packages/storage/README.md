@@ -57,6 +57,27 @@ Table `payments` (durable replay projection):
 
 `PaymentRepository` can `get` and `upsert`. There is no delete or generic update API. Replay still computes state; this table stores the result.
 
+Table `exceptions` (deterministic detection records):
+
+| Column | PostgreSQL type | Purpose |
+| --- | --- | --- |
+| `id` | `uuid` PK | Exception id |
+| `exception_code` | `text` | Taxonomy code |
+| `severity` | `text` | `INFO` / `WARNING` / `ERROR` / `CRITICAL` |
+| `status` | `text` | `OPEN` / `ACKNOWLEDGED` / `RESOLVED` |
+| `provider` | `text` | Provider id when known |
+| `payment_id` | `text` | Payment id when known |
+| `webhook_event_id` | `uuid` | Stored webhook id, or null |
+| `reason` | `text` | Structured reason code |
+| `detected_at` | `timestamptz` | Injected detection time |
+| `correlation_id` | `text` | Request/operation id |
+| `metadata` | `jsonb` | Sanitized non-sensitive context |
+| `identity_key` | `text` unique | Deduplication identity |
+
+`ExceptionRepository` can `create`, `findById`, `list`, `listByPayment`, `listOpen`, and `updateStatus`. There is no delete. PostgreSQL rejects `DELETE` and blocks immutable-column updates.
+
+Classification lives in `@hookx/exceptions`. This table only stores the result.
+
 ## Uniqueness constraint
 
 ```sql

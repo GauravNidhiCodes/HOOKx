@@ -87,3 +87,19 @@ export type { StoredPayment } from "./payment/types.js";
 export type { PaymentRepository } from "./payment/repository.js";
 export { MemoryPaymentRepository } from "./payment/memory-payment-repository.js";
 export { storedPaymentFromReplay } from "./payment/from-replay.js";
+export type {
+  ExceptionCreateResult,
+  ExceptionListFilter,
+  ExceptionRepository,
+} from "./exceptions/repository.js";
+export { MemoryExceptionRepository } from "./exceptions/memory-exception-repository.js";
+export {
+  changeExceptionStatus,
+  persistDetectedExceptions,
+  recordExceptionsSafely,
+} from "./exceptions/record.js";
+export {
+  auditEventTypeForException,
+  exceptionDetectedDraft,
+  exceptionStatusChangedDraft,
+} from "./exceptions/audit-drafts.js";

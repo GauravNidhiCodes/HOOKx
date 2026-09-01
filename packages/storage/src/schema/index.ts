@@ -3,3 +3,4 @@ export { webhookRetries } from "./webhook-retries.js";
 export { webhookDeadLetters } from "./webhook-dead-letters.js";
 export { auditEvents } from "./audit-events.js";
 export { payments } from "./payments.js";
+export { exceptions } from "./exceptions.js";

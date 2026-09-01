@@ -30,6 +30,7 @@ export type ScenarioRunResult = ScenarioRunView & {
   readonly retryAttemptCount: number;
   readonly deadLettered: boolean;
   readonly originalAmountMinor: string | null;
+  readonly exceptionCodes: readonly string[];
 };
 
 function readJson(value: unknown): Record<string, unknown> {
@@ -91,6 +92,7 @@ export async function runScenario(
     audit: store.audit,
     payments: store.payments,
     persistOutcome: store.persistOutcome,
+    exceptions: store.exceptions,
     retryPolicy: {
       maxAttempts: scenario.retry.maxAttempts,
       baseDelayMs: scenario.retry.baseDelayMs,
@@ -140,6 +142,7 @@ export async function runScenario(
         audit: store.audit,
         persistOutcome: store.persistOutcome,
         actor: "RETRY_WORKER",
+        exceptions: store.exceptions,
       },
       addMilliseconds(now, delay),
     );
@@ -152,6 +155,7 @@ export async function runScenario(
   let delayedAuditCount = 0;
   let stateTransitionCount = 0;
   let originalAmountMinor: string | null = null;
+  const exceptionCodes: string[] = [];
   let retryStatus: string | null = null;
   let retryAttemptCount = 0;
   let deadLettered = false;
@@ -169,6 +173,10 @@ export async function runScenario(
       if (originalAmountMinor === null) {
         originalAmountMinor = row.event.amountMinor.toString();
       }
+    }
+    const listed = await store.exceptions.listByPayment(id);
+    for (const item of listed) {
+      exceptionCodes.push(item.exceptionCode);
     }
     const audit = await store.audit.listByPayment(id, provider);
     for (const item of audit) {
@@ -206,5 +214,6 @@ export async function runScenario(
     retryAttemptCount,
     deadLettered,
     originalAmountMinor,
+    exceptionCodes: Object.freeze([...new Set(exceptionCodes)]),
   };
 }
