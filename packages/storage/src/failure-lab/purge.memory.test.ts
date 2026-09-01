@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { instant, isoCurrencyCode, paymentId, providerId } from "@hookx/domain";
 import { createExceptionDraft } from "@hookx/exceptions";
-import { syntheticPaymentCreated } from "@hookx/testkit";
+import { syntheticPaymentAuthorized, syntheticPaymentCreated } from "@hookx/testkit";
 import { MemoryAuditRepository } from "../audit/memory-audit-repository.js";
 import { MemoryExceptionRepository } from "../exceptions/memory-exception-repository.js";
 import { MemoryInvestigationRepository } from "../investigations/memory-investigation-repository.js";
@@ -37,6 +37,16 @@ describe("purgeMemoryFailureLab", () => {
           paymentId: labPay,
           externalEventId:
             "SYNTHETIC:evt:lab-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa-created",
+        }),
+        processingStatus: "PROCESSED",
+        createdAt: NOW,
+      },
+      {
+        id: "33333333-3333-4333-8333-333333333333",
+        event: syntheticPaymentAuthorized({
+          provider: providerId("razorpay"),
+          paymentId: labPay,
+          externalEventId: "evt_lab-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa-1",
         }),
         processingStatus: "PROCESSED",
         createdAt: NOW,
@@ -112,7 +122,7 @@ describe("purgeMemoryFailureLab", () => {
       investigations,
     });
 
-    expect(deleted.webhooks).toBe(1);
+    expect(deleted.webhooks).toBe(2);
     expect(deleted.payments).toBe(1);
     expect(deleted.exceptions).toBe(1);
     expect(webhooks.records).toHaveLength(1);

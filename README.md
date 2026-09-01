@@ -16,7 +16,7 @@ HOOKX verifies a webhook, normalizes it behind a provider adapter, persists it i
 Provider → Adapter → Ingestion → Domain → Processing → Exceptions → Recovery → Audit → Investigation → Operator
 ```
 
-- **Provider / adapter.** Razorpay and the synthetic provider stop at the adapter. The domain sees a normalized event.
+- **Provider / adapter.** A Razorpay webhook adapter and the synthetic provider stop at the adapter. The domain sees a normalized event. The reliability engine is provider-agnostic.
 - **Ingestion.** Signature verification on the raw body, then validation, persistence, and processing.
 - **Domain / processing.** Pure state machine and replay. No HTTP, UI, database, or AI imports.
 - **Exceptions / recovery.** Deterministic classification, retries with backoff, dead-letter, explicit replay.
@@ -42,7 +42,7 @@ Not claimed: production readiness, guaranteed delivery, live PSP checkout APIs, 
 
 ## Failure Lab
 
-`/failure-lab` is a labelled **synthetic** environment. It signs lab webhooks and posts them through `POST /webhooks/SYNTHETIC`. It does not call Razorpay. Payment ids are `SYNTHETIC:pay:lab-{runId}`.
+`/failure-lab` is a labelled **synthetic** environment. Most scenarios sign lab webhooks and post them through `POST /webhooks/SYNTHETIC`. Scenario `RAZORPAY_SHAPED_DUPLICATE` posts Razorpay-shaped synthetic envelopes through `POST /webhooks/razorpay` (the real adapter). It does not call Razorpay. Payment ids are `SYNTHETIC:pay:lab-{runId}`.
 
 The architecture demo is **TRANSIENT FAILURE**: controlled fail-once processing, retry, recovery, incident, timeline, optional AI investigation. See `docs/failure-lab.md` and `docs/demo.md`.
 
@@ -92,7 +92,7 @@ Simulator and Failure Lab rows are labelled **SYNTHETIC**. They are not live cus
 ## Limitations
 
 - Not a production payment processor or hosted PSP.
-- Razorpay support is webhook ingest (signature + normalize), not Razorpay REST/checkout.
+- Razorpay support is a webhook adapter (signature + normalize onto the existing event contract), not Razorpay REST/checkout. It has been tested with synthetic fixtures only.
 - Audit is append-only from application behavior, not a cryptographic hash chain.
 - Default AI investigator is a stub; live model output is optional and advisory.
 - Operator console is a local investigation workspace, not a multi-tenant SaaS product. The HTTP API is unauthenticated; do not expose it on a public network without an authenticating proxy.

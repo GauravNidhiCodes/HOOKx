@@ -360,6 +360,8 @@ export async function processIncomingWebhook(
 
   let payload: unknown;
   try {
+    // Parse only after HMAC over the original raw bytes. Do not stringify
+    // this object and re-verify; that would not match the signed representation.
     payload = JSON.parse(new TextDecoder().decode(input.rawBody));
   } catch {
     await recordRejection(dependencies, input, AUDIT_REASON.INVALID_PAYLOAD);

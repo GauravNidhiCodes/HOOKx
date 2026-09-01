@@ -4,7 +4,7 @@ The Failure Lab is a controlled synthetic environment where an operator triggers
 
 **The Failure Lab never sends real payment requests.**
 
-It never calls Razorpay. It never creates live payments. It never requires production credentials. Every identifier is prefixed so it cannot be mistaken for a customer payment.
+It never calls Razorpay. It never creates live payments. It never requires production credentials. Every lab payment id is prefixed `SYNTHETIC:pay:lab-` so it cannot be mistaken for a customer payment. Scenario `RAZORPAY_SHAPED_DUPLICATE` uses PROVIDER `razorpay` and DATA SOURCE SYNTHETIC.
 
 The entire operator surface is labelled **SYNTHETIC FAILURE LAB**. The page states **THIS IS SYNTHETIC**.
 
@@ -26,13 +26,14 @@ Supported scenarios:
 | `TRANSIENT_FAILURE` | Transient failure | Lab-only `FAIL_ONCE` injection. Processing fails, a retry is scheduled, the retry succeeds. |
 | `RETRY_EXHAUSTION` | Retry exhaustion | Lab-only `ALWAYS_FAIL` injection until the **configured** retry policy is exhausted, then dead-letter. |
 | `REPLAY_RECOVERY` | Replay recovery | Capture arrives before authorization. Stored events are replayed when the missing event arrives. Created is not applied twice. |
+| `RAZORPAY_SHAPED_DUPLICATE` | Razorpay-shaped duplicate | Synthetic Razorpay `payment.authorized` posted twice through `POST /webhooks/razorpay`. Real adapter. Data source SYNTHETIC. One stored event. No invented `payment.created`. |
 
 ## Synthetic-data policy
 
 - Payment ids: `SYNTHETIC:pay:lab-{runId}`
-- Event ids: `SYNTHETIC:evt:lab-{runId}-…`
-- Provider: `SYNTHETIC`
-- JSON bodies include `"synthetic": true` and `"infrastructure": "SYNTHETIC"`
+- Event ids: `SYNTHETIC:evt:lab-{runId}-…` for simulator scenarios; `evt_lab-{runId}-1` for the Razorpay-shaped scenario
+- Provider: `SYNTHETIC` for simulator scenarios; `razorpay` for `RAZORPAY_SHAPED_DUPLICATE` (DATA SOURCE remains SYNTHETIC)
+- JSON bodies include `"synthetic": true`
 - Simulator ids (`SYNTHETIC:pay:sim-*`) are **not** Failure Lab data and are not deleted by reset
 
 Each run generates a new UUID so the same scenario can be repeated without colliding with previous rows.
@@ -44,10 +45,10 @@ The lab does not write payment, exception, retry, or audit rows directly.
 ```
 Failure Lab UI
     → POST /failure-lab/run
-    → signed synthetic deliveries
-    → POST /webhooks/SYNTHETIC
+    → signed deliveries
+    → POST /webhooks/SYNTHETIC  (or POST /webhooks/razorpay for RAZORPAY_SHAPED_DUPLICATE)
     → signature verification
-    → validation
+    → adapter normalize
     → persistence
     → processing / state machine
     → retry worker ticks (when a retry is due)
@@ -107,7 +108,7 @@ Out-of-order capture is `DELAYED` until authorization is stored. Replay is the e
 
 Any other confirmation returns `400 RESET_CONFIRMATION_REQUIRED`.
 
-Reset deletes only rows whose payment id matches `SYNTHETIC:pay:lab-%` (and related retry, dead-letter, exception, investigation, and audit rows for those webhooks). It never runs `DROP DATABASE`, never truncates tables, and never deletes `SYNTHETIC:pay:sim-*` or non-synthetic providers.
+Reset deletes only rows whose payment id matches `SYNTHETIC:pay:lab-%` (and related retry, dead-letter, exception, investigation, and audit rows for those webhooks), including Razorpay-adapter lab rows that use that payment-id prefix. It never runs `DROP DATABASE`, never truncates tables, and never deletes `SYNTHETIC:pay:sim-*`.
 
 Append-only triggers on `audit_events`, `exceptions`, and `investigations` still forbid ordinary deletes. Reset enables a **transaction-local** setting `hookx.allow_failure_lab_purge`. The triggers then allow DELETE only when that setting is on **and** the row’s payment id (or the linked webhook’s payment id) is `SYNTHETIC:pay:lab-*`. Simulator and live rows remain undeletable even if the setting is on.
 
@@ -121,7 +122,7 @@ Reports held in API memory are cleared. The operator UI requires the same confir
 4. Run a scenario. The report, log, and incident link are loaded from that execution.
 5. Optional: `VIEW INCIDENT` opens the existing `/incidents/:id` timeline. There is no second timeline implementation.
 
-The lab reuses the synthetic webhook secret already required for `POST /webhooks/SYNTHETIC`. It does not add a separate credential.
+The lab reuses the synthetic webhook secret already required for `POST /webhooks/SYNTHETIC`. Scenario `RAZORPAY_SHAPED_DUPLICATE` also requires `RAZORPAY_WEBHOOK_SECRET` (otherwise `503 RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE`). It does not add a Razorpay dashboard connection.
 
 ## Security restrictions
 

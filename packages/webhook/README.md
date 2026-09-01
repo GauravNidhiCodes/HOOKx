@@ -114,7 +114,7 @@ Secrets are supplied by the application from environment configuration. This pac
 API / process environment (placeholders only — see `.env.example`):
 
 ```
-HOOKX_SYNTHETIC_WEBHOOK_SECRET=dev-only-not-a-real-secret
+HOOKX_SYNTHETIC_WEBHOOK_SECRET=
 HOOKX_SYNTHETIC_WEBHOOK_TOLERANCE_SECONDS=300
 RAZORPAY_WEBHOOK_SECRET=
 ```

@@ -5,6 +5,7 @@ export const FAILURE_LAB_SCENARIO = {
   TRANSIENT_FAILURE: "TRANSIENT_FAILURE",
   RETRY_EXHAUSTION: "RETRY_EXHAUSTION",
   REPLAY_RECOVERY: "REPLAY_RECOVERY",
+  RAZORPAY_SHAPED_DUPLICATE: "RAZORPAY_SHAPED_DUPLICATE",
 } as const;
 
 export type FailureLabScenarioId =
@@ -17,6 +18,7 @@ export const FAILURE_LAB_SCENARIO_IDS = Object.freeze([
   FAILURE_LAB_SCENARIO.TRANSIENT_FAILURE,
   FAILURE_LAB_SCENARIO.RETRY_EXHAUSTION,
   FAILURE_LAB_SCENARIO.REPLAY_RECOVERY,
+  FAILURE_LAB_SCENARIO.RAZORPAY_SHAPED_DUPLICATE,
 ] as const);
 
 export function isFailureLabScenarioId(
@@ -104,6 +106,16 @@ export const FAILURE_LAB_CATALOG: readonly FailureLabScenarioCatalogEntry[] =
         "Capture arrives before authorization. The stored log is replayed when the missing event arrives.",
       expected:
         "REPLAY STARTED, delayed capture applied, final CAPTURED, no duplicate created event.",
+      failureMode: "NONE",
+    }),
+    Object.freeze({
+      id: FAILURE_LAB_SCENARIO.RAZORPAY_SHAPED_DUPLICATE,
+      number: "07",
+      title: "RAZORPAY-SHAPED DUPLICATE",
+      explanation:
+        "A synthetic Razorpay payment.authorized envelope is signed and posted twice through POST /webhooks/razorpay. The Razorpay adapter normalizes it. Data source is SYNTHETIC. Nothing is sent to Razorpay.",
+      expected:
+        "First delivery accepted and persisted. Second classified duplicate. One stored event. HOOKX does not invent payment.created, so the Razorpay-only stream does not project a payment state.",
       failureMode: "NONE",
     }),
   ]);

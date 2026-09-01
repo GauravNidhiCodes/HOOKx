@@ -17,6 +17,13 @@ function lifecycleLabel(value: string): string {
   return value.replaceAll("_", " ");
 }
 
+function originLine(report: FailureLabRunReport): string {
+  if (report.labels !== undefined && report.labels.length > 0) {
+    return report.labels.join(" · ");
+  }
+  return "SYNTHETIC";
+}
+
 function isDemoScenario(scenario: FailureLabCatalogEntry): boolean {
   return scenario.architectureDemo === true || scenario.id === "TRANSIENT_FAILURE";
 }
@@ -48,17 +55,24 @@ function ScenarioStatus({
 }
 
 function RunReport({ report }: { readonly report: FailureLabRunReport }) {
-  const demo = report.demoRun === true || report.scenario === "TRANSIENT_FAILURE";
   return (
     <section className="lab-report" aria-live="polite" id="lab-result">
       <h2 className="kicker">WHAT ACTUALLY HAPPENED</h2>
       <p className="synthetic-flag" role="note">
-        {demo ? "SYNTHETIC · DEMO RUN" : "SYNTHETIC"}
+        {originLine(report)}
       </p>
       <dl className="spec">
         <div className="spec__row">
           <dt>SCENARIO</dt>
           <dd className="mono">{report.title}</dd>
+        </div>
+        <div className="spec__row">
+          <dt>PROVIDER</dt>
+          <dd className="mono">{report.payment.provider ?? "—"}</dd>
+        </div>
+        <div className="spec__row">
+          <dt>DATA SOURCE</dt>
+          <dd className="mono">SYNTHETIC</dd>
         </div>
         <div className="spec__row">
           <dt>RUN ID</dt>
@@ -341,9 +355,10 @@ export function FailureLab() {
           THIS IS SYNTHETIC. {catalog.notice}
         </p>
         <p>
-          Each run posts signed synthetic webhooks through ingest, validation,
-          persistence, processing, retry, replay, and audit. Nothing is sent to
-          Razorpay.
+          Each run posts signed webhooks through ingest, validation, persistence,
+          processing, retry, replay, and audit. PROVIDER is the adapter
+          (SYNTHETIC or razorpay). DATA SOURCE is always SYNTHETIC. Nothing is
+          sent to Razorpay. This page does not report a live connection.
         </p>
         <p>
           Operator path: run a scenario → read what actually happened → open

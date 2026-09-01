@@ -79,6 +79,7 @@ export {
   RAZORPAY_FIXTURE_REFUND_ID,
   RAZORPAY_FIXTURE_REFUND_OCCURRED_AT,
   razorpayMalformedPayload,
+  razorpayMissingPaymentIdPayload,
   razorpayPaymentAuthorizedPayload,
   razorpayPaymentCapturedPayload,
   razorpayPaymentFailedPayload,

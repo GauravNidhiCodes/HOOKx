@@ -578,6 +578,16 @@ export const sampleFailureLabCatalog: FailureLabCatalog = {
       expected: "REPLAY STARTED, delayed capture applied, final CAPTURED.",
       failureMode: "NONE",
     },
+    {
+      id: "RAZORPAY_SHAPED_DUPLICATE",
+      number: "07",
+      title: "RAZORPAY-SHAPED DUPLICATE",
+      explanation:
+        "A synthetic Razorpay payment.authorized envelope is signed and posted twice through POST /webhooks/razorpay. The Razorpay adapter normalizes it. Data source is SYNTHETIC. Nothing is sent to Razorpay.",
+      expected:
+        "First delivery accepted and persisted. Second classified duplicate. One stored event. HOOKX does not invent payment.created, so the Razorpay-only stream does not project a payment state.",
+      failureMode: "NONE",
+    },
   ],
 };
 
@@ -607,6 +617,7 @@ export const sampleFailureLabRun: FailureLabRunReport = {
   },
   stateChange: 1,
   payment: {
+    provider: "SYNTHETIC",
     paymentId: "SYNTHETIC:pay:lab-eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
     state: "CREATED",
     amountMinor: "10000",

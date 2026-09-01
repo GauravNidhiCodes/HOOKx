@@ -10,6 +10,7 @@ Automated coverage for reliability scenarios. Tests use the real processing path
 | Transient failure | First process fails; retry scheduled; retry succeeds; payment `CREATED` | `scenarios.e2e.test.ts` (`TRANSIENT_FAILURE`); `http.test.ts` recover; `demo.e2e.test.ts` | Retry `SUCCEEDED`; no dead letter | `RETRY_SCHEDULED` / `RETRY_ATTEMPTED` / `RETRY_SUCCEEDED`; `PROCESSING_FAILURE` |
 | Retry exhaustion | Failures until configured max attempts; dead-letter; no payment projection | `scenarios.e2e.test.ts` (`RETRY_EXHAUSTION`); retry integration in `@hookx/storage` | Dead-letter; operator inspects | `RETRY_DEAD_LETTERED`; `RETRY_EXHAUSTED` |
 | Replay recovery | Capture before authorization stored; replay when missing event arrives; created not applied twice | `scenarios.e2e.test.ts` (`REPLAY_RECOVERY`); `replay.test.ts` | Final `CAPTURED` from ordered log | `WEBHOOK_DELAYED`; single `CREATED` transition |
+| Razorpay-shaped duplicate | Signed synthetic Razorpay envelope twice through `/webhooks/razorpay`; one stored event; no invented `payment.created` | `scenarios.e2e.test.ts` (`RAZORPAY_SHAPED_DUPLICATE`); `packages/webhook/src/razorpay/contract.test.ts`; `apps/api/src/http/razorpay.e2e.test.ts` | Duplicate HTTP; payment projection stays empty | `WEBHOOK_DUPLICATE`; `DUPLICATE_EVENT` |
 
 Architecture demo (full story): `apps/api/src/failure-lab/demo.e2e.test.ts` — Failure Lab run → processing → incident → timeline → investigation (stub) → `INVESTIGATION_RECORDED`. Payment unchanged by investigation.
 

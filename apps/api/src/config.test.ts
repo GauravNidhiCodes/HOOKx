@@ -64,6 +64,15 @@ describe("webhook secret configuration", () => {
       resolveRazorpayWebhookSecret({ RAZORPAY_WEBHOOK_SECRET: secret }),
     ).toBe(secret);
   });
+
+  it("does not treat Key Id or Key Secret as the webhook secret", () => {
+    expect(
+      resolveRazorpayWebhookSecret({
+        RAZORPAY_KEY_ID: "unused",
+        RAZORPAY_KEY_SECRET: "unused",
+      }),
+    ).toBeUndefined();
+  });
 });
 
 describe("retry configuration", () => {

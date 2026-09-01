@@ -29,8 +29,9 @@ import { FAILURE_LAB_RESET_CONFIRM } from "./http.js";
 import type { FailureLabRunReport } from "./report.js";
 
 const NOW = instant("2026-01-15T10:00:01.000Z");
+const RAZORPAY_LAB_SECRET = "dev-only-razorpay-webhook-secret";
 
-function labStack() {
+function labStack(razorpayWebhookSecret?: string) {
   const repository = new MemoryWebhookEventRepository();
   const retry = new MemoryRetryRepository();
   const audit = new MemoryAuditRepository();
@@ -48,11 +49,13 @@ function labStack() {
     verifiers: createSignatureVerifierRegistry({
       syntheticSecret: SIMULATOR_SECRET,
       syntheticToleranceSeconds: 300,
+      razorpayWebhookSecret,
     }),
     retryPolicy: { maxAttempts: 2, baseDelayMs: 1_000, maxDelayMs: 8_000 },
     leaseMs: 2_000,
     clock: fixedClock(NOW),
     syntheticWebhookSecret: SIMULATOR_SECRET,
+    razorpayWebhookSecret,
     purgeFailureLab: async () =>
       purgeMemoryFailureLab({
         webhooks: repository,
@@ -302,5 +305,55 @@ describe("Failure Lab HTTP", () => {
         row.resultingState === "CREATED",
     );
     expect(createdTransitions).toHaveLength(1);
+  });
+
+  it("lists the Razorpay-shaped lab scenario without calling Razorpay", async () => {
+    const app = createApp(labStack());
+    const listed = await app.request("/failure-lab");
+    const body = (await listed.json()) as {
+      scenarios: Array<{ id: string }>;
+    };
+    expect(body.scenarios.map((row) => row.id)).toContain(
+      "RAZORPAY_SHAPED_DUPLICATE",
+    );
+  });
+
+  it("does not run the Razorpay-shaped scenario without a webhook secret", async () => {
+    const app = createApp(labStack());
+    const response = await app.request("/failure-lab/run", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ scenario: "RAZORPAY_SHAPED_DUPLICATE" }),
+    });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      status: "unavailable",
+      code: "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE",
+    });
+  });
+
+  it("posts a synthetic Razorpay envelope twice through the Razorpay adapter", async () => {
+    const stack = labStack(RAZORPAY_LAB_SECRET);
+    const app = createApp(stack);
+    const report = await runScenario(app, "RAZORPAY_SHAPED_DUPLICATE");
+    expect(report.synthetic).toBe(true);
+    expect(report.labels).toEqual(["SYNTHETIC", "RAZORPAY ADAPTER"]);
+    expect(report.payment.provider).toBe("razorpay");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
+    expect(report.result.accepted).toBe(1);
+    expect(report.result.duplicate).toBe(1);
+    expect(report.payment.state).toBeNull();
+    expect(report.stateChange).toBe(0);
+    expect(report.exception?.exceptionCode).toBe("DUPLICATE_EVENT");
+    expect(
+      stack.repository.records.filter((row) =>
+        isFailureLabPaymentId(row.event.paymentId),
+      ),
+    ).toHaveLength(1);
+    const stored = stack.repository.records.find((row) =>
+      isFailureLabPaymentId(row.event.paymentId),
+    );
+    expect(stored?.event.provider).toBe("razorpay");
+    expect(stored?.event.eventType).toBe("payment.authorized");
   });
 });

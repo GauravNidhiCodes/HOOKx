@@ -28,6 +28,7 @@ function investigatorLabTestDatabaseUrl(env: NodeJS.ProcessEnv): string {
 const TEST_URL = investigatorLabTestDatabaseUrl(process.env);
 const NOW = instant("2026-01-15T10:00:01.000Z");
 const PROVIDER = providerId("SYNTHETIC");
+const RAZORPAY_LAB_SECRET = "dev-only-razorpay-webhook-secret";
 
 const SCENARIOS = [
   "DUPLICATE_DELIVERY",
@@ -74,10 +75,12 @@ describe("Failure Lab → AI investigator", () => {
         verifiers: createSignatureVerifierRegistry({
           syntheticSecret: SIMULATOR_SECRET,
           syntheticToleranceSeconds: 300,
+          razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
         }),
         clock: fixedClock(NOW),
         ping: () => store.ping(),
         syntheticWebhookSecret: SIMULATOR_SECRET,
+        razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
         purgeFailureLab: () => store.purgeFailureLab(),
       });
     } catch (error) {
@@ -186,4 +189,31 @@ describe("Failure Lab → AI investigator", () => {
       expect(historyBody.investigations.length).toBeGreaterThanOrEqual(2);
     },
   );
+
+  it("RAZORPAY_SHAPED_DUPLICATE: investigates normalized evidence, not raw Razorpay payloads", async () => {
+    const report = await runLab(app, "RAZORPAY_SHAPED_DUPLICATE");
+    expect(report.payment.provider).toBe("razorpay");
+    const incidentId = report.incidentId;
+    expect(incidentId).not.toBeNull();
+    const id = incidentId!;
+    const razorpay = providerId("razorpay");
+    const paymentBefore = await store.payments.get(
+      razorpay,
+      paymentId(report.payment.paymentId),
+    );
+    const investigated = await app.request(`/incidents/${id}/investigate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    expect(investigated.status).toBe(200);
+    const body = JSON.stringify(await investigated.json());
+    expect(body).not.toContain("payload.payment");
+    expect(body).not.toContain(RAZORPAY_LAB_SECRET);
+    expect(body).not.toMatch(/x-razorpay-signature/i);
+    expect(body).not.toContain("payloadHash");
+    expect(body).toContain("DUPLICATE");
+    expect(
+      await store.payments.get(razorpay, paymentId(report.payment.paymentId)),
+    ).toEqual(paymentBefore);
+  });
 });

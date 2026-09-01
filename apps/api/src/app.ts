@@ -72,6 +72,7 @@ export type ApiDependencies = ProcessIncomingWebhookDependencies & {
   readonly ping?: () => Promise<void>;
   readonly liveProviders?: readonly string[];
   readonly syntheticWebhookSecret?: string;
+  readonly razorpayWebhookSecret?: string;
   readonly purgeFailureLab?: () => Promise<FailureLabPurgeResult>;
 };
 

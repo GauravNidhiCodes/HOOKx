@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { instant, paymentId, providerId } from "@hookx/domain";
+import { StubInvestigator } from "@hookx/investigation";
 import {
   applyWebhookEventMigrations,
   defaultTestDatabaseUrl,
@@ -14,6 +15,7 @@ import {
   RAZORPAY_EVENT_ID_HEADER,
   RAZORPAY_SIGNATURE_HEADER,
   razorpayMalformedPayload,
+  razorpayMissingPaymentIdPayload,
   razorpayPaymentAuthorizedPayload,
   razorpayPaymentCapturedPayload,
   razorpayUnsupportedEventPayload,
@@ -53,6 +55,8 @@ describe("Razorpay webhook ingest through the real pipeline", () => {
         persistOutcome: store.persistOutcome,
         payments: store.payments,
         exceptions: store.exceptions,
+        investigations: store.investigations,
+        investigator: new StubInvestigator(),
         retryPolicy: POLICY,
         leaseMs: LEASE_MS,
         verifiers: createSignatureVerifierRegistry({
@@ -247,5 +251,157 @@ describe("Razorpay webhook ingest through the real pipeline", () => {
       "payment.captured",
     ]);
     expect(await store.payments.get(PROVIDER, paymentId(payId))).toBeNull();
+  });
+
+  it("rejects a missing Razorpay event id after a valid signature", async () => {
+    const payload = razorpayPaymentAuthorizedPayload();
+    const rawBody = JSON.stringify(payload);
+    const response = await app.request("/webhooks/razorpay", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        [RAZORPAY_SIGNATURE_HEADER]: signRazorpayWebhook({
+          secret: RAZORPAY_SECRET,
+          rawBody,
+        }),
+      },
+      body: rawBody,
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("MISSING_EXTERNAL_ID");
+  });
+
+  it("rejects a missing payment reference", async () => {
+    const response = await postRazorpay({
+      payload: razorpayMissingPaymentIdPayload(),
+      eventId: `evt_${randomUUID()}`,
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("MISSING_PAYMENT_ID");
+  });
+
+  it("rejects an invalid amount", async () => {
+    const response = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ amount: 10.5 }),
+      eventId: `evt_${randomUUID()}`,
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_AMOUNT");
+  });
+
+  it("rejects an invalid currency", async () => {
+    const response = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ currency: "IN" }),
+      eventId: `evt_${randomUUID()}`,
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_CURRENCY");
+  });
+
+  it("rejects malformed JSON after signature verification", async () => {
+    const rawBody = "{not-json";
+    const eventId = `evt_${randomUUID()}`;
+    const response = await postRazorpay({
+      payload: {},
+      eventId,
+      rawBody,
+      signature: signRazorpayWebhook({ secret: RAZORPAY_SECRET, rawBody }),
+    });
+    expect(response.status).toBe(400);
+    expect((await readJson(response)).code).toBe("INVALID_PAYLOAD");
+    expect(
+      await store.repository.findByIdentity(
+        createWebhookIdentity("razorpay", eventId),
+      ),
+    ).toBeNull();
+  });
+
+  it("accepts an integer amount string as minor units", async () => {
+    const eventId = `evt_${randomUUID()}`;
+    const payId = `pay_${randomUUID()}`;
+    const response = await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({
+        id: payId,
+        amount: "10000",
+      }),
+      eventId,
+    });
+    expect(response.status).toBe(200);
+    const stored = await store.repository.findByIdentity(
+      createWebhookIdentity("razorpay", eventId),
+    );
+    expect(stored?.event.amountMinor).toBe(10000n);
+    expect(stored?.event.occurredAt).not.toBe(stored?.event.receivedAt);
+    expect(stored?.event.receivedAt).toBe(NOW);
+  });
+
+  it("preserves provider timestamps on an out-of-order Razorpay pair", async () => {
+    const payId = `pay_${randomUUID()}`;
+    const capturedId = `evt_${randomUUID()}`;
+    const authorizedId = `evt_${randomUUID()}`;
+    await postRazorpay({
+      payload: razorpayPaymentCapturedPayload({ id: payId }),
+      eventId: capturedId,
+    });
+    await postRazorpay({
+      payload: razorpayPaymentAuthorizedPayload({ id: payId }),
+      eventId: authorizedId,
+    });
+    const listed = await store.repository.listByPayment(
+      PROVIDER,
+      paymentId(payId),
+    );
+    const captured = listed.find(
+      (row) => row.event.externalEventId === capturedId,
+    );
+    const authorized = listed.find(
+      (row) => row.event.externalEventId === authorizedId,
+    );
+    expect(captured?.event.occurredAt).toBe("2023-11-14T22:13:22.000Z");
+    expect(authorized?.event.occurredAt).toBe("2023-11-14T22:13:20.000Z");
+    expect(captured?.event.receivedAt).toBe(NOW);
+    expect(authorized?.event.receivedAt).toBe(NOW);
+    expect(await store.payments.get(PROVIDER, paymentId(payId))).toBeNull();
+  });
+
+  it("runs conflict through exception, timeline, and stub investigation without raw Razorpay payloads", async () => {
+    const eventId = `evt_${randomUUID()}`;
+    const payId = `pay_${randomUUID()}`;
+    const original = razorpayPaymentAuthorizedPayload({
+      id: payId,
+      amount: 10000,
+    });
+    const conflicting = razorpayPaymentAuthorizedPayload({
+      id: payId,
+      amount: 25000,
+    });
+    expect((await postRazorpay({ payload: original, eventId })).status).toBe(
+      200,
+    );
+    expect(
+      (await postRazorpay({ payload: conflicting, eventId })).status,
+    ).toBe(409);
+    const exceptions = await store.exceptions.listByPayment(paymentId(payId));
+    const conflict = exceptions.find(
+      (row) => row.exceptionCode === "CONFLICTING_EVENT",
+    );
+    expect(conflict).toBeDefined();
+    const id = conflict!.exceptionId;
+    const timeline = await app.request(`/incidents/${id}/timeline`);
+    expect(timeline.status).toBe(200);
+    const timelineBody = JSON.stringify(await timeline.json());
+    expect(timelineBody).not.toContain(RAZORPAY_SECRET);
+    expect(timelineBody).not.toContain("payload.payment");
+    const investigated = await app.request(`/incidents/${id}/investigate`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+    });
+    expect(investigated.status).toBe(200);
+    const body = JSON.stringify(await investigated.json());
+    expect(body).not.toContain(RAZORPAY_SECRET);
+    expect(body).not.toContain("payload.payment");
+    expect(body).not.toMatch(/x-razorpay-signature/i);
+    expect(body).not.toContain("payloadHash");
+    expect(body).toContain("CONFLICT");
   });
 });

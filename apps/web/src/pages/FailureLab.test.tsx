@@ -25,10 +25,12 @@ describe("failure lab", () => {
     expect(screen.getByText(/THIS IS SYNTHETIC/)).toBeTruthy();
     expect(screen.getByText(/01 — DUPLICATE DELIVERY/)).toBeTruthy();
     expect(screen.getByText(/06 — REPLAY RECOVERY/)).toBeTruthy();
-    expect(screen.getAllByText("NOT RUN").length).toBe(6);
-    expect(screen.getAllByText("WHAT WE SIMULATE").length).toBe(6);
-    expect(screen.getAllByText("WHAT HOOKX SHOULD DO").length).toBe(6);
+    expect(screen.getByText(/07 — RAZORPAY-SHAPED DUPLICATE/)).toBeTruthy();
+    expect(screen.getAllByText("NOT RUN").length).toBe(7);
+    expect(screen.getAllByText("WHAT WE SIMULATE").length).toBe(7);
+    expect(screen.getAllByText("WHAT HOOKX SHOULD DO").length).toBe(7);
     expect(screen.getByText("SYNTHETIC · DEMO RUN")).toBeTruthy();
+    expect(screen.getByText(/DATA SOURCE is always SYNTHETIC/)).toBeTruthy();
     expect(api.getFailureLabCatalog).toHaveBeenCalled();
   });
 
@@ -58,6 +60,8 @@ describe("failure lab", () => {
     });
     expect(await screen.findByText("WHAT ACTUALLY HAPPENED")).toBeTruthy();
     expect(screen.getByText("2 webhook deliveries")).toBeTruthy();
+    expect(screen.getByText("PROVIDER")).toBeTruthy();
+    expect(screen.getAllByText("DATA SOURCE").length).toBeGreaterThan(0);
     expect(
       screen.getAllByText(/1 accepted · 1 duplicate · 0 conflict · 0 error/)
         .length,

@@ -66,6 +66,7 @@ export type FailureLabRunReport = {
   };
   readonly stateChange: number;
   readonly payment: {
+    readonly provider: string;
     readonly paymentId: string;
     readonly state: string | null;
     readonly amountMinor: string | null;

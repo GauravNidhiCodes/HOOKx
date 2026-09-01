@@ -56,6 +56,7 @@ async function start(): Promise<void> {
     ping: () => store.ping(),
     liveProviders: resolveLiveProviders(process.env),
     syntheticWebhookSecret: secret,
+    razorpayWebhookSecret: resolveRazorpayWebhookSecret(process.env),
     purgeFailureLab: () => store.purgeFailureLab(),
   });
 

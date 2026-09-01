@@ -24,6 +24,7 @@ function failureLabApiTestDatabaseUrl(env: NodeJS.ProcessEnv): string {
 
 const TEST_URL = failureLabApiTestDatabaseUrl(process.env);
 const NOW = instant("2026-01-15T10:00:01.000Z");
+const RAZORPAY_LAB_SECRET = "dev-only-razorpay-webhook-secret";
 
 async function runLab(
   app: ReturnType<typeof createApp>,
@@ -60,10 +61,12 @@ describe("Failure Lab end-to-end", () => {
         verifiers: createSignatureVerifierRegistry({
           syntheticSecret: SIMULATOR_SECRET,
           syntheticToleranceSeconds: 300,
+          razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
         }),
         clock: fixedClock(NOW),
         ping: () => store.ping(),
         syntheticWebhookSecret: SIMULATOR_SECRET,
+        razorpayWebhookSecret: RAZORPAY_LAB_SECRET,
         purgeFailureLab: () => store.purgeFailureLab(),
       });
     } catch (error) {
@@ -168,6 +171,27 @@ describe("Failure Lab end-to-end", () => {
     expect(created).toHaveLength(1);
   });
 
+  it("RAZORPAY_SHAPED_DUPLICATE: adapter path, one stored event, no invented created", async () => {
+    const report = await runLab(app, "RAZORPAY_SHAPED_DUPLICATE");
+    expect(report.labels).toEqual(["SYNTHETIC", "RAZORPAY ADAPTER"]);
+    expect(report.payment.provider).toBe("razorpay");
+    expect(isFailureLabPaymentId(report.payment.paymentId)).toBe(true);
+    expect(report.result.accepted).toBe(1);
+    expect(report.result.duplicate).toBe(1);
+    expect(report.payment.state).toBeNull();
+    expect(report.stateChange).toBe(0);
+    expect(report.exception?.exceptionCode).toBe("DUPLICATE_EVENT");
+    const events = await store.repository.listByPayment(
+      providerId("razorpay"),
+      paymentId(report.payment.paymentId),
+    );
+    expect(events).toHaveLength(1);
+    expect(events[0]?.event.eventType).toBe("payment.authorized");
+    expect(events.map((row) => row.event.eventType)).not.toContain(
+      "payment.created",
+    );
+  });
+
   it("reset deletes lab rows only, including after a simulator seed", async () => {
     await runSimulatorScenario(store, getScenario(SCENARIO_ID.DUPLICATE_DELIVERY));
     const beforeSim = await store.repository.listByPayment(
@@ -178,6 +202,8 @@ describe("Failure Lab end-to-end", () => {
 
     const lab = await runLab(app, "DUPLICATE_DELIVERY");
     expect(isFailureLabPaymentId(lab.payment.paymentId)).toBe(true);
+    const razorpayLab = await runLab(app, "RAZORPAY_SHAPED_DUPLICATE");
+    expect(razorpayLab.payment.provider).toBe("razorpay");
 
     const reset = await app.request("/failure-lab/reset", {
       method: "POST",
@@ -190,11 +216,16 @@ describe("Failure Lab end-to-end", () => {
       providerId("SYNTHETIC"),
       paymentId(lab.payment.paymentId),
     );
+    const afterRazorpay = await store.repository.listByPayment(
+      providerId("razorpay"),
+      paymentId(razorpayLab.payment.paymentId),
+    );
     const afterSim = await store.repository.listByPayment(
       providerId("SYNTHETIC"),
       paymentId("SYNTHETIC:pay:sim-duplicate"),
     );
     expect(afterLab).toHaveLength(0);
+    expect(afterRazorpay).toHaveLength(0);
     expect(afterSim.length).toBe(beforeSim.length);
   });
 });

@@ -177,7 +177,8 @@ export type FailureLabScenarioId =
   | "CONFLICTING_EVENT"
   | "TRANSIENT_FAILURE"
   | "RETRY_EXHAUSTION"
-  | "REPLAY_RECOVERY";
+  | "REPLAY_RECOVERY"
+  | "RAZORPAY_SHAPED_DUPLICATE";
 
 export type FailureLabCatalogEntry = {
   readonly id: FailureLabScenarioId;
@@ -232,6 +233,7 @@ export type FailureLabRunReport = {
   };
   readonly stateChange: number;
   readonly payment: {
+    readonly provider?: string;
     readonly paymentId: string;
     readonly state: string | null;
     readonly amountMinor: string | null;

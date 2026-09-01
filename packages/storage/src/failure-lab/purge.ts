@@ -1,4 +1,4 @@
-import { and, eq, inArray, like, or, sql } from "drizzle-orm";
+import { inArray, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { auditEvents } from "../schema/audit-events.js";
 import { exceptions } from "../schema/exceptions.js";
@@ -10,7 +10,6 @@ import { webhookRetries } from "../schema/webhook-retries.js";
 import {
   FAILURE_LAB_PAYMENT_LIKE,
   FAILURE_LAB_PAYMENT_PREFIX,
-  FAILURE_LAB_PROVIDER,
 } from "./identity.js";
 
 type StorageDatabase = ReturnType<typeof drizzle>;
@@ -26,16 +25,13 @@ export type FailureLabPurgeResult = {
 };
 
 function labPaymentClause() {
-  return and(
-    eq(webhookEvents.provider, FAILURE_LAB_PROVIDER),
-    like(webhookEvents.paymentId, FAILURE_LAB_PAYMENT_LIKE),
-  );
+  return like(webhookEvents.paymentId, FAILURE_LAB_PAYMENT_LIKE);
 }
 
 /**
- * Delete only Failure Lab rows: provider SYNTHETIC and payment ids
- * SYNTHETIC:pay:lab-*. Never truncates tables. Never matches simulator
- * SYNTHETIC:pay:sim-* or non-synthetic providers.
+ * Delete only Failure Lab rows: payment ids SYNTHETIC:pay:lab-*.
+ * Provider may be SYNTHETIC or razorpay (adapter lab path). Never truncates
+ * tables. Never matches simulator SYNTHETIC:pay:sim-* or live-shaped ids.
  */
 export async function purgeSyntheticFailureLab(
   db: StorageDatabase,
@@ -59,13 +55,7 @@ export async function purgeSyntheticFailureLab(
       .from(exceptions)
       .where(
         or(
-          and(
-            like(exceptions.paymentId, FAILURE_LAB_PAYMENT_LIKE),
-            or(
-              eq(exceptions.provider, FAILURE_LAB_PROVIDER),
-              sql`${exceptions.provider} IS NULL`,
-            ),
-          ),
+          like(exceptions.paymentId, FAILURE_LAB_PAYMENT_LIKE),
           webhookIds.length > 0
             ? inArray(exceptions.webhookEventId, webhookIds)
             : sql`false`,
@@ -127,12 +117,7 @@ export async function purgeSyntheticFailureLab(
 
     const paymentsDeleted = await tx
       .delete(payments)
-      .where(
-        and(
-          eq(payments.provider, FAILURE_LAB_PROVIDER),
-          like(payments.paymentId, FAILURE_LAB_PAYMENT_LIKE),
-        ),
-      )
+      .where(like(payments.paymentId, FAILURE_LAB_PAYMENT_LIKE))
       .returning({ paymentId: payments.paymentId });
 
     return {

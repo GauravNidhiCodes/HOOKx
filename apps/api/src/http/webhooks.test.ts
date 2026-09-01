@@ -201,6 +201,55 @@ describe("POST /webhooks/:provider", () => {
     expect(body).not.toHaveProperty("stack");
     expect(JSON.stringify(body)).not.toMatch(/at /);
   });
+
+  it("rejects a non-JSON content type before verification", async () => {
+    const { app, repository } = createTestApp();
+    const response = await app.request("/webhooks/SYNTHETIC", {
+      method: "POST",
+      headers: { "content-type": "text/plain" },
+      body: "{}",
+    });
+    expect(response.status).toBe(415);
+    const body = await readJson(response);
+    expect(body.code).toBe("UNSUPPORTED_MEDIA_TYPE");
+    expect(body).not.toHaveProperty("stack");
+    expect(repository.storeCalls).toBe(0);
+  });
+
+  it("accepts application/json with a charset parameter", async () => {
+    const { app } = createTestApp();
+    const payload = syntheticOpenedPayload({
+      event_ref: "SYNTHETIC:evt:http-charset",
+    });
+    const rawBody = JSON.stringify(payload);
+    const response = await app.request("/webhooks/SYNTHETIC", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        [SYNTHETIC_SIGNATURE_HEADER]: signSyntheticWebhook({
+          secret: SECRET,
+          rawBody,
+          timestampSeconds: NOW_UNIX,
+        }),
+      },
+      body: rawBody,
+    });
+    expect(response.status).toBe(200);
+    expect((await readJson(response)).status).toBe("accepted");
+  });
+
+  it("rejects an oversized body", async () => {
+    const { app, repository } = createTestApp();
+    const rawBody = "x".repeat(256 * 1024 + 1);
+    const response = await app.request("/webhooks/SYNTHETIC", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: rawBody,
+    });
+    expect(response.status).toBe(413);
+    expect((await readJson(response)).code).toBe("PAYLOAD_TOO_LARGE");
+    expect(repository.storeCalls).toBe(0);
+  });
 });
 
 describe("GET /", () => {

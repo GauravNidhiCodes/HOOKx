@@ -34,11 +34,7 @@ export function purgeMemoryFailureLab(
 ): FailureLabPurgeResult {
   const labWebhookIds = new Set(
     repos.webhooks.records
-      .filter(
-        (row) =>
-          row.event.provider === "SYNTHETIC" &&
-          isFailureLabPaymentId(row.event.paymentId),
-      )
+      .filter((row) => isFailureLabPaymentId(row.event.paymentId))
       .map((row) => row.id),
   );
   const labExceptionIds = new Set(
@@ -82,8 +78,7 @@ export function purgeMemoryFailureLab(
   );
   const payments = spliceWhere(
     repos.payments.records,
-    (row) =>
-      !(row.provider === "SYNTHETIC" && isFailureLabPaymentId(row.paymentId)),
+    (row) => !isFailureLabPaymentId(row.paymentId),
   );
 
   return {

@@ -11,7 +11,8 @@ Index of technical documents that exist in this repository.
 | [demo.md](demo.md) | End-to-end architecture demonstration |
 | [test-matrix.md](test-matrix.md) | Scenario → expected behavior → automated test |
 | [operator-console.md](operator-console.md) | Operator UI contracts |
-| [razorpay.md](razorpay.md) | Razorpay adapter boundary |
+| [razorpay.md](razorpay.md) | Pointer to the Razorpay adapter document |
+| [providers/razorpay.md](providers/razorpay.md) | Razorpay adapter: contract, signature, fixtures, limitations |
 | [simulation.md](simulation.md) | Synthetic simulator CLI |
 | [security.md](security.md) | Secrets, signatures, logging, scoped reset, unauthenticated local API |
 | [../apps/api/README.md](../apps/api/README.md) | HTTP ingest and read APIs |

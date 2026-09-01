@@ -73,6 +73,13 @@ export async function handleFailureLabRun(
   if (typeof scenario !== "string" || !isFailureLabScenarioId(scenario)) {
     return badRequest(context, "UNKNOWN_FAILURE_LAB_SCENARIO");
   }
+  if (
+    scenario === "RAZORPAY_SHAPED_DUPLICATE" &&
+    (dependencies.razorpayWebhookSecret === undefined ||
+      dependencies.razorpayWebhookSecret.length === 0)
+  ) {
+    return unavailable(context, "RAZORPAY_WEBHOOK_SECRET_UNAVAILABLE");
+  }
   const processFn = createLabProcessFn(failureModeForLab(scenario));
   const labApp = createLabApp(processFn);
   const report = await runFailureLabScenario(

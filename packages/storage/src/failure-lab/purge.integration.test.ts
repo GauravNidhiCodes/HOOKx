@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { instant, paymentId, providerId } from "@hookx/domain";
 import { createExceptionDraft } from "@hookx/exceptions";
-import { syntheticPaymentCreated } from "@hookx/testkit";
+import { syntheticPaymentAuthorized, syntheticPaymentCreated } from "@hookx/testkit";
 import { defaultTestDatabaseUrl } from "../config.js";
 import {
   applyWebhookEventMigrations,
@@ -122,5 +122,26 @@ describe("purgeSyntheticFailureLab", () => {
     }
 
     expect(await store.exceptions.listByPayment(simPay)).toHaveLength(1);
+  });
+
+  it("deletes Razorpay-adapter lab rows keyed by SYNTHETIC:pay:lab-*", async () => {
+    const labPay = paymentId(
+      "SYNTHETIC:pay:lab-cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    );
+    const stored = await store.repository.store(
+      syntheticPaymentAuthorized({
+        provider: providerId("razorpay"),
+        paymentId: labPay,
+        externalEventId: "evt_lab-cccccccc-cccc-4ccc-8ccc-cccccccccccc-1",
+        payloadHash: "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      }),
+    );
+    expect(stored.outcome).toBe("STORED");
+    if (stored.outcome !== "STORED") {
+      return;
+    }
+    const deleted = await store.purgeFailureLab();
+    expect(deleted.webhooks).toBeGreaterThanOrEqual(1);
+    expect(await store.repository.findById(stored.record.id)).toBeNull();
   });
 });

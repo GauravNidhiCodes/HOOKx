@@ -4,7 +4,7 @@ This document describes controls that exist in the code. It is not a penetration
 
 ## Secrets
 
-- `.env` is gitignored. `.env.example` lists names only.
+- `.env` is gitignored. `.env.example` lists names only. `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are unused placeholders; webhook ingest reads `RAZORPAY_WEBHOOK_SECRET`.
 - Webhook secrets and `HOOKX_OPENAI_API_KEY` are read from the environment. They are not hardcoded for production use. Simulator/dev HMAC material is explicitly `dev-only-…` for local synthetic traffic.
 - Signature headers are verified; expected signatures and secrets are not returned on HTTP responses.
 
@@ -33,6 +33,7 @@ This document describes controls that exist in the code. It is not a penetration
 
 - Failure Lab scenario ids are enumerated. Unknown names return `400 UNKNOWN_FAILURE_LAB_SCENARIO`. Extra JSON fields such as `failureMode` are ignored; injection mode comes from the server catalog.
 - Webhook providers are enumerated (`SYNTHETIC`, `razorpay`). Unknown providers are not ingested as valid events.
+- `POST /webhooks/:provider` requires `application/json` (415 otherwise) and rejects bodies over 256 KiB (413).
 
 ## Authentication
 

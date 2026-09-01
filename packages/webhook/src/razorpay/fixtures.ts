@@ -31,7 +31,7 @@ export const RAZORPAY_FIXTURE_REFUND_OCCURRED_AT = "2023-11-14T22:15:00.000Z";
 
 type PaymentEntityOverride = {
   readonly id?: string;
-  readonly amount?: number;
+  readonly amount?: number | string;
   readonly currency?: string;
   readonly status?: string;
   readonly order_id?: string | null;
@@ -186,4 +186,9 @@ export function razorpayMalformedPayload() {
     event: "payment.authorized",
     created_at: RAZORPAY_FIXTURE_CREATED_AT,
   });
+}
+
+/** SYNTHETIC: authorized envelope with an empty payment id. */
+export function razorpayMissingPaymentIdPayload() {
+  return razorpayPaymentAuthorizedPayload({ id: "" });
 }
